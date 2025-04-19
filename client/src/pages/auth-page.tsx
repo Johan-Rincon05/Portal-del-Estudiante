@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect, useLocation } from "wouter";
+import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -39,25 +40,15 @@ export default function AuthPage() {
     },
   });
 
-  // Manejadores de envío
+  // Manejador de envío de login
   const handleLogin = async (values: LoginFormValues) => {
-    loginMutation.mutate(values, {
-      onSuccess: () => {
-        // Redirección a la página principal después del login
-        window.location.href = "/";
-      }
-    });
+    loginMutation.mutate(values);
   };
 
   const handleRegister = (values: RegisterFormValues) => {
     registerMutation.mutate({
       username: values.username,
       password: values.password,
-    }, {
-      onSuccess: () => {
-        // Redirección a la página principal después del registro
-        window.location.href = "/";
-      }
     });
   };
 

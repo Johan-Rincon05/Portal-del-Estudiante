@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
-import { Route, Redirect } from "wouter";
+import { Route, Redirect, useLocation } from "wouter";
 
 export function ProtectedRoute({
   path,
@@ -12,6 +13,14 @@ export function ProtectedRoute({
   roles?: string[];
 }) {
   const { user, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  // Si cambia la ruta y no hay usuario, redirigir a auth
+  useEffect(() => {
+    if (!isLoading && !user && location !== "/auth") {
+      setLocation("/auth");
+    }
+  }, [user, isLoading, location, setLocation]);
 
   if (isLoading) {
     return (

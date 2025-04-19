@@ -59,9 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       // Redirigir a la página principal después del login exitoso
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
+      window.location.href = '/';
     },
     onError: (error: Error) => {
       console.error("Login error:", error);
