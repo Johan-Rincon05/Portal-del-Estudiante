@@ -1,9 +1,15 @@
-import { pgTable, text, uuid, timestamp, varchar, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, varchar, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User table extends the built-in auth.users table in Supabase
-// This is managed by Supabase Auth and referenced by other tables
+// Users table - for authentication
+export const users = pgTable("users", {
+  id: integer("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("estudiante"),
+  createdAt: timestamp("created_at").defaultNow()
+});
 
 // Profiles table - stores user profile information
 export const profiles = pgTable("profiles", {
@@ -40,22 +46,14 @@ export const requests = pgTable("requests", {
 });
 
 // Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProfileSchema = createInsertSchema(profiles);
 export const insertDocumentSchema = createInsertSchema(documents);
 export const insertRequestSchema = createInsertSchema(requests);
 
 // Additional validation schemas
 export const registerUserSchema = z.object({
-  fullName: z.string().min(3, "Nombre completo es requerido"),
-  email: z.string().email("Correo electrónico inválido"),
-  documentType: z.string().min(1, "Tipo de documento es requerido"),
-  documentNumber: z.string().min(5, "Número de documento es requerido"),
-  birthDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
-    message: "Fecha de nacimiento inválida",
-  }),
-  phone: z.string().min(7, "Teléfono es requerido"),
-  city: z.string().min(2, "Ciudad es requerida"),
-  address: z.string().min(5, "Dirección es requerida"),
+  username: z.string().min(3, "Nombre de usuario es requerido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
@@ -64,17 +62,20 @@ export const registerUserSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email("Correo electrónico inválido"),
+  username: z.string().min(3, "Nombre de usuario es requerido"),
   password: z.string().min(1, "Contraseña es requerida")
 });
 
 export const createUserSchema = z.object({
-  email: z.string().email("Correo electrónico inválido"),
+  username: z.string().min(3, "Nombre de usuario es requerido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   role: z.enum(["estudiante", "admin", "superuser"])
 });
 
 // Type definitions
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 export type Profile = typeof profiles.$inferSelect;
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
 

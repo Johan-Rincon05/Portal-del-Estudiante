@@ -93,6 +93,6 @@
 
 @layer components {
   .sidebar-link.active {
-    @apply bg-primary-50 text-primary-600 border-l-2 border-primary-600;
+    @apply bg-secondary text-primary border-l-2 border-primary;
   }
 }

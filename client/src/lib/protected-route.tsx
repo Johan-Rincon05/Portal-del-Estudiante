@@ -1,44 +1,33 @@
-import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { Redirect, Route } from "wouter";
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  allowedRoles: string[];
-}
-
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  allowedRoles
-}) => {
+export function ProtectedRoute({
+  path,
+  component: Component,
+}: {
+  path: string;
+  component: () => React.JSX.Element;
+}) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      </div>
+      <Route path={path}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-border" />
+        </div>
+      </Route>
     );
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Route path={path}>
+        <Redirect to="/auth" />
+      </Route>
+    );
   }
 
-  const userRole = user.user_metadata?.role;
-  
-  if (!userRole || !allowedRoles.includes(userRole)) {
-    // Redirect to most permissive route they have access to
-    if (userRole === 'estudiante') {
-      return <Navigate to="/profile" replace />;
-    } else if (userRole === 'admin') {
-      return <Navigate to="/admin/students" replace />;
-    } else if (userRole === 'superuser') {
-      return <Navigate to="/admin/users" replace />;
-    } else {
-      return <Navigate to="/login" replace />;
-    }
-  }
-
-  return <>{children}</>;
-};
+  return <Route path={path} component={Component} />;
+}
