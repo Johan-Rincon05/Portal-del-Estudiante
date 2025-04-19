@@ -57,6 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Inicio de sesión exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
+      
+      // Redirigir a la página principal después del login exitoso
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     },
     onError: (error: Error) => {
       console.error("Login error:", error);
@@ -83,6 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Registro exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
+      
+      // Redirigir a la página principal después del registro exitoso
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     },
     onError: (error: Error) => {
       toast({

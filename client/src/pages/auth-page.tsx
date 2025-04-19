@@ -40,14 +40,24 @@ export default function AuthPage() {
   });
 
   // Manejadores de envío
-  const handleLogin = (values: LoginFormValues) => {
-    loginMutation.mutate(values);
+  const handleLogin = async (values: LoginFormValues) => {
+    loginMutation.mutate(values, {
+      onSuccess: () => {
+        // Redirección a la página principal después del login
+        window.location.href = "/";
+      }
+    });
   };
 
   const handleRegister = (values: RegisterFormValues) => {
     registerMutation.mutate({
       username: values.username,
       password: values.password,
+    }, {
+      onSuccess: () => {
+        // Redirección a la página principal después del registro
+        window.location.href = "/";
+      }
     });
   };
 
