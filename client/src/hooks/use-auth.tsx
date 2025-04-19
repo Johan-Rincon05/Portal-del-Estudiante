@@ -4,27 +4,11 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
+import { User, InsertUser, loginSchema } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-// Definición de tipos para el usuario
-type User = {
-  id: number;
-  username: string;
-  role: string;
-  createdAt: Date;
-};
-
-type LoginData = {
-  username: string;
-  password: string;
-};
-
-type RegisterData = {
-  username: string;
-  password: string;
-  role?: string;
-};
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 type AuthContextType = {
   user: User | null;
@@ -33,6 +17,14 @@ type AuthContextType = {
   loginMutation: UseMutationResult<User, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, RegisterData>;
+};
+
+type LoginData = z.infer<typeof loginSchema>;
+
+type RegisterData = {
+  username: string;
+  password: string;
+  role?: string;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -57,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Inicio de sesión exitoso",
-        description: "Bienvenido/a al Portal del Estudiante",
+        description: `Bienvenido, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
@@ -71,14 +63,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      const res = await apiRequest("POST", "/api/register", credentials);
+      const res = await apiRequest("POST", "/api/register", {
+        username: credentials.username,
+        password: credentials.password,
+        role: credentials.role || "estudiante",
+      });
       return await res.json();
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registro exitoso",
-        description: "Tu cuenta ha sido creada con éxito",
+        description: `Bienvenido, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
@@ -133,6 +129,3 @@ export function useAuth() {
   }
   return context;
 }
-
-// Exportación por defecto para mantener compatibilidad con importaciones existentes
-export default useAuth;
