@@ -43,16 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Credenciales inválidas");
+      }
       return await res.json();
     },
     onSuccess: (user: User) => {
+      console.log("Login success:", user);
       queryClient.setQueryData(["/api/user"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Inicio de sesión exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
+      console.error("Login error:", error);
       toast({
         title: "Error de inicio de sesión",
         description: error.message || "Credenciales inválidas",
@@ -88,16 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
+      const res = await apiRequest("POST", "/api/logout");
+      if (!res.ok) {
+        throw new Error("Error al cerrar sesión");
+      }
     },
     onSuccess: () => {
+      console.log("Logout success");
       queryClient.setQueryData(["/api/user"], null);
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Sesión cerrada",
         description: "Has cerrado sesión correctamente",
       });
     },
     onError: (error: Error) => {
+      console.error("Logout error:", error);
       toast({
         title: "Error al cerrar sesión",
         description: error.message,
