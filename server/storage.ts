@@ -13,7 +13,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
 import { eq, and, or } from "drizzle-orm";
-import { db } from "./db";
+import db from "./db";
 import { MemoryStore } from "express-session";
 import { InsertUser as SharedInsertUser, User as SharedUser, InsertRequest as SharedInsertRequest, Request as SharedRequest } from "../shared/types";
 
@@ -29,7 +29,7 @@ export interface IStorage {
   getRequestsByUserId(userId: number): Promise<Request[]>;
   createRequest(request: Omit<Request, "id">): Promise<Request>;
   updateRequest(id: number, request: Partial<Request>): Promise<Request | undefined>;
-  getActiveRequestsCount(userId: string): Promise<number>;
+  getActiveRequestsCount(userId: number): Promise<number>;
   
   // Session store
   sessionStore: session.Store;
@@ -116,7 +116,7 @@ export class MemStorage implements IStorage {
     return updatedRequest;
   }
 
-  async getActiveRequestsCount(userId: string): Promise<number> {
+  async getActiveRequestsCount(userId: number): Promise<number> {
     return Array.from(this.requests.values()).filter(
       (request) => 
         request.userId === userId && 
@@ -165,11 +165,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRequestsByUserId(userId: number): Promise<Request[]> {
-    const numericUserId = Number(userId);
     return await db
       .select()
       .from(requests)
-      .where(eq(requests.userId, numericUserId));
+      .where(eq(requests.userId, userId));
   }
 
   async createRequest(insertRequest: InsertRequest): Promise<Request> {
@@ -189,7 +188,7 @@ export class DatabaseStorage implements IStorage {
     return request;
   }
 
-  async getActiveRequestsCount(userId: string): Promise<number> {
+  async getActiveRequestsCount(userId: number): Promise<number> {
     const activeRequests = await db
       .select()
       .from(requests)
