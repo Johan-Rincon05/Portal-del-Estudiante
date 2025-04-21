@@ -140,3 +140,13 @@ export type RequestWithUser = {
   userName?: string;
   userEmail?: string;
 };
+
+export interface Document {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  created_at: string;
+  user_id: string;
+}

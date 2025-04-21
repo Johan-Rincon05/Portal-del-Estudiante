@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import dotenv from 'dotenv';
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import documentsRouter from './routes/documents';
+import requestsRouter from './routes/requests';
 
 // Load environment variables
 dotenv.config();
@@ -10,6 +12,10 @@ dotenv.config();
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
+
+  // Register route modules
+  app.use('/api/documents', documentsRouter);
+  app.use('/api/requests', requestsRouter);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

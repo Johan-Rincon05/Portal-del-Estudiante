@@ -1,10 +1,32 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import cors from 'cors';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupAuth } from './auth';
+import requestsRouter from './routes/requests';
+import documentsRouter from './routes/documents';
 
 const app = express();
+
+// Configuración de CORS
+app.use(cors({
+  origin: 'http://localhost:5173', // URL del cliente
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Middlewares
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
+
+// Configuración de autenticación
+setupAuth(app);
+
+// Rutas
+app.use('/api/requests', requestsRouter);
+app.use('/api/documents', documentsRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -56,14 +78,12 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 3000;
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "localhost",
   }, () => {
     log(`serving on port ${port}`);
   });

@@ -6,6 +6,9 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import express from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 declare global {
   namespace Express {
@@ -46,14 +49,16 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.JWT_SECRET || 'tu_clave_secreta_jwt',
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    name: 'sessionId',
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 días
+      maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax'
     }
   };
 
@@ -65,30 +70,29 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log(`Authenticating user: ${username}`);
         const user = await storage.getUserByUsername(username);
+        
         if (!user) {
-          console.log(`User not found: ${username}`);
-          return done(null, false);
+          return done(null, false, { message: 'Usuario no encontrado' });
         }
         
-        console.log(`User found, checking password for: ${username}`);
         const passwordMatch = await comparePasswords(password, user.password);
-        console.log(`Password match result: ${passwordMatch}`);
         
         if (!passwordMatch) {
-          return done(null, false);
-        } else {
-          return done(null, user);
+          return done(null, false, { message: 'Contraseña incorrecta' });
         }
+        
+        return done(null, user);
       } catch (error) {
-        console.error("Authentication error:", error);
         return done(error);
       }
-    }),
+    })
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -98,63 +102,104 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
-    try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).send("El nombre de usuario ya existe");
-      }
-
-      const user = await storage.createUser({
-        ...req.body,
-        password: await hashPassword(req.body.password),
-      });
-
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json(user);
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
   app.post("/api/login", (req, res, next) => {
-    console.log("Login attempt:", req.body.username);
-    passport.authenticate("local", (err, user, info) => {
+    if (!req.body || !req.body.username || !req.body.password) {
+      return res.status(400).json({ 
+        error: 'Se requieren usuario y contraseña' 
+      });
+    }
+
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
-        console.error("Login authentication error:", err);
-        return next(err);
+        console.error("Error de autenticación:", err);
+        return res.status(500).json({ 
+          error: 'Error interno del servidor' 
+        });
       }
+
       if (!user) {
-        console.error("Invalid credentials for:", req.body.username);
-        return res.status(401).send("Credenciales inválidas");
+        return res.status(401).json({ 
+          error: info?.message || 'Credenciales inválidas' 
+        });
       }
-      
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Login session error:", err);
-          return next(err);
+
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error("Error al iniciar sesión:", loginErr);
+          return res.status(500).json({ 
+            error: 'Error al iniciar sesión' 
+          });
         }
-        console.log("Login successful for:", user.username);
-        res.status(200).json(user);
+
+        res.json({
+          id: user.id,
+          username: user.username,
+          role: user.role
+        });
       });
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  app.post("/api/register", async (req, res) => {
+    try {
+      if (!req.body.username || !req.body.password) {
+        return res.status(400).json({ 
+          error: 'Se requieren usuario y contraseña' 
+        });
+      }
+
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).json({ 
+          error: 'El nombre de usuario ya existe' 
+        });
+      }
+
+      const hashedPassword = await hashPassword(req.body.password);
+      const user = await storage.createUser({
+        ...req.body,
+        password: hashedPassword
+      });
+
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Error al iniciar sesión después del registro:", err);
+          return res.status(500).json({ 
+            error: 'Error al iniciar sesión' 
+          });
+        }
+        res.status(201).json({
+          id: user.id,
+          username: user.username,
+          role: user.role
+        });
+      });
+    } catch (error) {
+      console.error("Error en el registro:", error);
+      res.status(500).json({ 
+        error: 'Error al registrar el usuario' 
+      });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
     req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
+      if (err) {
+        console.error("Error al cerrar sesión:", err);
+        return res.status(500).json({ 
+          error: 'Error al cerrar sesión' 
+        });
+      }
+      res.json({ message: 'Sesión cerrada exitosamente' });
     });
   });
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) {
-      console.log("Unauthorized access to /api/user");
-      return res.sendStatus(401);
+      return res.status(401).json({ 
+        error: 'No autenticado' 
+      });
     }
-    console.log("User data requested for:", req.user?.username);
     res.json(req.user);
   });
 }

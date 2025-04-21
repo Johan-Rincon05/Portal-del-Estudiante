@@ -42,23 +42,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Credenciales inválidas");
+      try {
+        return await apiRequest<User>("/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(credentials),
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error("Error al iniciar sesión");
       }
-      return await res.json();
     },
     onSuccess: (user: User) => {
-      console.log("Login success:", user);
       queryClient.setQueryData(["/api/user"], user);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Inicio de sesión exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
-      
-      // Redirigir a la página principal después del login exitoso
       window.location.href = '/';
     },
     onError: (error: Error) => {
@@ -73,12 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      const res = await apiRequest("POST", "/api/register", {
-        username: credentials.username,
-        password: credentials.password,
-        role: credentials.role || "estudiante",
+      return await apiRequest<User>("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password,
+          role: credentials.role || "estudiante",
+        }),
       });
-      return await res.json();
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
@@ -86,8 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Registro exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
-      
-      // Redirigir a la página principal después del registro exitoso
       setTimeout(() => {
         window.location.href = '/';
       }, 500);
@@ -103,19 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/logout");
-      if (!res.ok) {
-        throw new Error("Error al cerrar sesión");
-      }
+      await apiRequest("/api/logout", {
+        method: "POST",
+      });
     },
     onSuccess: () => {
-      console.log("Logout success");
       queryClient.setQueryData(["/api/user"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Sesión cerrada",
         description: "Has cerrado sesión correctamente",
       });
+      window.location.href = '/auth';
     },
     onError: (error: Error) => {
       console.error("Logout error:", error);

@@ -36,15 +36,18 @@ export const documents = pgTable("documents", {
   uploadedAt: timestamp("uploaded_at").defaultNow()
 });
 
-// Requests table - stores student requests
+// Requests table - for student requests
 export const requests = pgTable("requests", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").notNull(),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
-  status: text("status").notNull().default("pendiente"), // "pendiente", "en_proceso", "completada", "rechazada"
+  status: text("status").notNull().default("pendiente"),
   response: text("response"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at", { mode: 'date' }).defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: 'date' }),
+  respondedAt: timestamp("responded_at", { mode: 'date' }),
+  respondedBy: integer("responded_by")
 });
 
 // Relationships are defined through foreign keys above
@@ -66,8 +69,8 @@ export const registerUserSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  username: z.string().min(3, "Nombre de usuario es requerido"),
-  password: z.string().min(1, "Contraseña es requerida")
+  username: z.string().min(1, "El nombre de usuario es requerido"),
+  password: z.string().min(1, "La contraseña es requerida")
 });
 
 export const createUserSchema = z.object({
@@ -76,9 +79,21 @@ export const createUserSchema = z.object({
   role: z.enum(["estudiante", "admin", "superuser"])
 });
 
+export const createRequestSchema = z.object({
+  subject: z.string().min(1, "El asunto es requerido"),
+  message: z.string().min(1, "El mensaje es requerido")
+});
+
+export const updateRequestSchema = z.object({
+  response: z.string().min(1, "La respuesta es requerida"),
+  status: z.enum(["pendiente", "en_proceso", "completada", "rechazada"]),
+  respondedAt: z.date().optional(),
+  respondedBy: z.number().optional()
+});
+
 // Type definitions
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 
 export type Profile = typeof profiles.$inferSelect;
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
@@ -87,8 +102,10 @@ export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 
 export type Request = typeof requests.$inferSelect;
-export type InsertRequest = z.infer<typeof insertRequestSchema>;
+export type InsertRequest = typeof requests.$inferInsert;
 
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export type UpdateRequest = z.infer<typeof updateRequestSchema>;
