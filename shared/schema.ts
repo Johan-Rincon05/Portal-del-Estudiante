@@ -8,7 +8,8 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("estudiante"),
-  createdAt: timestamp("created_at", { mode: 'date' }).defaultNow()
+  createdAt: timestamp("created_at", { mode: 'date' }).defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 // Profiles table - stores user profile information

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import useAuth from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { User, Group, Inbox, File, MessageCircleQuestion, LogOut, Settings } from 'lucide-react';
 
 const Sidebar = () => {
@@ -14,26 +14,38 @@ const Sidebar = () => {
     return location.pathname === path;
   };
   
-  const userRole = user?.user_metadata?.role || 'estudiante';
+  const userRole = user?.role || 'estudiante';
   
   return (
-    <div className="bg-white shadow-lg md:w-64 flex-shrink-0 border-r border-gray-200">
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-primary-600">Portal Estudiante</h1>
-        <p className="text-gray-500 text-sm">v1.0</p>
+    <div className="bg-sidebar shadow-lg md:w-64 flex-shrink-0 border-r border-sidebar-border text-sidebar-foreground">
+      <div className="p-6 border-b border-sidebar-border flex items-center justify-center">
+        {/* Logo ETC según el manual de marca */}
+        <div className="flex flex-col items-center">
+          <div className="text-white text-2xl font-bold mb-1">
+            <div className="flex flex-col">
+              <div className="flex items-center">
+                <div className="h-1 w-10 bg-white mr-1"></div>
+                <div className="h-1 w-6 bg-white"></div>
+              </div>
+              <div className="mt-1 h-1 w-6 bg-white"></div>
+              <div className="mt-1 h-1 w-6 bg-white"></div>
+            </div>
+          </div>
+          <h1 className="text-sm font-semibold text-white tracking-wide">PORTAL DEL ESTUDIANTE</h1>
+        </div>
       </div>
       
       <div className="py-4 flex flex-col h-full">
         <div className="px-4 mb-6">
           <div className="flex items-center">
-            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+            <div className="h-10 w-10 rounded-full bg-sidebar-accent/20 flex items-center justify-center text-sidebar-accent">
               <User className="h-5 w-5" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">
-                {user?.user_metadata?.full_name || 'Usuario'}
+              <p className="text-sm font-medium text-white">
+                {user?.username || 'Usuario'}
               </p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
+              <p className="text-xs text-sidebar-accent">{userRole}</p>
             </div>
           </div>
         </div>
@@ -46,33 +58,33 @@ const Sidebar = () => {
               to="/profile"
               className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                 isActive('/profile')
-                  ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                  : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
               }`}
             >
-              <User className="mr-3 h-5 w-5 text-gray-500" />
+              <User className={`mr-3 h-5 w-5 ${isActive('/profile') ? 'text-white' : 'text-white/80'}`} />
               Mi Perfil
             </Link>
             <Link
               to="/documents"
               className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                 isActive('/documents')
-                  ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                  : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
               }`}
             >
-              <File className="mr-3 h-5 w-5 text-gray-500" />
+              <File className={`mr-3 h-5 w-5 ${isActive('/documents') ? 'text-white' : 'text-white/80'}`} />
               Mis Documentos
             </Link>
             <Link
               to="/requests"
               className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                 isActive('/requests')
-                  ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                  : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
               }`}
             >
-              <MessageCircleQuestion className="mr-3 h-5 w-5 text-gray-500" />
+              <MessageCircleQuestion className={`mr-3 h-5 w-5 ${isActive('/requests') ? 'text-white' : 'text-white/80'}`} />
               Mis Solicitudes
             </Link>
           </div>
@@ -80,7 +92,7 @@ const Sidebar = () => {
           {/* Admin Links - visible to admin and superuser */}
           {(userRole === 'admin' || userRole === 'superuser') && (
             <div className="px-2 pt-5 pb-2">
-              <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <h3 className="px-2 text-xs font-semibold text-white uppercase tracking-wider">
                 Administración
               </h3>
               <div className="mt-2 space-y-1">
@@ -88,22 +100,22 @@ const Sidebar = () => {
                   to="/admin/students"
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                     location.pathname.startsWith('/admin/students')
-                      ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                      : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
                   }`}
                 >
-                  <Group className="mr-3 h-5 w-5 text-gray-500" />
+                  <Group className={`mr-3 h-5 w-5 ${location.pathname.startsWith('/admin/students') ? 'text-white' : 'text-white/80'}`} />
                   Estudiantes
                 </Link>
                 <Link
                   to="/admin/requests"
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                     isActive('/admin/requests')
-                      ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                      : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
                   }`}
                 >
-                  <Inbox className="mr-3 h-5 w-5 text-gray-500" />
+                  <Inbox className={`mr-3 h-5 w-5 ${isActive('/admin/requests') ? 'text-white' : 'text-white/80'}`} />
                   Solicitudes
                 </Link>
               </div>
@@ -113,7 +125,7 @@ const Sidebar = () => {
           {/* Superuser Links - visible only to superuser */}
           {userRole === 'superuser' && (
             <div className="px-2 pt-5 pb-2">
-              <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <h3 className="px-2 text-xs font-semibold text-white uppercase tracking-wider">
                 Sistema
               </h3>
               <div className="mt-2 space-y-1">
@@ -121,11 +133,11 @@ const Sidebar = () => {
                   to="/admin/users"
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                     isActive('/admin/users')
-                      ? 'bg-primary-50 text-primary-600 border-l-3 border-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                      : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
                   }`}
                 >
-                  <Settings className="mr-3 h-5 w-5 text-gray-500" />
+                  <Settings className={`mr-3 h-5 w-5 ${isActive('/admin/users') ? 'text-white' : 'text-white/80'}`} />
                   Usuarios
                 </Link>
               </div>
@@ -134,10 +146,10 @@ const Sidebar = () => {
         </nav>
         
         {/* Logout button */}
-        <div className="px-4 mt-6">
+        <div className="px-4 mt-6 mb-6">
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-md"
+            className="w-full flex items-center px-4 py-2 text-sm font-medium text-white/90 hover:bg-sidebar-accent/30 hover:text-white rounded-md transition-colors"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar sesión

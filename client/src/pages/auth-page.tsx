@@ -62,9 +62,22 @@ export default function AuthPage() {
       {/* Formulario de autenticación */}
       <div className="flex flex-col items-center justify-center p-4 md:p-8">
         <div className="mx-auto max-w-md space-y-6 w-full">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Portal Estudiantil</h1>
-            <p className="text-muted-foreground">Gestión de documentos y solicitudes</p>
+          <div className="text-center mb-8 flex flex-col items-center">
+            {/* Logo ETC según el manual de marca */}
+            <div className="flex flex-col items-center mb-4">
+              <div className="text-primary text-4xl font-bold mb-1">
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    <div className="h-1.5 w-14 bg-primary mr-1"></div>
+                    <div className="h-1.5 w-8 bg-primary"></div>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-8 bg-primary"></div>
+                  <div className="mt-1.5 h-1.5 w-8 bg-primary"></div>
+                </div>
+              </div>
+              <h1 className="text-lg font-semibold tracking-wide text-primary mt-2">PORTAL DEL ESTUDIANTE</h1>
+            </div>
+            <p className="text-foreground font-medium">Gestión de documentos y solicitudes</p>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -77,8 +90,8 @@ export default function AuthPage() {
             <TabsContent value="login">
               <Card>
                 <CardHeader className="space-y-1">
-                  <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-2xl font-bold text-foreground">Iniciar Sesión</CardTitle>
+                  <CardDescription className="text-foreground/80 font-medium">
                     Ingresa tus credenciales para acceder a tu cuenta
                   </CardDescription>
                 </CardHeader>
@@ -125,7 +138,7 @@ export default function AuthPage() {
                       />
                       <Button 
                         type="submit" 
-                        className="w-full"
+                        className="w-full bg-primary hover:bg-primary/90"
                         disabled={loginMutation.isPending}
                       >
                         {loginMutation.isPending ? (
@@ -147,8 +160,8 @@ export default function AuthPage() {
             <TabsContent value="register">
               <Card>
                 <CardHeader className="space-y-1">
-                  <CardTitle className="text-2xl">Crear una cuenta</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-2xl font-bold text-foreground">Crear una cuenta</CardTitle>
+                  <CardDescription className="text-foreground/80 font-medium">
                     Regístrate para acceder al portal estudiantil
                   </CardDescription>
                 </CardHeader>
@@ -213,7 +226,7 @@ export default function AuthPage() {
                       />
                       <Button 
                         type="submit" 
-                        className="w-full"
+                        className="w-full bg-primary hover:bg-primary/90"
                         disabled={registerMutation.isPending}
                       >
                         {registerMutation.isPending ? (
@@ -235,33 +248,33 @@ export default function AuthPage() {
       </div>
 
       {/* Sección descriptiva */}
-      <div className="bg-primary text-primary-foreground p-8 hidden md:flex flex-col items-center justify-center">
+      <div className="bg-secondary text-secondary-foreground p-8 hidden md:flex flex-col items-center justify-center">
         <div className="max-w-md space-y-8">
           <div>
-            <h2 className="text-3xl font-bold mb-4">Bienvenido al Portal Estudiantil</h2>
-            <p className="text-xl mb-2">
+            <h2 className="text-3xl font-bold mb-4 tracking-tight text-white">Bienvenido al Portal Estudiantil</h2>
+            <p className="text-xl mb-2 text-white/90 font-medium">
               La plataforma integral para la gestión de documentos y solicitudes académicas.
             </p>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Gestión Documental</h3>
-              <p>
+              <h3 className="text-xl font-semibold text-white">Gestión Documental</h3>
+              <p className="text-white/90">
                 Sube, organiza y monitorea el estado de tus documentos académicos.
               </p>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Solicitudes</h3>
-              <p>
+              <h3 className="text-xl font-semibold text-white">Solicitudes</h3>
+              <p className="text-white/90">
                 Realiza y da seguimiento a tus solicitudes administrativas.
               </p>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Comunicación Directa</h3>
-              <p>
+              <h3 className="text-xl font-semibold text-white">Comunicación Directa</h3>
+              <p className="text-white/90">
                 Mantén contacto directo con administradores para resolver tus dudas.
               </p>
             </div>
