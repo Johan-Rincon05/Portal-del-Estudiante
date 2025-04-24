@@ -2,12 +2,12 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import bcrypt from 'bcrypt';
+import { scrypt } from 'crypto';
+import { promisify } from 'util';
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 import express from 'express';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 declare global {
@@ -18,31 +18,23 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+export async function hashPassword(password: string) {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
 async function comparePasswords(supplied: string, stored: string) {
   try {
-    if (!stored || !stored.includes(".")) {
-      console.error("Invalid stored password format");
-      return false;
+    // Si el hash almacenado contiene un punto, es un hash de scrypt
+    if (stored.includes('.')) {
+      const [hash, salt] = stored.split('.');
+      const buf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+      return buf.toString('hex') === hash;
     }
-    
-    const [hashed, salt] = stored.split(".");
-    if (!hashed || !salt) {
-      console.error("Invalid stored password components");
-      return false;
-    }
-    
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    
-    return timingSafeEqual(hashedBuf, suppliedBuf);
+    // Si no, es un hash de bcrypt
+    return await bcrypt.compare(supplied, stored);
   } catch (error) {
-    console.error("Password comparison error:", error);
+    console.error("Error al comparar contraseñas:", error);
     return false;
   }
 }
@@ -50,15 +42,16 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.JWT_SECRET || 'tu_clave_secreta_jwt',
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     store: storage.sessionStore,
     name: 'sessionId',
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax'
+      secure: false,
+      sameSite: 'lax',
+      path: '/'
     }
   };
 
@@ -70,39 +63,49 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log('Intento de inicio de sesión para usuario:', username);
         const user = await storage.getUserByUsername(username);
         
         if (!user) {
+          console.log('Usuario no encontrado:', username);
           return done(null, false, { message: 'Usuario no encontrado' });
         }
         
         const passwordMatch = await comparePasswords(password, user.password);
+        console.log('Resultado de comparación de contraseña:', passwordMatch);
         
         if (!passwordMatch) {
+          console.log('Contraseña incorrecta para usuario:', username);
           return done(null, false, { message: 'Contraseña incorrecta' });
         }
         
+        console.log('Inicio de sesión exitoso para usuario:', username);
         return done(null, user);
       } catch (error) {
+        console.error('Error en la estrategia de autenticación:', error);
         return done(error);
       }
     })
   );
 
   passport.serializeUser((user, done) => {
+    console.log('Serializando usuario:', user.id);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log('Deserializando usuario:', id);
       const user = await storage.getUser(id);
       done(null, user);
     } catch (error) {
+      console.error('Error al deserializar usuario:', error);
       done(error);
     }
   });
 
   app.post("/api/login", (req, res, next) => {
+    console.log('Intento de inicio de sesión:', req.body);
     if (!req.body || !req.body.username || !req.body.password) {
       return res.status(400).json({ 
         error: 'Se requieren usuario y contraseña' 
@@ -118,6 +121,7 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
+        console.log('Autenticación fallida:', info?.message);
         return res.status(401).json({ 
           error: info?.message || 'Credenciales inválidas' 
         });
@@ -131,6 +135,7 @@ export function setupAuth(app: Express) {
           });
         }
 
+        console.log('Inicio de sesión exitoso para usuario:', user.username);
         res.json({
           id: user.id,
           username: user.username,

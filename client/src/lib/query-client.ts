@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { API_BASE_URL } from '../config';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,12 +14,22 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`/api${endpoint}`, {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  
+  const defaultHeaders = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache"
+  };
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
+      ...defaultHeaders,
       ...options.headers,
-      'Content-Type': 'application/json',
     },
+    credentials: "include",
+    mode: "cors"
   });
 
   if (!response.ok) {

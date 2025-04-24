@@ -18,7 +18,7 @@ const LoginPage = () => {
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
+      username: '',
       password: ''
     }
   });
@@ -54,16 +54,16 @@ const LoginPage = () => {
             <div className="rounded-md shadow-sm space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email-address">Correo electrónico</FormLabel>
+                    <FormLabel htmlFor="username">Nombre de usuario</FormLabel>
                     <FormControl>
                       <Input
-                        id="email-address"
-                        type="email"
-                        autoComplete="email"
-                        placeholder="ejemplo@correo.com"
+                        id="username"
+                        type="text"
+                        autoComplete="username"
+                        placeholder="Nombre de usuario"
                         required
                         {...field}
                       />

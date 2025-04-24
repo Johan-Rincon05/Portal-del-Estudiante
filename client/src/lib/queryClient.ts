@@ -24,18 +24,34 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
     "Pragma": "no-cache"
   };
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-    credentials: "include",
-    mode: "cors"
-  });
+  try {
+    console.log(`Realizando petición a ${API_BASE_URL}${path}`);
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
+      credentials: "include",
+      mode: "cors",
+      cache: "no-store"
+    });
 
-  await throwIfResNotOk(res);
-  return res.json();
+    console.log(`Respuesta recibida: ${res.status} ${res.statusText}`);
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+      console.error('Error en la petición:', errorData);
+      throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    console.log('Datos recibidos:', data);
+    return data;
+  } catch (error) {
+    console.error('Error en apiRequest:', error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
