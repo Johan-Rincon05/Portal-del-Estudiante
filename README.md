@@ -43,7 +43,7 @@ Las variables de entorno necesarias se encuentran en el archivo `.env` en la ra√
 
 ```
 NODE_ENV=development
-DATABASE_URL=postgresql://usuario:contrase√±a@localhost:5432/nombre_db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/websocketchat
 JWT_SECRET=tu_clave_secreta
 ```
 

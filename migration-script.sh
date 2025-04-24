@@ -42,7 +42,7 @@ echo ""
 if [ ! -f .env ]; then
     echo "[INFO] Creando archivo .env..."
     echo "NODE_ENV=development" > .env
-    echo "DATABASE_URL=postgresql://postgres:password@localhost:5432/portal_estudiante" >> .env
+    echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/websocketchat" >> .env
     echo "JWT_SECRET=temporal_secret_key_please_change" >> .env
     echo "[INFO] Se ha creado un archivo .env con valores predeterminados."
     echo "[IMPORTANTE] Modifica el archivo .env con tus credenciales de base de datos correctas."
@@ -75,9 +75,9 @@ elif [ "$DB_CHOICE" = "2" ]; then
     read -p "Ingresa la ruta al archivo SQL de respaldo: " SQL_FILE
     echo "[INFO] Importando base de datos desde $SQL_FILE..."
     read -p "Usuario PostgreSQL (default: postgres): " DB_USER
-    read -p "Nombre de la base de datos (default: portal_estudiante): " DB_NAME
+    read -p "Nombre de la base de datos (default: websocketchat): " DB_NAME
     DB_USER=${DB_USER:-postgres}
-    DB_NAME=${DB_NAME:-portal_estudiante}
+    DB_NAME=${DB_NAME:-websocketchat}
     psql -U $DB_USER -d $DB_NAME -f $SQL_FILE
     if [ $? -ne 0 ]; then
         echo "[ERROR] Falló la importación de la base de datos."

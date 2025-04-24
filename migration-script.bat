@@ -49,7 +49,7 @@ REM Crear archivo .env si no existe
 if not exist .env (
     echo [INFO] Creando archivo .env...
     echo NODE_ENV=development > .env
-    echo DATABASE_URL=postgresql://postgres:password@localhost:5432/portal_estudiante >> .env
+    echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/websocketchat >> .env
     echo JWT_SECRET=temporal_secret_key_please_change >> .env
     echo [INFO] Se ha creado un archivo .env con valores predeterminados.
     echo [IMPORTANTE] Modifica el archivo .env con tus credenciales de base de datos correctas.
@@ -82,9 +82,9 @@ if "%DB_CHOICE%"=="1" (
     set /p SQL_FILE=Ingresa la ruta al archivo SQL de respaldo: 
     echo [INFO] Importando base de datos desde %SQL_FILE%...
     set /p DB_USER=Usuario PostgreSQL (default: postgres): 
-    set /p DB_NAME=Nombre de la base de datos (default: portal_estudiante): 
+    set /p DB_NAME=Nombre de la base de datos (default: websocketchat): 
     if "%DB_USER%"=="" set DB_USER=postgres
-    if "%DB_NAME%"=="" set DB_NAME=portal_estudiante
+    if "%DB_NAME%"=="" set DB_NAME=websocketchat
     psql -U %DB_USER% -d %DB_NAME% -f %SQL_FILE%
     IF %ERRORLEVEL% NEQ 0 (
         echo [ERROR] Falló la importación de la base de datos.

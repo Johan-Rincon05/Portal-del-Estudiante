@@ -39,7 +39,7 @@ cd Portal-del-Estudiante
 psql -U postgres
 
 # Crea una nueva base de datos
-CREATE DATABASE portal_estudiante;
+CREATE DATABASE websocketchat;
 
 # Salir de psql
 \q
@@ -49,14 +49,14 @@ CREATE DATABASE portal_estudiante;
 
 ```bash
 # En el equipo original
-pg_dump -U postgres -d portal_estudiante > portal_estudiante_backup.sql
+pg_dump -U postgres -d websocketchat > websocketchat_backup.sql
 ```
 
 4. Importa la base de datos en el nuevo equipo:
 
 ```bash
 # En el nuevo equipo
-psql -U postgres -d portal_estudiante < portal_estudiante_backup.sql
+psql -U postgres -d websocketchat < websocketchat_backup.sql
 ```
 
 ## Paso 3: Instalar Dependencias
@@ -72,7 +72,7 @@ Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
 ```
 NODE_ENV=development
-DATABASE_URL=postgresql://postgres:tucontraseña@localhost:5432/portal_estudiante
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/websocketchat
 # Otras variables específicas del proyecto como claves JWT, configuración S3, etc.
 ```
 
