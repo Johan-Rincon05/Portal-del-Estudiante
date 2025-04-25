@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Router } from "wouter";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -16,88 +16,78 @@ import { AuthProvider } from "@/hooks/use-auth";
 
 function App() {
   return (
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Switch>
-          <Route path="/auth" component={AuthPage} />
-          
-          <Route path="/">
-            {() => (
+    <Router base="/Portal-del-Estudiante">
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Switch>
+            <Route path="/auth">
+              <AuthPage />
+            </Route>
+            
+            <Route path="/">
               <RoleBasedRoute 
                 component={HomePage} 
                 allowedRoles={['estudiante']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/documents">
-            {() => (
+            <Route path="/documents">
               <RoleBasedRoute 
                 component={DocumentsPage} 
                 allowedRoles={['estudiante']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/requests">
-            {() => (
+            <Route path="/requests">
               <RoleBasedRoute 
                 component={RequestsPage} 
                 allowedRoles={['estudiante']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/profile">
-            {() => (
+            <Route path="/profile">
               <RoleBasedRoute 
                 component={ProfilePage} 
                 allowedRoles={['estudiante']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/admin">
-            {() => (
+            <Route path="/admin">
               <RoleBasedRoute 
                 component={AdminPage} 
                 allowedRoles={['admin']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/admin/requests">
-            {() => (
+            <Route path="/admin/requests">
               <RoleBasedRoute 
                 component={AdminRequestsPage} 
                 allowedRoles={['admin']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/admin/students">
-            {() => (
+            <Route path="/admin/students">
               <RoleBasedRoute 
                 component={StudentsPage} 
                 allowedRoles={['admin']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route path="/superadmin">
-            {() => (
+            <Route path="/superadmin">
               <RoleBasedRoute 
                 component={SuperAdminPage} 
                 allowedRoles={['superuser']} 
               />
-            )}
-          </Route>
+            </Route>
 
-          <Route component={NotFound} />
-        </Switch>
-      </TooltipProvider>
-    </AuthProvider>
+            <Route>
+              <NotFound />
+            </Route>
+          </Switch>
+        </TooltipProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
