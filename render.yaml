@@ -4,7 +4,6 @@ services:
     env: node
     buildCommand: npm install && npm run build
     startCommand: npm start
-    publishDirectory: dist/client
     envVars:
       - key: NODE_ENV
         value: production
