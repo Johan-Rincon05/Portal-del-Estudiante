@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UniversityProgramSelect, universityProgramSchema } from '@/components/UniversityProgramSelect';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
 const profileFormSchema = z.object({
   fullName: z.string().min(1, 'El nombre es requerido'),
@@ -34,10 +34,10 @@ const profileFormSchema = z.object({
   ...universityProgramSchema.shape,
   academicPeriod: z.string().min(1, 'El periodo académico es requerido'),
   studyDuration: z.string().min(1, 'La duración de estudios es requerida'),
-  methodology: z.enum(['presencial', 'virtual', 'distancia']),
+  methodology: z.enum(['presencial', 'virtual', 'distancia']).nullable(),
   degreeTitle: z.string().min(1, 'El título a obtener es requerido'),
-  subscriptionType: z.enum(['nuevo', 'reingreso', 'transferencia']),
-  applicationMethod: z.enum(['online', 'presencial']),
+  subscriptionType: z.enum(['nuevo', 'reingreso', 'transferencia']).nullable(),
+  applicationMethod: z.enum(['online', 'presencial']).nullable(),
   severancePaymentUsed: z.boolean()
 });
 
@@ -50,7 +50,6 @@ const ProfilePage = () => {
   const { data: universityData, isLoading: isLoadingUniversityData } = useUniversityData(userId);
   const updateUniversityDataMutation = useUpdateUniversityData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -58,16 +57,12 @@ const ProfilePage = () => {
       fullName: '',
       documentType: 'cc',
       documentNumber: '',
-      birthDate: '',
-      birthPlace: '',
-      personalEmail: '',
-      icfesAc: '',
-      phone: '',
-      city: '',
+      email: '',
       address: '',
-      neighborhood: '',
-      locality: '',
-      socialStratum: '1',
+      phone: '',
+      birthDate: '',
+      gender: 'masculino',
+      socialStratum: 1,
       bloodType: 'O+',
       conflictVictim: false,
       maritalStatus: 'soltero',
@@ -89,20 +84,6 @@ const ProfilePage = () => {
         ...form.getValues(),
         ...profile,
         birthDate: profile.birthDate ? new Date(profile.birthDate).toISOString().split('T')[0] : '',
-        socialStratum: profile.socialStratum?.toString() || '1',
-        address: profile.address || '',
-        documentType: profile.documentType || 'cc',
-        documentNumber: profile.documentNumber || '',
-        birthPlace: profile.birthPlace || '',
-        personalEmail: profile.personalEmail || '',
-        phone: profile.phone || '',
-        city: profile.city || '',
-        neighborhood: profile.neighborhood || '',
-        locality: profile.locality || '',
-        bloodType: profile.bloodType || 'O+',
-        maritalStatus: profile.maritalStatus || 'soltero',
-        conflictVictim: profile.conflictVictim ?? false,
-        icfesAc: profile.icfesAc || ''
       });
     }
   }, [profile]);
@@ -142,27 +123,22 @@ const ProfilePage = () => {
       } = values;
 
       if (!userId) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudo identificar el usuario"
-        });
+        toast.error('Error: No se pudo identificar el usuario');
         return;
       }
 
       // Actualizar perfil
       await updateProfileMutation.mutateAsync({
-        userId: Number(userId),
-        ...profileData,
-        birthDate: new Date(profileData.birthDate)
-      } as any);
+        userId,
+        ...profileData
+      });
 
       // Actualizar datos universitarios si hay universidad seleccionada
       if (universityId) {
         await updateUniversityDataMutation.mutateAsync({
-          userId: userId,
+          userId,
           universityId,
-          programId: programId || 0,
+          programId,
           academicPeriod,
           studyDuration,
           methodology,
@@ -173,18 +149,11 @@ const ProfilePage = () => {
         });
       }
 
-      toast({
-        title: "Éxito",
-        description: "Perfil actualizado exitosamente"
-      });
+      toast.success('Perfil actualizado exitosamente');
       
     } catch (error) {
       console.error('Error al actualizar el perfil:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Error al actualizar el perfil"
-      });
+      toast.error('Error al actualizar el perfil');
     } finally {
       setIsSubmitting(false);
     }
@@ -230,7 +199,7 @@ const ProfilePage = () => {
               <Input
                 id="profile-email"
                 type="email"
-                value={user?.username || ''}
+                value={user?.email || ''}
                 disabled
               />
             </div>
@@ -546,7 +515,7 @@ const ProfilePage = () => {
                         form={form as any}
                         onUniversityChange={(id) => {
                           field.onChange(id);
-                          form.setValue('programId', undefined);
+                          form.setValue('programId', null);
                         }}
                       />
                       <FormMessage />
@@ -564,7 +533,7 @@ const ProfilePage = () => {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar period" />
+                          <SelectValue placeholder="Seleccionar periodo" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
