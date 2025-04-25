@@ -739,7 +739,12 @@ var vite_config_default = defineConfig({
   },
   build: {
     outDir: "../dist",
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: void 0
+      }
+    }
   },
   server: {
     port: 3e3,
