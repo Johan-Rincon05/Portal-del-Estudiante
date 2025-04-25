@@ -1,4 +1,4 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route } from "wouter";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -16,78 +16,76 @@ import { AuthProvider } from "@/hooks/use-auth";
 
 function App() {
   return (
-    <Router base="/Portal-del-Estudiante">
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Switch>
-            <Route path="/auth">
-              <AuthPage />
-            </Route>
-            
-            <Route path="/">
-              <RoleBasedRoute 
-                component={HomePage} 
-                allowedRoles={['estudiante']} 
-              />
-            </Route>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Switch>
+          <Route path="/auth">
+            <AuthPage />
+          </Route>
+          
+          <Route path="/">
+            <RoleBasedRoute 
+              component={HomePage} 
+              allowedRoles={['estudiante']} 
+            />
+          </Route>
 
-            <Route path="/documents">
-              <RoleBasedRoute 
-                component={DocumentsPage} 
-                allowedRoles={['estudiante']} 
-              />
-            </Route>
+          <Route path="/documents">
+            <RoleBasedRoute 
+              component={DocumentsPage} 
+              allowedRoles={['estudiante']} 
+            />
+          </Route>
 
-            <Route path="/requests">
-              <RoleBasedRoute 
-                component={RequestsPage} 
-                allowedRoles={['estudiante']} 
-              />
-            </Route>
+          <Route path="/requests">
+            <RoleBasedRoute 
+              component={RequestsPage} 
+              allowedRoles={['estudiante']} 
+            />
+          </Route>
 
-            <Route path="/profile">
-              <RoleBasedRoute 
-                component={ProfilePage} 
-                allowedRoles={['estudiante']} 
-              />
-            </Route>
+          <Route path="/profile">
+            <RoleBasedRoute 
+              component={ProfilePage} 
+              allowedRoles={['estudiante']} 
+            />
+          </Route>
 
-            <Route path="/admin">
-              <RoleBasedRoute 
-                component={AdminPage} 
-                allowedRoles={['admin']} 
-              />
-            </Route>
+          <Route path="/admin">
+            <RoleBasedRoute 
+              component={AdminPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
 
-            <Route path="/admin/requests">
-              <RoleBasedRoute 
-                component={AdminRequestsPage} 
-                allowedRoles={['admin']} 
-              />
-            </Route>
+          <Route path="/admin/requests">
+            <RoleBasedRoute 
+              component={AdminRequestsPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
 
-            <Route path="/admin/students">
-              <RoleBasedRoute 
-                component={StudentsPage} 
-                allowedRoles={['admin']} 
-              />
-            </Route>
+          <Route path="/admin/students">
+            <RoleBasedRoute 
+              component={StudentsPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
 
-            <Route path="/superadmin">
-              <RoleBasedRoute 
-                component={SuperAdminPage} 
-                allowedRoles={['superuser']} 
-              />
-            </Route>
+          <Route path="/superadmin">
+            <RoleBasedRoute 
+              component={SuperAdminPage} 
+              allowedRoles={['superuser']} 
+            />
+          </Route>
 
-            <Route>
-              <NotFound />
-            </Route>
-          </Switch>
-        </TooltipProvider>
-      </AuthProvider>
-    </Router>
+          <Route>
+            <NotFound />
+          </Route>
+        </Switch>
+      </TooltipProvider>
+    </AuthProvider>
   );
 }
 
