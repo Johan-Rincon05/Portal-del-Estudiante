@@ -2,6 +2,7 @@ services:
   - type: web
     name: portal-del-estudiante
     env: node
+    nodeVersion: 20
     buildCommand: npm install && npm run build
     startCommand: npm start
     publishDirectory: dist/client

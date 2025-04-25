@@ -5,6 +5,11 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  root: './client',
+  build: {
+    outDir: '../dist/client',
+    emptyOutDir: true
+  },
   server: {
     hmr: {
       overlay: false // Deshabilitar temporalmente el overlay de errores
@@ -14,6 +19,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './client/src'),
       '@shared': path.resolve(__dirname, './shared'),
+      '@assets': path.resolve(__dirname, './attached_assets')
     },
   },
 }) 
