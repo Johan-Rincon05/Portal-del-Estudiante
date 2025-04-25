@@ -26,8 +26,12 @@ export default defineConfig({
   root: path.resolve(import.meta.dirname, "client"),
   build: {
 <<<<<<< HEAD
+<<<<<<< HEAD
     outDir: path.resolve(import.meta.dirname, "dist/client"),
 >>>>>>> parent of 3b4db05 (PDE 0.1.7.2)
+=======
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
+>>>>>>> parent of 32d4353 (PDE V0.1.7.1)
 =======
     outDir: path.resolve(import.meta.dirname, "dist/public"),
 >>>>>>> parent of 32d4353 (PDE V0.1.7.1)
