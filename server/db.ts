@@ -19,6 +19,6 @@ export const pool = new pg.Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-const db = drizzle(pool);
+export const db = drizzle(pool);
 
 export default db;

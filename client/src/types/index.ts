@@ -12,6 +12,12 @@ export type Database = {
           phone: string;
           city: string;
           address: string;
+          neighborhood: string;
+          locality: string;
+          social_stratum: string;
+          blood_type: string;
+          conflict_victim: boolean;
+          marital_status: string;
           created_at: string;
         };
         Insert: {
@@ -24,6 +30,12 @@ export type Database = {
           phone: string;
           city: string;
           address: string;
+          neighborhood: string;
+          locality: string;
+          social_stratum: string;
+          blood_type: string;
+          conflict_victim: boolean;
+          marital_status: string;
           created_at?: string;
         };
         Update: {
@@ -36,6 +48,128 @@ export type Database = {
           phone?: string;
           city?: string;
           address?: string;
+          neighborhood?: string;
+          locality?: string;
+          social_stratum?: string;
+          blood_type?: string;
+          conflict_victim?: boolean;
+          marital_status?: string;
+          created_at?: string;
+        };
+      };
+      university_data: {
+        Row: {
+          id: string;
+          user_id: string;
+          university_name: string;
+          academic_program: string;
+          academic_period: string;
+          study_duration: string;
+          methodology: string;
+          degree_title: string;
+          subscription_type: string;
+          application_method: string;
+          severance_payment_used: boolean;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          university_name: string;
+          academic_program: string;
+          academic_period?: string;
+          study_duration?: string;
+          methodology?: string;
+          degree_title?: string;
+          subscription_type?: string;
+          application_method?: string;
+          severance_payment_used?: boolean;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          university_name?: string;
+          academic_program?: string;
+          academic_period?: string;
+          study_duration?: string;
+          methodology?: string;
+          degree_title?: string;
+          subscription_type?: string;
+          application_method?: string;
+          severance_payment_used?: boolean;
+        };
+      };
+      payments: {
+        Row: {
+          id: string;
+          user_id: string;
+          payment_date: string;
+          payment_method: string;
+          amount: number;
+          gift_received: boolean;
+          documents_status: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          payment_date?: string;
+          payment_method?: string;
+          amount?: number;
+          gift_received?: boolean;
+          documents_status?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          payment_date?: string;
+          payment_method?: string;
+          amount?: number;
+          gift_received?: boolean;
+          documents_status?: string;
+        };
+      };
+      installments: {
+        Row: {
+          id: string;
+          user_id: string;
+          installment_number: number;
+          amount: number;
+          support: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          installment_number: number;
+          amount?: number;
+          support?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          installment_number?: number;
+          amount?: number;
+          support?: string;
+          created_at?: string;
+        };
+      };
+      installment_observations: {
+        Row: {
+          id: string;
+          user_id: string;
+          observation: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          observation: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          observation?: string;
           created_at?: string;
         };
       };
@@ -69,8 +203,11 @@ export type Database = {
           subject: string;
           message: string;
           status: string;
-          response: string | null;
+          response: string;
           created_at: string;
+          updated_at: string;
+          responded_at: string;
+          responded_by: string;
         };
         Insert: {
           id?: string;
@@ -78,8 +215,11 @@ export type Database = {
           subject: string;
           message: string;
           status?: string;
-          response?: string | null;
+          response?: string;
           created_at?: string;
+          updated_at?: string;
+          responded_at?: string;
+          responded_by?: string;
         };
         Update: {
           id?: string;
@@ -87,8 +227,11 @@ export type Database = {
           subject?: string;
           message?: string;
           status?: string;
-          response?: string | null;
+          response?: string;
           created_at?: string;
+          updated_at?: string;
+          responded_at?: string;
+          responded_by?: string;
         };
       };
     };

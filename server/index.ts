@@ -6,6 +6,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from './auth';
 import requestsRouter from './routes/requests';
 import documentsRouter from './routes/documents';
+import universitiesRouter from './routes/universities';
+import universityDataRouter from './routes/university-data';
 
 const app = express();
 
@@ -29,6 +31,8 @@ setupAuth(app);
 // Rutas
 app.use('/api/requests', requestsRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/universities', universitiesRouter);
+app.use('/api/university-data', universityDataRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();

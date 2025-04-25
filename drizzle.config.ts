@@ -1,14 +1,16 @@
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
+// Comentamos la verificación de la variable de entorno
+// if (!process.env.DATABASE_URL) {
+//   throw new Error("DATABASE_URL, ensure the database is provisioned");
+// }
 
 export default defineConfig({
   out: "./migrations",
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    // Usamos directamente la URL de la base de datos
+    url: "postgresql://postgres:postgres@localhost:5432/websocketchat",
   },
 });
