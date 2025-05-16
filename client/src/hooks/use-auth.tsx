@@ -17,6 +17,9 @@ type AuthContextType = {
   loginMutation: UseMutationResult<User, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, RegisterData>;
+  createUserMutation: UseMutationResult<void, Error, { email: string; password: string; role: string }>;
+  updateUserRoleMutation: UseMutationResult<void, Error, { userId: string; role: string }>;
+  deleteUserMutation: UseMutationResult<void, Error, string>;
 };
 
 type LoginData = z.infer<typeof loginSchema>;
@@ -139,6 +142,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Mutation para crear usuario
+  const createUserMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string; role: string }) => {
+      return await apiRequest("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: data.email,
+          password: data.password,
+          role: data.role,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    },
+  });
+
+  // Mutation para actualizar el rol de un usuario
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      return await apiRequest(`/api/admin/users/${userId}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    },
+  });
+
+  // Mutation para eliminar usuario
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    },
+  });
+
   return (
     <AuthContext.Provider
       value={{
@@ -148,6 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        createUserMutation,
+        updateUserRoleMutation,
+        deleteUserMutation,
       }}
     >
       {children}

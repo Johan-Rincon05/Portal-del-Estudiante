@@ -17,26 +17,36 @@ interface UniversityProgramSelectProps {
   form: UseFormReturn<UniversityProgramFormValues>;
   onUniversityChange?: (universityId: number) => void;
   onProgramChange?: (programId: number) => void;
+  defaultUniversityId?: number;
+  defaultProgramId?: number;
 }
 
 export function UniversityProgramSelect({
   form,
   onUniversityChange,
-  onProgramChange
+  onProgramChange,
+  defaultUniversityId,
+  defaultProgramId
 }: UniversityProgramSelectProps) {
-  const [selectedUniversityId, setSelectedUniversityId] = useState<number | undefined>(
-    form.getValues('universityId')
-  );
+  const [selectedUniversityId, setSelectedUniversityId] = useState<number | undefined>(defaultUniversityId);
   
   const { data: universities, isLoading: isLoadingUniversities } = useUniversities();
   const { data: programs, isLoading: isLoadingPrograms } = usePrograms(selectedUniversityId);
 
+  // Logs de depuración
+  console.log('universities:', universities);
+  console.log('programs:', programs);
+  console.log('selectedUniversityId:', selectedUniversityId);
+
   useEffect(() => {
-    const universityId = form.getValues('universityId');
-    if (universityId && universityId !== selectedUniversityId) {
-      setSelectedUniversityId(universityId);
+    if (defaultUniversityId) {
+      form.setValue('universityId', defaultUniversityId);
+      setSelectedUniversityId(defaultUniversityId);
     }
-  }, [form, selectedUniversityId]);
+    if (defaultProgramId) {
+      form.setValue('programId', defaultProgramId);
+    }
+  }, [defaultUniversityId, defaultProgramId, form]);
 
   useEffect(() => {
     if (selectedUniversityId) {
@@ -48,6 +58,14 @@ export function UniversityProgramSelect({
     return (
       <div className="flex items-center justify-center p-4">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!universities || universities.length === 0) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        No hay universidades disponibles. Verifica la conexión o los datos en la base de datos.
       </div>
     );
   }
@@ -69,7 +87,7 @@ export function UniversityProgramSelect({
                   form.setValue('programId', undefined);
                 }
               }}
-              value={field.value?.toString() ?? undefined}
+              value={field.value?.toString()}
             >
               <FormControl>
                 <SelectTrigger>
@@ -77,7 +95,7 @@ export function UniversityProgramSelect({
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {universities?.map((university) => (
+                {Array.isArray(universities) && universities.map((university) => (
                   <SelectItem key={university.id} value={university.id.toString()}>
                     {university.name}
                   </SelectItem>
@@ -103,7 +121,7 @@ export function UniversityProgramSelect({
                   onProgramChange?.(programId);
                 }
               }}
-              value={field.value?.toString() ?? undefined}
+              value={field.value?.toString()}
               disabled={!selectedUniversityId || isLoadingPrograms}
             >
               <FormControl>
@@ -112,7 +130,7 @@ export function UniversityProgramSelect({
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {programs?.map((program) => (
+                {Array.isArray(programs) && programs.map((program) => (
                   <SelectItem key={program.id} value={program.id.toString()}>
                     {program.name} {program.isConvention ? '(en convenio)' : ''}
                   </SelectItem>

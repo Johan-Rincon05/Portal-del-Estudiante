@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -31,9 +31,40 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useToast } from '@/hooks/use-toast';
-import { createUserSchema } from '@shared/schema';
+import SuperAdminLayout from "@/layouts/SuperAdminLayout";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { UniversityProgramSelect, universityProgramSchema } from '@/components/UniversityProgramSelect';
+import axios from 'axios';
 
+// Esquema de validación para crear usuario
+const createUserSchema = z.object({
+  email: z.string().email('Correo electrónico inválido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  role: z.enum(['estudiante', 'admin', 'superuser'])
+});
+
+// Definir los tipos para los formularios
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
+
+type EditUserFormValues = {
+  fullName: string;
+  personalEmail: string;
+  documentType: string;
+  documentNumber: string;
+  birthDate: string;
+  birthPlace: string;
+  phone: string;
+  address: string;
+  city: string;
+  neighborhood: string;
+  locality: string;
+  socialStratum: string;
+  bloodType: string;
+  conflictVictim: string;
+  universityId: number | undefined;
+  programId: number | undefined;
+};
 
 const UsersPage = () => {
   const { createUserMutation, updateUserRoleMutation, deleteUserMutation } = useAuth();
@@ -42,16 +73,14 @@ const UsersPage = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 10;
+  const queryClient = useQueryClient();
+  const [universityData, setUniversityData] = useState<any>(null);
   
-  // Mock users for UI development - this would be replaced with actual data from Supabase
-  const [users, setUsers] = useState([
-    { id: '1', name: 'Carlos Rodríguez', email: 'carlos@ejemplo.com', role: 'estudiante', status: 'active', createdAt: '2023-03-12', lastLogin: '2023-04-15' },
-    { id: '2', name: 'Ana Martínez', email: 'ana@ejemplo.com', role: 'estudiante', status: 'active', createdAt: '2023-03-15', lastLogin: '2023-04-14' },
-    { id: '3', name: 'Luis González', email: 'admin@ejemplo.com', role: 'admin', status: 'active', createdAt: '2023-02-10', lastLogin: '2023-04-16' }
-  ]);
-  
-  // Setup form for user creation
+  // Setup forms
   const form = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
@@ -61,15 +90,144 @@ const UsersPage = () => {
     }
   });
 
-  // Apply search filter
-  const filteredUsers = users.filter(user => 
-    !searchTerm || 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const editForm = useForm<EditUserFormValues>({
+    defaultValues: {
+      fullName: '',
+      personalEmail: '',
+      documentType: '',
+      documentNumber: '',
+      birthDate: '',
+      birthPlace: '',
+      phone: '',
+      address: '',
+      city: '',
+      neighborhood: '',
+      locality: '',
+      socialStratum: '',
+      bloodType: '',
+      conflictVictim: '',
+      universityId: undefined,
+      programId: undefined
+    }
+  });
+
+  // Obtener usuarios en tiempo real desde la API
+  const { data: users, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['/api/admin/users'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/users', { 
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al obtener usuarios');
+      }
+      const data = await res.json();
+      console.log('Respuesta de /api/admin/users:', data);
+      return data;
+    },
+    retry: 1,
+    retryDelay: 1000
+  });
   
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  // Actualizar los valores del formulario cuando cambia el usuario a editar
+  useEffect(() => {
+    if (editUser) {
+      editForm.reset({
+        fullName: editUser.fullName || '',
+        personalEmail: editUser.personalEmail || '',
+        documentType: editUser.documentType || '',
+        documentNumber: editUser.documentNumber || '',
+        birthDate: editUser.birthDate || '',
+        birthPlace: editUser.birthPlace || '',
+        phone: editUser.phone || '',
+        address: editUser.address || '',
+        city: editUser.city || '',
+        neighborhood: editUser.neighborhood || '',
+        locality: editUser.locality || '',
+        socialStratum: editUser.socialStratum || '',
+        bloodType: editUser.bloodType || '',
+        conflictVictim: editUser.conflictVictim || '',
+        universityId: editUser.universityId ? Number(editUser.universityId) : undefined,
+        programId: editUser.programId ? Number(editUser.programId) : undefined
+      });
+    }
+  }, [editUser, editForm]);
+
+  // Al abrir el modal de edición, obtener los datos académicos del usuario
+  useEffect(() => {
+    const fetchUniversityData = async () => {
+      if (editUser && editUser.id) {
+        try {
+          const res = await axios.get(`/api/university-data/${editUser.id}`);
+          setUniversityData(res.data);
+          editForm.reset({
+            ...editForm.getValues(),
+            fullName: editUser.fullName || '',
+            personalEmail: editUser.personalEmail || '',
+            documentType: editUser.documentType || '',
+            documentNumber: editUser.documentNumber || '',
+            birthDate: editUser.birthDate || '',
+            birthPlace: editUser.birthPlace || '',
+            phone: editUser.phone || '',
+            address: editUser.address || '',
+            city: editUser.city || '',
+            neighborhood: editUser.neighborhood || '',
+            locality: editUser.locality || '',
+            socialStratum: editUser.socialStratum || '',
+            bloodType: editUser.bloodType || '',
+            conflictVictim: editUser.conflictVictim || '',
+            universityId: res.data?.universityId ? Number(res.data.universityId) : undefined,
+            programId: res.data?.programId ? Number(res.data.programId) : undefined
+          });
+        } catch (error) {
+          setUniversityData(null);
+          editForm.reset({
+            ...editForm.getValues(),
+            fullName: editUser.fullName || '',
+            personalEmail: editUser.personalEmail || '',
+            documentType: editUser.documentType || '',
+            documentNumber: editUser.documentNumber || '',
+            birthDate: editUser.birthDate || '',
+            birthPlace: editUser.birthPlace || '',
+            phone: editUser.phone || '',
+            address: editUser.address || '',
+            city: editUser.city || '',
+            neighborhood: editUser.neighborhood || '',
+            locality: editUser.locality || '',
+            socialStratum: editUser.socialStratum || '',
+            bloodType: editUser.bloodType || '',
+            conflictVictim: editUser.conflictVictim || '',
+            universityId: undefined,
+            programId: undefined
+          });
+        }
+      }
+    };
+    fetchUniversityData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editUser]);
+
+  // Aplica filtro de búsqueda solo si users es un array
+  const filteredUsers = Array.isArray(users) ? users.filter(user => {
+    const username = user.username || user.name || '';
+    const email = user.email || '';
+    const fullName = user.fullName || '';
+    const documentNumber = user.documentNumber || '';
+    return (
+      !searchTerm ||
+      username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      documentNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }) : [];
+
+  // Paginación
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -79,30 +237,28 @@ const UsersPage = () => {
     setCurrentPage(page);
   };
   
-  const handleCreateUser = (values: CreateUserFormValues) => {
-    createUserMutation.mutate(values, {
-      onSuccess: () => {
-        form.reset();
-        setShowCreateForm(false);
-        // In a real app, we would refresh the users list here
-        toast({
-          title: "Usuario creado exitosamente",
-          description: `Se ha creado el usuario ${values.email} con rol ${values.role}`,
-        });
-      }
-    });
+  const handleCreateUser = async (values: CreateUserFormValues) => {
+    try {
+      await createUserMutation.mutateAsync(values);
+    } catch (error) {
+      console.error('Error al crear usuario:', error);
+    }
   };
   
   const handleUpdateRole = (userId: string, role: string) => {
     updateUserRoleMutation.mutate({ userId, role }, {
       onSuccess: () => {
-        // Update local state for immediate UI feedback
-        setUsers(users.map(user => 
-          user.id === userId ? { ...user, role } : user
-        ));
+        queryClient.invalidateQueries(['/api/admin/users']);
         toast({
           title: "Rol actualizado",
           description: "El rol del usuario ha sido actualizado correctamente",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Error al actualizar rol",
+          description: error.message || "Ha ocurrido un error al actualizar el rol",
+          variant: "destructive"
         });
       }
     });
@@ -112,20 +268,116 @@ const UsersPage = () => {
     if (userToDelete) {
       deleteUserMutation.mutate(userToDelete, {
         onSuccess: () => {
-          // Remove user from local state
-          setUsers(users.filter(user => user.id !== userToDelete));
+          queryClient.invalidateQueries(['/api/admin/users']);
           setUserToDelete(null);
           toast({
             title: "Usuario eliminado",
             description: "El usuario ha sido eliminado correctamente",
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Error al eliminar usuario",
+            description: error.message || "Ha ocurrido un error al eliminar el usuario",
+            variant: "destructive"
           });
         }
       });
     }
   };
 
+  // Función para abrir el modal de edición con el usuario seleccionado
+  const handleOpenEditModal = (user: any) => {
+    setEditUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  // Función para cerrar el modal
+  const handleCloseEditModal = () => {
+    setEditUser(null);
+    setIsEditModalOpen(false);
+  };
+
+  // Mutación para actualizar usuario y datos académicos
+  const editUserMutation = useMutation({
+    mutationFn: async ({ profileData, universityData, id }: any) => {
+      // Actualizar perfil
+      const resProfile = await fetch(`/api/profiles/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData),
+        credentials: 'include'
+      });
+      if (!resProfile.ok) {
+        const errorData = await resProfile.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al actualizar el perfil');
+      }
+
+      // Actualizar datos académicos
+      const resUniversity = await fetch('/api/university-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(universityData),
+        credentials: 'include'
+      });
+      if (!resUniversity.ok) {
+        const errorData = await resUniversity.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al actualizar datos académicos');
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['/api/admin/users']);
+      toast({ title: 'Usuario actualizado', description: 'Los datos han sido actualizados correctamente.' });
+      setIsEditModalOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Ha ocurrido un error al actualizar el usuario', 
+        variant: 'destructive' 
+      });
+    },
+    onSettled: () => {
+      setIsSaving(false);
+    }
+  });
+
+  // Lógica para guardar cambios del modal
+  const handleEditUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+
+    setIsSaving(true);
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      const values = Object.fromEntries(formData.entries());
+
+      // Actualizar datos personales (si tienes endpoint)
+      await updateUserMutation.mutateAsync({
+        id: editUser.id,
+        ...values
+      });
+
+      // Actualizar datos académicos
+      await axios.post('/api/university-data', {
+        userId: editUser.id,
+        universityId: values.universityId ? Number(values.universityId) : undefined,
+        programId: values.programId ? Number(values.programId) : undefined
+      });
+
+      setIsEditModalOpen(false);
+      toast.success('Usuario actualizado exitosamente');
+    } catch (error) {
+      console.error('Error al actualizar usuario:', error);
+      toast.error('Error al actualizar usuario');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <>
+    <SuperAdminLayout>
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Gestión de Usuarios</h2>
@@ -211,7 +463,7 @@ const UsersPage = () => {
                     )}
                   />
                   
-                  <div className="flex items-center h-full mt-7">
+                  <div className="flex items-center space-x-2">
                     <Checkbox id="send-email" />
                     <label htmlFor="send-email" className="ml-2 block text-sm text-gray-900">
                       Enviar email de bienvenida
@@ -252,10 +504,12 @@ const UsersPage = () => {
       )}
       
       {/* Users table */}
-      <Card className="shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-lg">Lista de usuarios</CardTitle>
-          <div className="relative w-64">
+        </CardHeader>
+        <CardContent>
+          <div className="relative w-64 mb-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
@@ -267,132 +521,94 @@ const UsersPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rol
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Creado
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Último acceso
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedUsers.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className={`h-10 w-10 rounded-full ${
-                        user.role === 'admin' || user.role === 'superuser' 
-                          ? 'bg-accent-500 text-white'
-                          : 'bg-primary-100 text-primary-600'
-                      } flex items-center justify-center`}>
-                        <UserCircle className="h-5 w-5" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Select
-                      defaultValue={user.role}
-                      onValueChange={(value) => handleUpdateRole(user.id, value)}
-                    >
-                      <SelectTrigger className="h-9 w-full py-1.5 px-3">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="estudiante">Estudiante</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="superuser">Superusuario</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge variant="outline" className="bg-green-100 text-green-800">
-                      Activo
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.createdAt}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.lastLogin || 'Nunca'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-primary-600 hover:text-primary-900 mr-3"
-                    >
-                      Editar
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+
+          {isLoading && (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" /> Cargando usuarios...
+            </div>
+          )}
+
+          {isError && (
+            <div className="text-center text-red-600 mt-8">
+              Error al cargar usuarios: {error instanceof Error ? error.message : 'Error desconocido'}
+            </div>
+          )}
+
+          {!isLoading && !isError && !Array.isArray(users) && (
+            <div className="text-center text-red-600 mt-8">
+              No autorizado o error de sesión. Por favor, vuelve a iniciar sesión.
+            </div>
+          )}
+
+          {!isLoading && !isError && Array.isArray(users) && users.length === 0 && (
+            <div className="text-center text-gray-500 mt-8">
+              No hay usuarios registrados.
+            </div>
+          )}
+
+          {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre completo</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actualizado</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Doc.</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Documento</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`h-10 w-10 rounded-full ${user.role === 'admin' || user.role === 'superuser' ? 'bg-accent-500 text-white' : 'bg-primary-100 text-primary-600'} flex items-center justify-center`}>
+                            <UserCircle className="h-5 w-5" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.username || 'Sin usuario'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{user.fullName || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{user.email || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={user.role === 'superuser' ? 'default' : 'secondary'}>
+                          {user.role || 'N/A'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{user.documentType || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{user.documentNumber || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-red-600 hover:text-red-900"
-                          onClick={() => setUserToDelete(user.id)}
+                          className="text-primary-600 hover:text-primary-900 mr-3" 
+                          onClick={() => handleOpenEditModal(user)}
                         >
-                          Eliminar
+                          Editar
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción eliminará permanentemente al usuario {user.name} ({user.email}). 
-                            Esta acción no se puede deshacer.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleDeleteUser}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            {deleteUserMutation.isPending && userToDelete === user.id ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Eliminando...
-                              </>
-                            ) : (
-                              "Eliminar"
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
+            <div className="mt-4 flex justify-between items-center">
               <div>
                 <p className="text-sm text-gray-700">
                   Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
@@ -402,39 +618,180 @@ const UsersPage = () => {
                   de <span className="font-medium">{filteredUsers.length}</span> resultados
                 </p>
               </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <PaginationItem key={i}>
-                      <PaginationLink
-                        onClick={() => handlePageChange(i + 1)}
-                        isActive={currentPage === i + 1}
-                      >
-                        {i + 1}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </CardContent>
       </Card>
-    </>
+
+      {/* Modal de edición de usuario */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="w-full max-w-4xl mx-auto p-6 rounded-xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Usuario</DialogTitle>
+          </DialogHeader>
+          {editUser && (
+            <>
+              {console.log('editUser:', editUser)}
+              <Form {...editForm}>
+                <form className="space-y-8" onSubmit={handleEditUserSubmit}>
+                  {/* Sección: Datos personales */}
+                  <div>
+                    <h3 className="text-base font-semibold mb-4 text-primary">Datos personales</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                      <div>
+                        <label className="block text-sm font-medium">Nombre completo</label>
+                        <Input name="fullName" defaultValue={editUser.fullName || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Correo personal</label>
+                        <Input name="personalEmail" defaultValue={editUser.personalEmail || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Tipo de documento</label>
+                        <Select name="documentType" defaultValue={editUser.documentType || ''}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cedula">Cédula</SelectItem>
+                            <SelectItem value="pasaporte">Pasaporte</SelectItem>
+                            <SelectItem value="tarjeta_identidad">Tarjeta de identidad</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Número de documento</label>
+                        <Input name="documentNumber" defaultValue={editUser.documentNumber || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Fecha de nacimiento</label>
+                        <Input 
+                          type="date" 
+                          name="birthDate" 
+                          defaultValue={editUser.birthDate ? new Date(editUser.birthDate).toISOString().split('T')[0] : ''} 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Lugar de nacimiento</label>
+                        <Input name="birthPlace" defaultValue={editUser.birthPlace || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Teléfono</label>
+                        <Input name="phone" defaultValue={editUser.phone || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Dirección</label>
+                        <Input name="address" defaultValue={editUser.address || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Ciudad</label>
+                        <Input name="city" defaultValue={editUser.city || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Barrio</label>
+                        <Input name="neighborhood" defaultValue={editUser.neighborhood || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Localidad</label>
+                        <Input name="locality" defaultValue={editUser.locality || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Estrato</label>
+                        <Input name="socialStratum" defaultValue={editUser.socialStratum || ''} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Tipo de sangre</label>
+                        <Select name="bloodType" defaultValue={editUser.bloodType || ''}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="A+">A+</SelectItem>
+                            <SelectItem value="A-">A-</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="B-">B-</SelectItem>
+                            <SelectItem value="AB+">AB+</SelectItem>
+                            <SelectItem value="AB-">AB-</SelectItem>
+                            <SelectItem value="O+">O+</SelectItem>
+                            <SelectItem value="O-">O-</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">¿Víctima de conflicto?</label>
+                        <Select name="conflictVictim" defaultValue={editUser.conflictVictim ? 'Sí' : 'No'}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Sí">Sí</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sección: Datos académicos */}
+                  <div>
+                    <h3 className="text-base font-semibold mb-4 text-primary">Datos académicos</h3>
+                    <UniversityProgramSelect
+                      form={editForm}
+                      defaultUniversityId={universityData?.universityId ? Number(universityData.universityId) : undefined}
+                      defaultProgramId={universityData?.programId ? Number(universityData.programId) : undefined}
+                      onUniversityChange={(universityId) => {
+                        console.log('Universidad seleccionada:', universityId);
+                      }}
+                      onProgramChange={(programId) => {
+                        console.log('Programa seleccionado:', programId);
+                      }}
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseEditModal}
+                      disabled={isSaving}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Guardando...
+                        </>
+                      ) : (
+                        "Guardar cambios"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </SuperAdminLayout>
   );
 };
 

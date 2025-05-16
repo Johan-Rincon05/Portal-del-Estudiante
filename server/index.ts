@@ -8,17 +8,16 @@ import requestsRouter from './routes/requests';
 import documentsRouter from './routes/documents';
 import universitiesRouter from './routes/universities';
 import universityDataRouter from './routes/university-data';
+import { db } from './db';
+import authRouter from './routes/auth';
+import profilesRouter from './routes/profiles';
 
 const app = express();
 
 // Configuración de CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CLIENT_URL 
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  origin: 'http://localhost:3000',
+  credentials: true
 }));
 
 // Middlewares
@@ -33,6 +32,8 @@ app.use('/api/requests', requestsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/profiles', profilesRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();

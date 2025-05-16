@@ -13,6 +13,7 @@ import RequestsPage from "@/pages/requests-page";
 import ProfilePage from "@/pages/profile-page";
 import { RoleBasedRoute } from "@/lib/role-based-route";
 import { AuthProvider } from "@/hooks/use-auth";
+import UsersPage from "@/pages/superuser/UsersPage";
 
 function App() {
   return (
@@ -70,6 +71,13 @@ function App() {
             <RoleBasedRoute 
               component={StudentsPage} 
               allowedRoles={['admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/users">
+            <RoleBasedRoute 
+              component={UsersPage} 
+              allowedRoles={['superuser', 'admin']} 
             />
           </Route>
 

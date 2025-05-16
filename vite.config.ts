@@ -1,13 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-<<<<<<< HEAD
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-=======
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
->>>>>>> parent of 3b4db05 (PDE 0.1.7.2)
 
 export default defineConfig({
   plugins: [react()],
@@ -19,22 +15,8 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
-<<<<<<< HEAD
   build: {
-    outDir: '../dist',
-=======
-  root: path.resolve(import.meta.dirname, "client"),
-  build: {
-<<<<<<< HEAD
-<<<<<<< HEAD
     outDir: path.resolve(import.meta.dirname, "dist/client"),
->>>>>>> parent of 3b4db05 (PDE 0.1.7.2)
-=======
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
->>>>>>> parent of 32d4353 (PDE V0.1.7.1)
-=======
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
->>>>>>> parent of 32d4353 (PDE V0.1.7.1)
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -42,11 +24,11 @@ export default defineConfig({
       }
     }
   },
-<<<<<<< HEAD
   server: {
     port: 3000,
-    host: true
+    host: true,
+    proxy: {
+      '/api': 'http://localhost:5000',
+    }
   }
-=======
->>>>>>> parent of 3b4db05 (PDE 0.1.7.2)
 });

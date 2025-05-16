@@ -11,6 +11,6 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     // Usamos directamente la URL de la base de datos
-    url: "postgresql://postgres:postgres@localhost:5432/websocketchat",
+    url: "postgresql://postgres:postgres@localhost:5432/portal_estudiante",
   },
 });

@@ -10,12 +10,10 @@ import {
   type UpdateRequest
 } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import createMemoryStoreLib from "memorystore";
 import connectPgSimple from "connect-pg-simple";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import db from "./db";
-import { MemoryStore } from "express-session";
-import { InsertUser as SharedInsertUser, User as SharedUser, InsertRequest as SharedInsertRequest, Request as SharedRequest } from "../shared/types";
 
 // Interface for storage operations
 export interface IStorage {
@@ -33,10 +31,14 @@ export interface IStorage {
   
   // Session store
   sessionStore: session.Store;
+
+  getAllUsers(): Promise<User[]>;
+
+  getAllUsersWithProfiles(): Promise<any[]>;
 }
 
 // In-memory storage implementation (for testing/development)
-const MemoryStore = createMemoryStore(session);
+const MemoryStore = createMemoryStoreLib(session);
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
@@ -65,10 +67,12 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId++;
     const createdAt = new Date();
+    const updatedAt = new Date();
     const user: User = { 
       ...insertUser, 
       id, 
       createdAt,
+      updatedAt,
       role: insertUser.role || 'estudiante' 
     };
     this.users.set(id, user);
@@ -122,6 +126,28 @@ export class MemStorage implements IStorage {
         request.userId === userId && 
         (request.status === 'pendiente' || request.status === 'en_proceso')
     ).length;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getAllUsersWithProfiles(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        fullName: profiles.fullName,
+        profileEmail: profiles.email,
+        documentType: profiles.documentType,
+        documentNumber: profiles.documentNumber
+      })
+      .from(users)
+      .leftJoin(profiles, sql`${users.id} = ${profiles.userId}`);
+    return result;
   }
 }
 
@@ -236,6 +262,28 @@ export class DatabaseStorage implements IStorage {
     }
 
     return Array.from(studentsMap.values());
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async getAllUsersWithProfiles(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        fullName: profiles.fullName,
+        profileEmail: profiles.email,
+        documentType: profiles.documentType,
+        documentNumber: profiles.documentNumber
+      })
+      .from(users)
+      .leftJoin(profiles, sql`${users.id} = ${profiles.userId}`);
+    return result;
   }
 }
 

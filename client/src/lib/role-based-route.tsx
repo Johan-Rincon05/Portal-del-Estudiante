@@ -12,29 +12,30 @@ export function RoleBasedRoute({ component: Component, allowedRoles }: RoleBased
   const [, setLocation] = useLocation();
 
   if (isLoading) {
-    return <div>Cargando...</div>;
+    return <div className="text-center mt-10">Cargando...</div>;
   }
 
   if (!user || !allowedRoles.includes(user.role)) {
-    // Si el usuario no tiene el rol adecuado, redirigir a su página correspondiente
-    if (user) {
-      switch (user.role) {
-        case 'admin':
-          setLocation('/admin');
-          break;
-        case 'superuser':
-          setLocation('/superadmin');
-          break;
-        case 'estudiante':
-          setLocation('/');
-          break;
-        default:
-          setLocation('/auth');
+    setTimeout(() => {
+      if (user) {
+        switch (user.role) {
+          case 'admin':
+            setLocation('/admin');
+            break;
+          case 'superuser':
+            setLocation('/superadmin');
+            break;
+          case 'estudiante':
+            setLocation('/');
+            break;
+          default:
+            setLocation('/auth');
+        }
+      } else {
+        setLocation('/auth');
       }
-    } else {
-      setLocation('/auth');
-    }
-    return null;
+    }, 0);
+    return <div className="text-center mt-10 text-red-600">No autorizado o sesión expirada. Redirigiendo...</div>;
   }
 
   return <Component />;
