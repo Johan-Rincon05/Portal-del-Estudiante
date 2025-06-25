@@ -1,3 +1,9 @@
+/**
+ * Componente Avatar
+ * Este archivo contiene los componentes necesarios para crear avatares en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,6 +11,12 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Avatar
+ * Contenedor principal para avatares
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Avatar de Radix UI
+ */
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
@@ -20,6 +32,12 @@ const Avatar = React.forwardRef<
 ))
 Avatar.displayName = AvatarPrimitive.Root.displayName
 
+/**
+ * Componente AvatarImage
+ * Imagen del avatar
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente AvatarImage de Radix UI
+ */
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
@@ -32,6 +50,12 @@ const AvatarImage = React.forwardRef<
 ))
 AvatarImage.displayName = AvatarPrimitive.Image.displayName
 
+/**
+ * Componente AvatarFallback
+ * Contenido alternativo cuando no hay imagen
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente AvatarFallback de Radix UI
+ */
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>

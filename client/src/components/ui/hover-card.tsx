@@ -1,3 +1,9 @@
+/**
+ * Componente HoverCard
+ * Este archivo contiene los componentes necesarios para crear tarjetas que aparecen al pasar el mouse en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,10 +11,28 @@ import * as HoverCardPrimitive from "@radix-ui/react-hover-card"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente HoverCard
+ * Contenedor principal para tarjetas hover
+ * @param props - Propiedades del componente HoverCard de Radix UI
+ */
 const HoverCard = HoverCardPrimitive.Root
 
+/**
+ * Componente HoverCardTrigger
+ * Elemento que activa la tarjeta al pasar el mouse
+ * @param props - Propiedades del componente HoverCardTrigger de Radix UI
+ */
 const HoverCardTrigger = HoverCardPrimitive.Trigger
 
+/**
+ * Componente HoverCardContent
+ * Contenido de la tarjeta hover
+ * @param className - Clases CSS adicionales
+ * @param align - Alineación de la tarjeta
+ * @param sideOffset - Desplazamiento desde el lado del trigger
+ * @param props - Propiedades del componente HoverCardContent de Radix UI
+ */
 const HoverCardContent = React.forwardRef<
   React.ElementRef<typeof HoverCardPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof HoverCardPrimitive.Content>

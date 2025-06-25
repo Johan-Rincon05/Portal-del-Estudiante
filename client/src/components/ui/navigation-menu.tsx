@@ -1,3 +1,12 @@
+/**
+ * Componentes de menú de navegación
+ * Este archivo contiene los componentes necesarios para crear menús de navegación
+ * en el Portal del Estudiante, utilizando Radix UI para la funcionalidad y
+ * Tailwind CSS para el estilo.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu"
 import { cva } from "class-variance-authority"
@@ -5,6 +14,12 @@ import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente NavigationMenu
+ * Contenedor principal para menús de navegación
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenu de Radix UI
+ */
 const NavigationMenu = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Root>
@@ -23,6 +38,12 @@ const NavigationMenu = React.forwardRef<
 ))
 NavigationMenu.displayName = NavigationMenuPrimitive.Root.displayName
 
+/**
+ * Componente NavigationMenuList
+ * Lista de elementos del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenuList de Radix UI
+ */
 const NavigationMenuList = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.List>
@@ -38,12 +59,28 @@ const NavigationMenuList = React.forwardRef<
 ))
 NavigationMenuList.displayName = NavigationMenuPrimitive.List.displayName
 
+/**
+ * Componente NavigationMenuItem
+ * Elemento individual del menú
+ * @param props - Propiedades del componente NavigationMenuItem de Radix UI
+ */
 const NavigationMenuItem = NavigationMenuPrimitive.Item
 
+/**
+ * Definición de variantes del trigger
+ * @property className - Clases CSS adicionales
+ */
 const navigationMenuTriggerStyle = cva(
-  "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=open]:text-accent-foreground data-[state=open]:bg-accent/50 data-[state=open]:hover:bg-accent data-[state=open]:focus:bg-accent"
+  "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
 )
 
+/**
+ * Componente NavigationMenuTrigger
+ * Elemento que activa el menú
+ * @param className - Clases CSS adicionales
+ * @param children - Contenido del elemento
+ * @param props - Propiedades del componente NavigationMenuTrigger de Radix UI
+ */
 const NavigationMenuTrigger = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Trigger>
@@ -62,6 +99,12 @@ const NavigationMenuTrigger = React.forwardRef<
 ))
 NavigationMenuTrigger.displayName = NavigationMenuPrimitive.Trigger.displayName
 
+/**
+ * Componente NavigationMenuContent
+ * Contenido del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenuContent de Radix UI
+ */
 const NavigationMenuContent = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Content>
@@ -77,8 +120,20 @@ const NavigationMenuContent = React.forwardRef<
 ))
 NavigationMenuContent.displayName = NavigationMenuPrimitive.Content.displayName
 
+/**
+ * Componente NavigationMenuLink
+ * Enlace del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenuLink de Radix UI
+ */
 const NavigationMenuLink = NavigationMenuPrimitive.Link
 
+/**
+ * Componente NavigationMenuViewport
+ * Contenedor para el contenido del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenuViewport de Radix UI
+ */
 const NavigationMenuViewport = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Viewport>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Viewport>
@@ -97,6 +152,12 @@ const NavigationMenuViewport = React.forwardRef<
 NavigationMenuViewport.displayName =
   NavigationMenuPrimitive.Viewport.displayName
 
+/**
+ * Componente NavigationMenuIndicator
+ * Indicador visual del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente NavigationMenuIndicator de Radix UI
+ */
 const NavigationMenuIndicator = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Indicator>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Indicator>

@@ -240,15 +240,25 @@ const UsersPage = () => {
   const handleCreateUser = async (values: CreateUserFormValues) => {
     try {
       await createUserMutation.mutateAsync(values);
-    } catch (error) {
-      console.error('Error al crear usuario:', error);
+      toast({
+        title: "Usuario creado",
+        description: "El usuario ha sido creado exitosamente",
+      });
+      form.reset();
+      setShowCreateForm(false);
+    } catch (error: any) {
+      toast({
+        title: "Error al crear usuario",
+        description: error.message || "Ha ocurrido un error al crear el usuario",
+        variant: "destructive"
+      });
     }
   };
   
   const handleUpdateRole = (userId: string, role: string) => {
     updateUserRoleMutation.mutate({ userId, role }, {
       onSuccess: () => {
-        queryClient.invalidateQueries(['/api/admin/users']);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
         toast({
           title: "Rol actualizado",
           description: "El rol del usuario ha sido actualizado correctamente",
@@ -268,7 +278,7 @@ const UsersPage = () => {
     if (userToDelete) {
       deleteUserMutation.mutate(userToDelete, {
         onSuccess: () => {
-          queryClient.invalidateQueries(['/api/admin/users']);
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
           setUserToDelete(null);
           toast({
             title: "Usuario eliminado",
@@ -327,15 +337,18 @@ const UsersPage = () => {
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/users']);
-      toast({ title: 'Usuario actualizado', description: 'Los datos han sido actualizados correctamente.' });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Usuario actualizado exitosamente",
+        description: "Los datos del usuario han sido actualizados correctamente"
+      });
       setIsEditModalOpen(false);
     },
     onError: (error: Error) => {
-      toast({ 
-        title: 'Error', 
-        description: error.message || 'Ha ocurrido un error al actualizar el usuario', 
-        variant: 'destructive' 
+      toast({
+        title: "Error al actualizar usuario",
+        description: "No se pudo actualizar el usuario",
+        variant: "destructive"
       });
     },
     onSettled: () => {
@@ -354,9 +367,9 @@ const UsersPage = () => {
       const values = Object.fromEntries(formData.entries());
 
       // Actualizar datos personales (si tienes endpoint)
-      await updateUserMutation.mutateAsync({
-        id: editUser.id,
-        ...values
+      await updateUserRoleMutation.mutateAsync({
+        userId: editUser.id.toString(),
+        role: editUser.role
       });
 
       // Actualizar datos académicos
@@ -367,10 +380,17 @@ const UsersPage = () => {
       });
 
       setIsEditModalOpen(false);
-      toast.success('Usuario actualizado exitosamente');
+      toast({
+        title: "Usuario actualizado exitosamente",
+        description: "Los datos del usuario han sido actualizados correctamente"
+      });
     } catch (error) {
       console.error('Error al actualizar usuario:', error);
-      toast.error('Error al actualizar usuario');
+      toast({
+        title: "Error al actualizar usuario",
+        description: "No se pudo actualizar el usuario",
+        variant: "destructive"
+      });
     } finally {
       setIsSaving(false);
     }
@@ -400,7 +420,7 @@ const UsersPage = () => {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreateUser)}>
+              <form onSubmit={form.handleSubmit(handleCreateUser)} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
@@ -423,6 +443,25 @@ const UsersPage = () => {
                   
                   <FormField
                     control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="user-password">Contraseña</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="user-password"
+                            type="password"
+                            placeholder="Contraseña temporal"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="role"
                     render={({ field }) => (
                       <FormItem>
@@ -443,39 +482,19 @@ const UsersPage = () => {
                       </FormItem>
                     )}
                   />
-                  
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor="user-password">Contraseña temporal</FormLabel>
-                        <FormControl>
-                          <Input
-                            id="user-password"
-                            type="password"
-                            placeholder="Contraseña temporal"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="send-email" />
-                    <label htmlFor="send-email" className="ml-2 block text-sm text-gray-900">
-                      Enviar email de bienvenida
-                    </label>
-                  </div>
                 </div>
-                
-                <div className="mt-6 flex justify-end">
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="send-email" />
+                  <label htmlFor="send-email" className="text-sm text-gray-600">
+                    Enviar email de bienvenida
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-4">
                   <Button
                     type="button"
                     variant="outline"
-                    className="mr-3"
                     onClick={() => {
                       form.reset();
                       setShowCreateForm(false);

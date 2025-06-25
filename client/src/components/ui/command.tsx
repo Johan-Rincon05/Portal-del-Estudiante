@@ -1,11 +1,25 @@
+/**
+ * Componente Command
+ * Este archivo contiene los componentes necesarios para crear interfaces de línea de comandos en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
-import { type DialogProps } from "@radix-ui/react-dialog"
+import { DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
+/**
+ * Componente Command
+ * Contenedor principal para la interfaz de comandos
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Command de cmdk
+ */
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive>
@@ -21,6 +35,11 @@ const Command = React.forwardRef<
 ))
 Command.displayName = CommandPrimitive.displayName
 
+/**
+ * Componente CommandDialog
+ * Diálogo para la interfaz de comandos
+ * @param props - Propiedades del componente Dialog de Radix UI
+ */
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
     <Dialog {...props}>
@@ -33,6 +52,12 @@ const CommandDialog = ({ children, ...props }: DialogProps) => {
   )
 }
 
+/**
+ * Componente CommandInput
+ * Campo de entrada para comandos
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente CommandInput de cmdk
+ */
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
@@ -52,6 +77,12 @@ const CommandInput = React.forwardRef<
 
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
+/**
+ * Componente CommandList
+ * Lista de comandos disponibles
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente CommandList de cmdk
+ */
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
@@ -65,6 +96,11 @@ const CommandList = React.forwardRef<
 
 CommandList.displayName = CommandPrimitive.List.displayName
 
+/**
+ * Componente CommandEmpty
+ * Mensaje cuando no hay resultados
+ * @param props - Propiedades del componente CommandEmpty de cmdk
+ */
 const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
@@ -78,6 +114,12 @@ const CommandEmpty = React.forwardRef<
 
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 
+/**
+ * Componente CommandGroup
+ * Grupo de comandos relacionados
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente CommandGroup de cmdk
+ */
 const CommandGroup = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Group>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
@@ -94,6 +136,12 @@ const CommandGroup = React.forwardRef<
 
 CommandGroup.displayName = CommandPrimitive.Group.displayName
 
+/**
+ * Componente CommandSeparator
+ * Separador entre grupos de comandos
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente CommandSeparator de cmdk
+ */
 const CommandSeparator = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Separator>
@@ -106,6 +154,12 @@ const CommandSeparator = React.forwardRef<
 ))
 CommandSeparator.displayName = CommandPrimitive.Separator.displayName
 
+/**
+ * Componente CommandItem
+ * Elemento individual de comando
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente CommandItem de cmdk
+ */
 const CommandItem = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
@@ -113,7 +167,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}
@@ -122,6 +176,12 @@ const CommandItem = React.forwardRef<
 
 CommandItem.displayName = CommandPrimitive.Item.displayName
 
+/**
+ * Componente CommandShortcut
+ * Atajo de teclado para un comando
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de span
+ */
 const CommandShortcut = ({
   className,
   ...props

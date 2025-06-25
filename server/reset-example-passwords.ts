@@ -1,43 +1,39 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import bcrypt from 'bcrypt';
-
-// Configuración de la conexión
-const connectionString = 'postgres://postgres:postgres@localhost:5432/portal_estudiante';
-const client = postgres(connectionString);
-const db = drizzle(client);
+import { storage } from './storage';
+import { hashPassword } from './auth';
 
 async function resetExamplePasswords() {
   try {
-    const password = 'password123';
-    // Usar un salt fijo para que el hash sea reproducible
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-    console.log('Hash generado:', hash);
+    console.log('Iniciando restablecimiento de contraseñas...');
 
-    // Actualizar contraseñas para los usuarios de ejemplo
-    await db.update(users)
-      .set({ password: hash })
-      .where(eq(users.username, 'estudiante1'));
+    // Restablecer contraseña del superusuario
+    const superuser = await storage.getUserByUsername('superuser1');
+    if (superuser) {
+      const superuserPassword = await hashPassword('superuser123');
+      await storage.updateUser(superuser.id, { password: superuserPassword });
+      console.log('Contraseña del superusuario actualizada');
+    }
 
-    await db.update(users)
-      .set({ password: hash })
-      .where(eq(users.username, 'admin1'));
+    // Restablecer contraseña del administrador
+    const admin = await storage.getUserByUsername('admin1');
+    if (admin) {
+      const adminPassword = await hashPassword('admin123');
+      await storage.updateUser(admin.id, { password: adminPassword });
+      console.log('Contraseña del administrador actualizada');
+    }
 
-    await db.update(users)
-      .set({ password: hash })
-      .where(eq(users.username, 'superuser1'));
+    // Restablecer contraseña del estudiante
+    const student = await storage.getUserByUsername('estudiante1');
+    if (student) {
+      const studentPassword = await hashPassword('estudiante123');
+      await storage.updateUser(student.id, { password: studentPassword });
+      console.log('Contraseña del estudiante actualizada');
+    }
 
-    console.log('Contraseñas actualizadas exitosamente');
-    await client.end();
-    process.exit(0);
+    console.log('Todas las contraseñas han sido restablecidas exitosamente');
   } catch (error) {
-    console.error('Error al actualizar las contraseñas:', error);
-    await client.end();
-    process.exit(1);
+    console.error('Error al restablecer contraseñas:', error);
   }
 }
 
+// Ejecutar el restablecimiento
 resetExamplePasswords(); 

@@ -1,3 +1,9 @@
+/**
+ * Componente Progress
+ * Este archivo contiene el componente necesario para crear barras de progreso en el Portal del Estudiante,
+ * implementado con Radix UI y estilizado con Tailwind CSS.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,6 +11,13 @@ import * as ProgressPrimitive from "@radix-ui/react-progress"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Progress
+ * Barra de progreso con animación
+ * @param className - Clases CSS adicionales
+ * @param value - Valor del progreso (0-100)
+ * @param props - Propiedades del componente Progress de Radix UI
+ */
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>

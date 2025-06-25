@@ -1,10 +1,30 @@
+/**
+ * Componente de Pestañas
+ * Este archivo contiene los componentes necesarios para crear pestañas en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Tabs
+ * Contenedor principal para pestañas
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Tabs de Radix UI
+ */
 const Tabs = TabsPrimitive.Root
 
+/**
+ * Componente TabsList
+ * Lista de pestañas
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente TabsList de Radix UI
+ */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -20,6 +40,12 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+/**
+ * Componente TabsTrigger
+ * Elemento que activa una pestaña
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente TabsTrigger de Radix UI
+ */
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -35,6 +61,12 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+/**
+ * Componente TabsContent
+ * Contenido de una pestaña
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente TabsContent de Radix UI
+ */
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>

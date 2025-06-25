@@ -1,21 +1,67 @@
+/**
+ * Componente ContextMenu
+ * Este archivo contiene los componentes necesarios para crear menús contextuales en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu"
 import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente ContextMenu
+ * Contenedor principal para menús contextuales
+ * @param props - Propiedades del componente ContextMenu de Radix UI
+ */
 const ContextMenu = ContextMenuPrimitive.Root
 
+/**
+ * Componente ContextMenuTrigger
+ * Elemento que activa el menú contextual
+ * @param props - Propiedades del componente ContextMenuTrigger de Radix UI
+ */
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger
 
+/**
+ * Componente ContextMenuGroup
+ * Grupo de elementos del menú
+ * @param props - Propiedades del componente ContextMenuGroup de Radix UI
+ */
 const ContextMenuGroup = ContextMenuPrimitive.Group
 
+/**
+ * Componente ContextMenuPortal
+ * Portal para renderizar el menú
+ * @param props - Propiedades del componente ContextMenuPortal de Radix UI
+ */
 const ContextMenuPortal = ContextMenuPrimitive.Portal
 
+/**
+ * Componente ContextMenuSub
+ * Submenú contextual
+ * @param props - Propiedades del componente ContextMenuSub de Radix UI
+ */
 const ContextMenuSub = ContextMenuPrimitive.Sub
 
+/**
+ * Componente ContextMenuRadioGroup
+ * Grupo de opciones de radio
+ * @param props - Propiedades del componente ContextMenuRadioGroup de Radix UI
+ */
 const ContextMenuRadioGroup = ContextMenuPrimitive.RadioGroup
 
+/**
+ * Componente ContextMenuSubTrigger
+ * Botón que activa un submenú
+ * @param className - Clases CSS adicionales
+ * @param inset - Si es true, agrega un padding a la izquierda
+ * @param children - Contenido del trigger
+ * @param props - Propiedades del componente ContextMenuSubTrigger de Radix UI
+ */
 const ContextMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.SubTrigger> & {
@@ -37,6 +83,12 @@ const ContextMenuSubTrigger = React.forwardRef<
 ))
 ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName
 
+/**
+ * Componente ContextMenuSubContent
+ * Contenido de un submenú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ContextMenuSubContent de Radix UI
+ */
 const ContextMenuSubContent = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.SubContent>
@@ -44,7 +96,7 @@ const ContextMenuSubContent = React.forwardRef<
   <ContextMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-context-menu-content-transform-origin]",
+      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
       className
     )}
     {...props}
@@ -52,6 +104,12 @@ const ContextMenuSubContent = React.forwardRef<
 ))
 ContextMenuSubContent.displayName = ContextMenuPrimitive.SubContent.displayName
 
+/**
+ * Componente ContextMenuContent
+ * Contenido del menú contextual
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ContextMenuContent de Radix UI
+ */
 const ContextMenuContent = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
@@ -60,7 +118,7 @@ const ContextMenuContent = React.forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        "z-50 max-h-[--radix-context-menu-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-context-menu-content-transform-origin]",
+        "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
       {...props}
@@ -69,6 +127,13 @@ const ContextMenuContent = React.forwardRef<
 ))
 ContextMenuContent.displayName = ContextMenuPrimitive.Content.displayName
 
+/**
+ * Componente ContextMenuItem
+ * Elemento individual del menú
+ * @param className - Clases CSS adicionales
+ * @param inset - Si es true, agrega un padding a la izquierda
+ * @param props - Propiedades del componente ContextMenuItem de Radix UI
+ */
 const ContextMenuItem = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> & {
@@ -87,6 +152,14 @@ const ContextMenuItem = React.forwardRef<
 ))
 ContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName
 
+/**
+ * Componente ContextMenuCheckboxItem
+ * Elemento de casilla de verificación del menú
+ * @param className - Clases CSS adicionales
+ * @param children - Contenido del elemento
+ * @param checked - Estado de la casilla
+ * @param props - Propiedades del componente ContextMenuCheckboxItem de Radix UI
+ */
 const ContextMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.CheckboxItem>
@@ -111,6 +184,13 @@ const ContextMenuCheckboxItem = React.forwardRef<
 ContextMenuCheckboxItem.displayName =
   ContextMenuPrimitive.CheckboxItem.displayName
 
+/**
+ * Componente ContextMenuRadioItem
+ * Elemento de radio del menú
+ * @param className - Clases CSS adicionales
+ * @param children - Contenido del elemento
+ * @param props - Propiedades del componente ContextMenuRadioItem de Radix UI
+ */
 const ContextMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.RadioItem>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.RadioItem>
@@ -133,6 +213,13 @@ const ContextMenuRadioItem = React.forwardRef<
 ))
 ContextMenuRadioItem.displayName = ContextMenuPrimitive.RadioItem.displayName
 
+/**
+ * Componente ContextMenuLabel
+ * Etiqueta del menú
+ * @param className - Clases CSS adicionales
+ * @param inset - Si es true, agrega un padding a la izquierda
+ * @param props - Propiedades del componente ContextMenuLabel de Radix UI
+ */
 const ContextMenuLabel = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Label> & {
@@ -151,6 +238,12 @@ const ContextMenuLabel = React.forwardRef<
 ))
 ContextMenuLabel.displayName = ContextMenuPrimitive.Label.displayName
 
+/**
+ * Componente ContextMenuSeparator
+ * Separador visual entre elementos del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ContextMenuSeparator de Radix UI
+ */
 const ContextMenuSeparator = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
@@ -163,6 +256,12 @@ const ContextMenuSeparator = React.forwardRef<
 ))
 ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName
 
+/**
+ * Componente ContextMenuShortcut
+ * Atajo de teclado para un elemento del menú
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de span
+ */
 const ContextMenuShortcut = ({
   className,
   ...props

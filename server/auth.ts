@@ -1,69 +1,136 @@
+/**
+ * Sistema de autenticación y autorización
+ * Este archivo maneja la autenticación de usuarios, generación de tokens JWT,
+ * y la configuración de las rutas de autenticación en el Portal del Estudiante.
+ */
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response } from "express";
 import session from "express-session";
 import bcrypt from 'bcrypt';
-import { scrypt } from 'crypto';
-import { promisify } from 'util';
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser, PERMISSIONS, DEFAULT_ROLES } from "@shared/schema";
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { z } from "zod";
 
+/**
+ * Extensión de la interfaz User de Express para incluir los campos del usuario
+ */
 declare global {
   namespace Express {
     interface User extends SelectUser {}
   }
 }
 
-const scryptAsync = promisify(scrypt);
+/**
+ * Configuración de JWT
+ * Define las constantes para la generación y verificación de tokens JWT
+ */
+const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_muy_segura';
+const JWT_EXPIRES_IN = '24h';
 
-export async function hashPassword(password: string) {
+/**
+ * Genera un token JWT para un usuario
+ * @param user - Datos del usuario para incluir en el token
+ * @returns Token JWT firmado
+ */
+export const generateToken = (user: { id: number; username: string; role: string }) => {
+  return jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+};
+
+/**
+ * Hashea una contraseña usando bcrypt
+ * @param password - Contraseña en texto plano
+ * @returns Contraseña hasheada
+ */
+export const hashPassword = async (password: string): Promise<string> => {
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(password, salt);
-}
+};
 
-async function comparePasswords(supplied: string, stored: string) {
-  try {
-    // Si el hash almacenado contiene un punto, es un hash de scrypt
-    if (stored.includes('.')) {
-      const [hash, salt] = stored.split('.');
-      const buf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-      return buf.toString('hex') === hash;
-    }
-    // Si no, es un hash de bcrypt
-    return await bcrypt.compare(supplied, stored);
-  } catch (error) {
-    console.error("Error al comparar contraseñas:", error);
-    return false;
-  }
-}
+/**
+ * Compara una contraseña en texto plano con un hash
+ * @param password - Contraseña en texto plano
+ * @param hash - Hash de la contraseña
+ * @returns true si la contraseña coincide
+ */
+export const comparePasswords = async (password: string, hash: string): Promise<boolean> => {
+  return bcrypt.compare(password, hash);
+};
 
+/**
+ * Esquema de validación para registro de usuarios
+ * Define las reglas de validación para los datos de registro
+ */
+const registerSchema = z.object({
+  username: z.string().min(3).max(50),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(['estudiante', 'admin', 'superuser']).optional()
+});
+
+/**
+ * Esquema de validación para inicio de sesión
+ * Define las reglas de validación para los datos de inicio de sesión
+ */
+const loginSchema = z.object({
+  username: z.string(),
+  password: z.string()
+});
+
+/**
+ * Configura las rutas y middleware de autenticación
+ * @param app - Instancia de Express
+ */
 export function setupAuth(app: Express) {
+  // Configuración de la sesión
   const sessionSettings: session.SessionOptions = {
     secret: process.env.JWT_SECRET || 'tu_clave_secreta_jwt',
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     store: storage.sessionStore,
     name: 'sessionId',
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/'
     }
   };
 
+  // Configurar middleware de sesión y autenticación
   app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Middleware para logging de sesión
+  app.use((req, res, next) => {
+    console.log('Estado de la sesión:', {
+      isAuthenticated: req.isAuthenticated(),
+      sessionID: req.sessionID,
+      user: req.user
+    });
+    next();
+  });
+
+  /**
+   * Configuración de la estrategia de autenticación local
+   * Utiliza username y password para autenticar usuarios
+   */
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log('=== INICIO DE PROCESO DE AUTENTICACIÓN ===');
         console.log('Intento de inicio de sesión para usuario:', username);
+        
         const user = await storage.getUserByUsername(username);
         
         if (!user) {
@@ -72,7 +139,6 @@ export function setupAuth(app: Express) {
         }
         
         const passwordMatch = await comparePasswords(password, user.password);
-        console.log('Resultado de comparación de contraseña:', passwordMatch);
         
         if (!passwordMatch) {
           console.log('Contraseña incorrecta para usuario:', username);
@@ -88,123 +154,234 @@ export function setupAuth(app: Express) {
     })
   );
 
+  // Serialización y deserialización de usuarios
   passport.serializeUser((user, done) => {
-    console.log('Serializando usuario:', user.id);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log('Deserializando usuario:', id);
       const user = await storage.getUser(id);
       done(null, user);
     } catch (error) {
-      console.error('Error al deserializar usuario:', error);
       done(error);
     }
   });
 
+  /**
+   * Ruta de inicio de sesión
+   * POST /api/login
+   * @body {username, password} - Credenciales de inicio de sesión
+   * @returns Token JWT y datos del usuario
+   */
   app.post("/api/login", (req, res, next) => {
-    console.log('Intento de inicio de sesión:', req.body);
-    if (!req.body || !req.body.username || !req.body.password) {
-      return res.status(400).json({ 
-        error: 'Se requieren usuario y contraseña' 
-      });
-    }
-
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
-        console.error("Error de autenticación:", err);
-        return res.status(500).json({ 
-          error: 'Error interno del servidor' 
-        });
+        return res.status(500).json({ error: 'Error interno del servidor' });
       }
 
       if (!user) {
-        console.log('Autenticación fallida:', info?.message);
-        return res.status(401).json({ 
-          error: info?.message || 'Credenciales inválidas' 
-        });
+        return res.status(401).json({ error: info?.message || 'Credenciales inválidas' });
       }
 
       req.login(user, (loginErr) => {
         if (loginErr) {
-          console.error("Error al iniciar sesión:", loginErr);
-          return res.status(500).json({ 
-            error: 'Error al iniciar sesión' 
-          });
+          return res.status(500).json({ error: 'Error al iniciar sesión' });
         }
 
-        console.log('Inicio de sesión exitoso para usuario:', user.username);
+        // Generar token JWT
+        const token = generateToken(user);
+
         res.json({
           id: user.id,
           username: user.username,
-          role: user.role
+          role: user.role,
+          token // Incluir el token en la respuesta
         });
       });
     })(req, res, next);
   });
 
-  app.post("/api/register", async (req, res) => {
+  /**
+   * Ruta de registro de usuarios
+   * POST /api/register
+   * @body {username, email, password, role} - Datos del usuario a registrar
+   * @returns Token JWT y datos del usuario creado
+   */
+  app.post("/api/register", async (req: Request, res: Response) => {
     try {
-      if (!req.body.username || !req.body.password) {
-        return res.status(400).json({ 
-          error: 'Se requieren usuario y contraseña' 
-        });
-      }
-
-      const existingUser = await storage.getUserByUsername(req.body.username);
+      const { username, email, password, role } = registerSchema.parse(req.body);
+      
+      // Verificar si el usuario ya existe
+      const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
-        return res.status(400).json({ 
-          error: 'El nombre de usuario ya existe' 
-        });
+        return res.status(400).json({ error: "El nombre de usuario ya está en uso" });
       }
 
-      const hashedPassword = await hashPassword(req.body.password);
+      // Verificar si el email ya está en uso
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "El email ya está en uso" });
+      }
+
+      // Crear el usuario
+      const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
-        ...req.body,
-        password: hashedPassword
+        username,
+        email,
+        password: hashedPassword,
+        role: role || 'estudiante',
+        isActive: true,
+        permissions: {}
       });
 
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Error al iniciar sesión después del registro:", err);
-          return res.status(500).json({ 
-            error: 'Error al iniciar sesión' 
-          });
-        }
-        res.status(201).json({
+      // Generar token
+      const token = generateToken(user);
+
+      res.status(201).json({
+        message: "Usuario registrado exitosamente",
+        token,
+        user: {
           id: user.id,
           username: user.username,
+          email: user.email,
           role: user.role
-        });
+        }
       });
     } catch (error) {
-      console.error("Error en el registro:", error);
-      res.status(500).json({ 
-        error: 'Error al registrar el usuario' 
-      });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Datos de registro inválidos", details: error.errors });
+      }
+      console.error("Error en registro:", error);
+      res.status(500).json({ error: "Error al registrar usuario" });
     }
   });
 
+  /**
+   * Ruta de cierre de sesión
+   * POST /api/logout
+   * @returns Mensaje de éxito
+   */
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        console.error("Error al cerrar sesión:", err);
-        return res.status(500).json({ 
-          error: 'Error al cerrar sesión' 
-        });
+        return res.status(500).json({ error: 'Error al cerrar sesión' });
       }
       res.json({ message: 'Sesión cerrada exitosamente' });
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ 
-        error: 'No autenticado' 
+  /**
+   * Ruta para obtener información del usuario actual
+   * GET /api/me
+   * @requires Token JWT en el header de autorización
+   * @returns Datos del usuario autenticado
+   */
+  app.get("/api/me", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      const user = await storage.getUser(decoded.id);
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
       });
+    } catch (error) {
+      console.error("Error al obtener información del usuario:", error);
+      res.status(401).json({ error: "Token inválido" });
     }
-    res.json(req.user);
+  });
+
+  /**
+   * Ruta para cambiar contraseña
+   * POST /api/change-password
+   * @requires Token JWT en el header de autorización
+   * @body {currentPassword, newPassword} - Contraseñas actual y nueva
+   * @returns Mensaje de éxito
+   */
+  app.post("/api/change-password", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      const { currentPassword, newPassword } = req.body;
+
+      const user = await storage.getUser(decoded.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      // Verificar contraseña actual
+      const isValidPassword = await comparePasswords(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Contraseña actual incorrecta" });
+      }
+
+      // Actualizar contraseña
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      res.json({ message: "Contraseña actualizada exitosamente" });
+    } catch (error) {
+      console.error("Error al cambiar contraseña:", error);
+      res.status(500).json({ error: "Error al cambiar contraseña" });
+    }
+  });
+
+  /**
+   * Ruta para obtener información del usuario actual
+   * GET /api/user
+   * @returns Datos del usuario autenticado
+   */
+  app.get("/api/user", async (req: Request, res: Response) => {
+    try {
+      console.log('Headers recibidos:', req.headers);
+      const authHeader = req.headers.authorization;
+      console.log('Authorization header:', authHeader);
+      
+      const token = authHeader?.split(' ')[1];
+      console.log('Token extraído:', token ? token.substring(0, 20) + '...' : 'No token');
+      
+      if (!token) {
+        console.log('No se proporcionó token');
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      console.log('Token decodificado:', decoded);
+      
+      const user = await storage.getUser(decoded.id);
+      console.log('Usuario encontrado:', user ? { id: user.id, username: user.username, role: user.role } : 'No encontrado');
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      const response = {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      };
+      
+      console.log('Enviando respuesta:', response);
+      res.json(response);
+    } catch (error) {
+      console.error("Error al obtener información del usuario:", error);
+      res.status(401).json({ error: "Token inválido" });
+    }
   });
 }

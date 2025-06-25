@@ -1,8 +1,24 @@
+/**
+ * Componente Separator
+ * Este archivo contiene el componente necesario para crear separadores visuales en el Portal del Estudiante,
+ * implementado con Radix UI y estilizado con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as SeparatorPrimitive from "@radix-ui/react-separator"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Separator
+ * Línea divisoria con orientación configurable
+ * @param className - Clases CSS adicionales
+ * @param decorative - Si el separador es decorativo
+ * @param orientation - Orientación del separador (horizontal, vertical)
+ * @param props - Propiedades del componente Separator de Radix UI
+ */
 const Separator = React.forwardRef<
   React.ElementRef<typeof SeparatorPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>

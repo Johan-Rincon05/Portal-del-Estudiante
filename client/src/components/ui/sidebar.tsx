@@ -1,3 +1,9 @@
+/**
+ * Componentes de barra lateral
+ * Este archivo contiene los componentes necesarios para crear
+ * barras laterales en el Portal del Estudiante.
+ */
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
@@ -160,6 +166,12 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
+/**
+ * Componente Sidebar
+ * Contenedor principal para barras laterales
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de aside
+ */
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -358,6 +370,12 @@ const SidebarInput = React.forwardRef<
 })
 SidebarInput.displayName = "SidebarInput"
 
+/**
+ * Componente SidebarHeader
+ * Encabezado de la barra lateral
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const SidebarHeader = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
@@ -373,6 +391,12 @@ const SidebarHeader = React.forwardRef<
 })
 SidebarHeader.displayName = "SidebarHeader"
 
+/**
+ * Componente SidebarFooter
+ * Pie de la barra lateral
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const SidebarFooter = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
@@ -403,6 +427,12 @@ const SidebarSeparator = React.forwardRef<
 })
 SidebarSeparator.displayName = "SidebarSeparator"
 
+/**
+ * Componente SidebarContent
+ * Contenido principal de la barra lateral
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const SidebarContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">

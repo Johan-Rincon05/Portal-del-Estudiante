@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { config } from 'dotenv';
+import * as schema from '../shared/schema';
 
 // Cargar variables de entorno
 config();
@@ -19,6 +20,7 @@ export const pool = new pg.Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-export const db = drizzle(pool);
+// Configurar drizzle con el esquema
+export const db = drizzle(pool, { schema });
 
 export default db;

@@ -1,3 +1,9 @@
+/**
+ * Configuración de rutas de la API
+ * Este archivo maneja el registro y configuración de todas las rutas de la API
+ * del Portal del Estudiante.
+ */
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import dotenv from 'dotenv';
@@ -7,58 +13,113 @@ import documentsRouter from './routes/documents';
 import requestsRouter from './routes/requests';
 import { hashPassword } from "./utils";
 
-// Load environment variables
+// Cargar variables de entorno
 dotenv.config();
 
+/**
+ * Registra todas las rutas de la API en la aplicación Express
+ * @param app - Instancia de Express
+ * @returns Servidor HTTP configurado
+ */
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up authentication
-  setupAuth(app);
-
-  // Register route modules
+  // Registrar módulos de rutas
   app.use('/api/documents', documentsRouter);
   app.use('/api/requests', requestsRouter);
 
-  // Health check endpoint
+  /**
+   * Endpoint de verificación de estado
+   * GET /api/health
+   * @returns Estado del servidor y timestamp
+   */
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Admin endpoints - create users with specific roles
+  // Configurar autenticación al final para que las rutas de auth tengan prioridad
+  setupAuth(app);
+
+  /**
+   * Endpoint de administración - Crear usuarios con roles específicos
+   * POST /api/admin/users
+   * @requires Autenticación y rol de admin o superuser
+   * @body {username, password, role} - Datos del usuario a crear
+   * @returns Usuario creado
+   */
   app.post('/api/admin/users', async (req, res) => {
     try {
-      // Check if user is authenticated and is an admin
+      // Verificar autenticación y rol
       if (!req.isAuthenticated() || (req.user?.role !== 'admin' && req.user?.role !== 'superuser')) {
-        return res.status(403).json({ error: 'Not authorized' });
+        return res.status(403).json({ 
+          error: 'No autorizado',
+          details: 'Se requieren permisos de administrador o superusuario'
+        });
       }
 
       const { username, password, role } = req.body;
       
+      // Validaciones de campos requeridos
       if (!username || !password || !role) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ 
+          error: 'Faltan campos requeridos',
+          details: 'Se requieren username, password y role'
+        });
       }
-      
-      // Create user with storage
+
+      // Validar formato del email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(username)) {
+        return res.status(400).json({ 
+          error: 'Formato de email inválido',
+          details: 'El username debe ser un email válido'
+        });
+      }
+
+      // Validar fortaleza de la contraseña
+      if (password.length < 8) {
+        return res.status(400).json({ 
+          error: 'Contraseña débil',
+          details: 'La contraseña debe tener al menos 8 caracteres'
+        });
+      }
+
+      // Validar rol
+      if (!['estudiante', 'admin', 'superuser'].includes(role)) {
+        return res.status(400).json({ 
+          error: 'Rol inválido',
+          details: 'El rol debe ser uno de: estudiante, admin, superuser'
+        });
+      }
+
+      // Crear usuario
+      const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         username,
-        password,
-        role
+        password: hashedPassword,
+        role,
+        email: username,
+        isActive: true,
+        permissions: {}
       });
-      
-      res.json({ 
-        message: 'User created successfully', 
-        user: { 
-          id: user.id, 
+
+      res.status(201).json({
+        message: 'Usuario creado exitosamente',
+        user: {
+          id: user.id,
           username: user.username,
-          role: user.role 
-        } 
+          role: user.role
+        }
       });
-    } catch (error: any) {
-      console.error('Admin user creation error:', error);
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      console.error('Error al crear usuario:', error);
+      res.status(500).json({ error: 'Error al crear usuario' });
     }
   });
 
-  // Endpoint para crear usuarios de ejemplo
+  /**
+   * Endpoint para crear usuarios de ejemplo
+   * POST /api/admin/create-example-users
+   * @returns Lista de usuarios creados
+   */
   app.post('/api/admin/create-example-users', async (req, res) => {
     try {
       // Crear usuarios de ejemplo
@@ -73,7 +134,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hashedPassword = await hashPassword(user.password);
           return await storage.createUser({
             ...user,
-            password: hashedPassword
+            password: hashedPassword,
+            email: user.username,
+            isActive: true,
+            permissions: {}
           });
         })
       );
@@ -85,7 +149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint para obtener todos los usuarios
+  /**
+   * Endpoint para obtener todos los usuarios
+   * GET /api/admin/users
+   * @requires Autenticación y rol de admin o superuser
+   * @returns Lista de usuarios con sus perfiles
+   */
   app.get('/api/admin/users', async (req, res) => {
     try {
       if (!req.isAuthenticated() || (req.user?.role !== 'admin' && req.user?.role !== 'superuser')) {
@@ -99,11 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: user.username,
         role: user.role,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        fullName: user.fullName || null,
-        email: user.profileEmail || null,
-        documentType: user.documentType || null,
-        documentNumber: user.documentNumber || null
+        fullName: user.profile?.fullName || null,
+        email: user.profile?.email || null,
+        documentType: user.profile?.documentType || null,
+        documentNumber: user.profile?.documentNumber || null
       }));
       res.json(result);
     } catch (error) {

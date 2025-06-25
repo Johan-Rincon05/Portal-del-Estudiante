@@ -1,8 +1,22 @@
+/**
+ * Componente Slider
+ * Este archivo contiene los componentes necesarios para crear controles deslizantes en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as SliderPrimitive from "@radix-ui/react-slider"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Slider
+ * Control deslizante con valores numéricos
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Slider de Radix UI
+ */
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>

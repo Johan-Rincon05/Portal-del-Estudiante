@@ -3,7 +3,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from 'cors';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth } from './auth';
 import requestsRouter from './routes/requests';
 import documentsRouter from './routes/documents';
 import universitiesRouter from './routes/universities';
@@ -15,8 +14,18 @@ import profilesRouter from './routes/profiles';
 const app = express();
 
 // Configuración de CORS
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [process.env.FRONTEND_URL || 'https://tu-dominio.com'] 
+  : ['http://localhost:3000'];
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -24,15 +33,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configuración de autenticación
-setupAuth(app);
-
 // Rutas
+app.use('/api/auth', authRouter);
 app.use('/api/requests', requestsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);
-app.use('/api/auth', authRouter);
 app.use('/api/profiles', profilesRouter);
 
 app.use((req, res, next) => {

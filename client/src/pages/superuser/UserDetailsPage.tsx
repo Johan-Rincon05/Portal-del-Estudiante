@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import SuperAdminLayout from "@/layouts/SuperAdminLayout";
 
 const UserDetailsPage = () => {
   const { userId } = useParams();
@@ -19,43 +20,45 @@ const UserDetailsPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Detalles del Usuario</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Nombre</h3>
-            <p className="text-lg font-semibold">{userData.name}</p>
+    <SuperAdminLayout>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Detalles del Usuario</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Nombre</h3>
+              <p className="text-lg font-semibold">{userData.name}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Correo Electrónico</h3>
+              <p className="text-lg font-semibold">{userData.email}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Rol</h3>
+              <Badge variant="outline" className="bg-green-100 text-green-800">
+                {userData.role}
+              </Badge>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Estado</h3>
+              <Badge variant="outline" className="bg-green-100 text-green-800">
+                {userData.status}
+              </Badge>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Creado</h3>
+              <p className="text-lg font-semibold">{userData.createdAt}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Último Acceso</h3>
+              <p className="text-lg font-semibold">{userData.lastLogin}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Correo Electrónico</h3>
-            <p className="text-lg font-semibold">{userData.email}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Rol</h3>
-            <Badge variant="outline" className="bg-green-100 text-green-800">
-              {userData.role}
-            </Badge>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-            <Badge variant="outline" className="bg-green-100 text-green-800">
-              {userData.status}
-            </Badge>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Creado</h3>
-            <p className="text-lg font-semibold">{userData.createdAt}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Último Acceso</h3>
-            <p className="text-lg font-semibold">{userData.lastLogin}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </SuperAdminLayout>
   );
 };
 

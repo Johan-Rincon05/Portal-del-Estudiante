@@ -1,25 +1,26 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import {
   useQuery,
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
 import { User, InsertUser, loginSchema } from "@shared/schema";
-import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
+import { getQueryFn, apiRequest, queryClient, setToken, removeToken } from "../lib/query-client";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  loginMutation: UseMutationResult<User & { token: string }, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, RegisterData>;
-  createUserMutation: UseMutationResult<void, Error, { email: string; password: string; role: string }>;
-  updateUserRoleMutation: UseMutationResult<void, Error, { userId: string; role: string }>;
-  deleteUserMutation: UseMutationResult<void, Error, string>;
+  createUserMutation: UseMutationResult<any, Error, { email: string; password: string; role: string }>;
+  updateUserRoleMutation: UseMutationResult<any, Error, { userId: string; role: string }>;
+  deleteUserMutation: UseMutationResult<any, Error, string>;
 };
 
 type LoginData = z.infer<typeof loginSchema>;
@@ -34,20 +35,98 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  
+  // Estado local para el usuario autenticado
+  const [localUser, setLocalUser] = useState<User | null>(null);
+  
   const {
     data: user,
     error,
     isLoading,
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
+    queryFn: async () => {
+      return await apiRequest<User | null>("/api/user", {
+        method: "GET",
+      });
+    },
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
+
+  // Sincronizar el estado local con el query
+  useEffect(() => {
+    if (user) {
+      setLocalUser(user);
+    } else if (!isLoading) {
+      setLocalUser(null);
+    }
+  }, [user, isLoading]);
+
+  // Efecto para manejar redirecciones basadas en el rol
+  useEffect(() => {
+    console.log('Efecto de redirección ejecutado:', { user: localUser, isLoading, currentPath: window.location.pathname });
+    
+    if (!isLoading) {
+      if (localUser) {
+        // Usuario autenticado - redirigir según rol
+        const currentPath = window.location.pathname;
+        let shouldRedirect = false;
+        let targetPath = '/';
+
+        switch (localUser.role) {
+          case 'superuser':
+            if (!currentPath.startsWith('/admin/users') && !currentPath.startsWith('/superadmin')) {
+              shouldRedirect = true;
+              targetPath = '/admin/users';
+            }
+            break;
+          case 'admin':
+            if (!currentPath.startsWith('/admin')) {
+              shouldRedirect = true;
+              targetPath = '/admin/students';
+            }
+            break;
+          case 'estudiante':
+            // Para estudiantes, redirigir a /profile si está en /auth o en una ruta no válida
+            if (currentPath === '/auth' || (!currentPath.startsWith('/profile') && 
+                !currentPath.startsWith('/documents') && 
+                !currentPath.startsWith('/requests') && 
+                currentPath !== '/')) {
+              shouldRedirect = true;
+              targetPath = '/profile';
+            }
+            break;
+          default:
+            if (currentPath !== '/') {
+              shouldRedirect = true;
+              targetPath = '/';
+            }
+        }
+
+        if (shouldRedirect) {
+          console.log('Redirigiendo a:', targetPath);
+          setLocation(targetPath);
+        }
+      } else {
+        // Usuario no autenticado - redirigir a auth si no está ahí
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/auth') {
+          console.log('Usuario no autenticado, redirigiendo a /auth');
+          setLocation('/auth');
+        }
+      }
+    }
+  }, [localUser, isLoading, setLocation]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       try {
         console.log('Intentando iniciar sesión con:', credentials.username);
-        const response = await apiRequest<User>("/api/login", {
+        const response = await apiRequest<User & { token: string }>("/api/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -64,15 +143,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Error al iniciar sesión");
       }
     },
-    onSuccess: (user: User) => {
-      console.log('Login exitoso:', user);
+    onSuccess: (data) => {
+      console.log('Datos completos recibidos del login:', data);
+      const { token, ...user } = data;
+      console.log('Token extraído:', token ? token.substring(0, 20) + '...' : 'No token');
+      console.log('Usuario extraído:', user);
+      
+      // Guardar el token
+      if (token) {
+        console.log('Guardando token en localStorage...');
+        setToken(token);
+        console.log('Token guardado. Verificando...');
+        const savedToken = localStorage.getItem('token');
+        console.log('Token verificado en localStorage:', savedToken ? savedToken.substring(0, 20) + '...' : 'No encontrado');
+      } else {
+        console.error('No se recibió token en la respuesta del login');
+      }
+      
+      // Actualizar el estado local inmediatamente
+      setLocalUser(user);
+      
+      // Actualizar el estado del usuario en el query client
       queryClient.setQueryData(["/api/user"], user);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      // Redirigir inmediatamente según el rol
+      let targetPath = '/';
+      switch (user.role) {
+        case 'superuser':
+          targetPath = '/admin/users';
+          break;
+        case 'admin':
+          targetPath = '/admin/students';
+          break;
+        case 'estudiante':
+          targetPath = '/';
+          break;
+        default:
+          targetPath = '/';
+      }
+      
+      console.log('Redirigiendo inmediatamente a:', targetPath);
+      setLocation(targetPath);
+      
+      // Invalidar todas las queries relacionadas para forzar actualización
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+      
       toast({
         title: "Inicio de sesión exitoso",
         description: `Bienvenido, ${user.username}!`,
       });
-      window.location.href = '/';
     },
     onError: (error: Error) => {
       console.error("Login error:", error);
@@ -124,13 +245,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onSuccess: () => {
+      // Eliminar el token
+      removeToken();
+      
+      // Limpiar el estado local inmediatamente
+      setLocalUser(null);
+      
+      // Limpiar el estado del usuario en el query client
       queryClient.setQueryData(["/api/user"], null);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      // Limpiar todas las queries relacionadas
+      queryClient.removeQueries({ queryKey: ["/api/profiles"] });
+      queryClient.removeQueries({ queryKey: ["/api/documents"] });
+      queryClient.removeQueries({ queryKey: ["/api/requests"] });
+      
       toast({
         title: "Sesión cerrada",
         description: "Has cerrado sesión correctamente",
       });
-      window.location.href = '/auth';
+      
+      // Redirigir a auth
+      setLocation('/auth');
     },
     onError: (error: Error) => {
       console.error("Logout error:", error);
@@ -145,19 +280,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Mutation para crear usuario
   const createUserMutation = useMutation({
     mutationFn: async (data: { email: string; password: string; role: string }) => {
-      return await apiRequest("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: data.email,
-          password: data.password,
-          role: data.role,
-        }),
-      });
+      try {
+        const response = await apiRequest("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: data.email,
+            password: data.password,
+            role: data.role,
+          }),
+        });
+
+        return response;
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Error al crear usuario');
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      
+      toast({
+        title: "Usuario creado",
+        description: "El usuario ha sido creado exitosamente",
+      });
     },
+    onError: (error: Error) => {
+      console.error('Error al crear usuario:', error);
+      toast({
+        title: "Error al crear usuario",
+        description: error.message || "No se pudo crear el usuario",
+        variant: "destructive"
+      });
+    }
   });
 
   // Mutation para actualizar el rol de un usuario
@@ -189,7 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user || null,
+        user: localUser || null,
         isLoading,
         error,
         loginMutation,

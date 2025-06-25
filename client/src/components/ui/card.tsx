@@ -1,7 +1,25 @@
+/**
+ * Componentes de tarjeta
+ * Este archivo contiene los componentes necesarios para crear tarjetas
+ * en el Portal del Estudiante, utilizando Tailwind CSS para el estilo.
+ */
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Card
+ * Este archivo contiene los componentes necesarios para crear tarjetas en el Portal del Estudiante,
+ * estilizados con Tailwind CSS.
+ */
+
+/**
+ * Componente Card
+ * Contenedor principal para tarjetas
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -17,6 +35,12 @@ const Card = React.forwardRef<
 ))
 Card.displayName = "Card"
 
+/**
+ * Componente CardHeader
+ * Encabezado de la tarjeta
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -29,11 +53,17 @@ const CardHeader = React.forwardRef<
 ))
 CardHeader.displayName = "CardHeader"
 
+/**
+ * Componente CardTitle
+ * Título de la tarjeta
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de h3
+ */
 const CardTitle = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <div
+  <h3
     ref={ref}
     className={cn(
       "text-2xl font-semibold leading-none tracking-tight",
@@ -44,11 +74,17 @@ const CardTitle = React.forwardRef<
 ))
 CardTitle.displayName = "CardTitle"
 
+/**
+ * Componente CardDescription
+ * Descripción de la tarjeta
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de p
+ */
 const CardDescription = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <div
+  <p
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     {...props}
@@ -56,6 +92,12 @@ const CardDescription = React.forwardRef<
 ))
 CardDescription.displayName = "CardDescription"
 
+/**
+ * Componente CardContent
+ * Contenido principal de la tarjeta
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -64,6 +106,12 @@ const CardContent = React.forwardRef<
 ))
 CardContent.displayName = "CardContent"
 
+/**
+ * Componente CardFooter
+ * Pie de la tarjeta
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const CardFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>

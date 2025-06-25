@@ -1,3 +1,9 @@
+/**
+ * Componente Form
+ * Este archivo contiene los componentes necesarios para crear formularios en el Portal del Estudiante,
+ * implementados con React Hook Form y estilizados con Tailwind CSS.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -15,8 +21,16 @@ import {
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
+/**
+ * Componente Form
+ * Contenedor principal para formularios
+ * @param props - Propiedades del componente FormProvider de React Hook Form
+ */
 const Form = FormProvider
 
+/**
+ * Tipo para las propiedades del campo de formulario
+ */
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
@@ -24,10 +38,18 @@ type FormFieldContextValue<
   name: TName
 }
 
+/**
+ * Contexto para campos de formulario
+ */
 const FormFieldContext = React.createContext<FormFieldContextValue>(
   {} as FormFieldContextValue
 )
 
+/**
+ * Componente FormField
+ * Campo individual del formulario
+ * @param props - Propiedades del componente Controller de React Hook Form
+ */
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
@@ -41,6 +63,9 @@ const FormField = <
   )
 }
 
+/**
+ * Hook para acceder al contexto del campo de formulario
+ */
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext)
   const itemContext = React.useContext(FormItemContext)
@@ -64,14 +89,26 @@ const useFormField = () => {
   }
 }
 
+/**
+ * Tipo para las propiedades del elemento de formulario
+ */
 type FormItemContextValue = {
   id: string
 }
 
+/**
+ * Contexto para elementos de formulario
+ */
 const FormItemContext = React.createContext<FormItemContextValue>(
   {} as FormItemContextValue
 )
 
+/**
+ * Componente FormItem
+ * Contenedor para elementos del formulario
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const FormItem = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -86,6 +123,12 @@ const FormItem = React.forwardRef<
 })
 FormItem.displayName = "FormItem"
 
+/**
+ * Componente FormLabel
+ * Etiqueta para campos del formulario
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Label de Radix UI
+ */
 const FormLabel = React.forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
@@ -103,6 +146,11 @@ const FormLabel = React.forwardRef<
 })
 FormLabel.displayName = "FormLabel"
 
+/**
+ * Componente FormControl
+ * Control para campos del formulario
+ * @param props - Propiedades del componente Slot de Radix UI
+ */
 const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
@@ -125,6 +173,12 @@ const FormControl = React.forwardRef<
 })
 FormControl.displayName = "FormControl"
 
+/**
+ * Componente FormDescription
+ * Descripción para campos del formulario
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de p
+ */
 const FormDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
@@ -142,12 +196,18 @@ const FormDescription = React.forwardRef<
 })
 FormDescription.displayName = "FormDescription"
 
+/**
+ * Componente FormMessage
+ * Mensaje de error para campos del formulario
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de p
+ */
 const FormMessage = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : children
+  const body = error ? String(error?.message) : children
 
   if (!body) {
     return null

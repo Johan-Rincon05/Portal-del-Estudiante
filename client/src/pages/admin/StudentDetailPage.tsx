@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Mail, ArrowLeft, FileText, Eye, Download, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AdminLayout } from '@/components/layouts/AdminLayout';
 
 const responseFormSchema = z.object({
   response: z.string().min(5, "Respuesta es requerida"),
@@ -103,7 +104,7 @@ const StudentDetailPage = () => {
   }
 
   return (
-    <>
+    <AdminLayout>
       <div className="mb-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -413,7 +414,7 @@ const StudentDetailPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </>
+    </AdminLayout>
   );
 };
 

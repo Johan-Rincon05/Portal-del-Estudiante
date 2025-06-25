@@ -1,8 +1,22 @@
+/**
+ * Componente Switch
+ * Este archivo contiene el componente necesario para crear interruptores en el Portal del Estudiante,
+ * implementado con Radix UI y estilizado con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Switch
+ * Interruptor con animación de transición
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Switch de Radix UI
+ */
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>

@@ -16,7 +16,8 @@ export const useProfiles = (userId?: string) => {
   const {
     data: profile,
     isLoading,
-    error
+    error,
+    refetch
   } = useQuery<ProfileWithCounts | null>({
     queryKey: ['/api/profiles', userId],
     queryFn: async () => {
@@ -24,6 +25,9 @@ export const useProfiles = (userId?: string) => {
       return apiRequest<ProfileWithCounts>(`/api/profiles/${userId}`);
     },
     enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Get all profiles (for admin use)
@@ -35,7 +39,10 @@ export const useProfiles = (userId?: string) => {
     queryKey: ['/api/profiles'],
     queryFn: async () => {
       return apiRequest<ProfileWithCounts[]>('/api/profiles');
-    }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Update profile mutation
@@ -50,8 +57,14 @@ export const useProfiles = (userId?: string) => {
         body: JSON.stringify(data)
       });
     },
-    onSuccess: () => {
+    onSuccess: (updatedProfile) => {
+      // Actualizar inmediatamente el cache
+      queryClient.setQueryData(['/api/profiles', userId], updatedProfile);
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
       queryClient.invalidateQueries({ queryKey: ['/api/profiles', userId] });
+      
       toast({
         title: "Perfil actualizado",
         description: "Tu información ha sido actualizada correctamente",
@@ -71,7 +84,8 @@ export const useProfiles = (userId?: string) => {
     allProfiles,
     isLoading: isLoading || isLoadingAll,
     error: error || errorAll,
-    updateProfileMutation
+    updateProfileMutation,
+    refetch
   };
 };
 

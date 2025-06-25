@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createUserSchema } from '@shared/schema';
+import SuperAdminLayout from "@/layouts/SuperAdminLayout";
 
 type EditUserFormValues = z.infer<typeof createUserSchema>;
 
@@ -42,78 +43,80 @@ const UserEditPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Editar Usuario</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleEditUser)}>
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="user-email">Correo Electrónico</FormLabel>
-                    <FormControl>
-                      <Input
-                        id="user-email"
-                        type="email"
-                        placeholder="nuevo@ejemplo.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="user-role">Rol</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+    <SuperAdminLayout>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Editar Usuario</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditUser)}>
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="user-email">Correo Electrónico</FormLabel>
                       <FormControl>
-                        <SelectTrigger id="user-role">
-                          <SelectValue placeholder="Seleccionar rol" />
-                        </SelectTrigger>
+                        <Input
+                          id="user-email"
+                          type="email"
+                          placeholder="nuevo@ejemplo.com"
+                          {...field}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="estudiante">Estudiante</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="superuser">Superusuario</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="user-password">Contraseña</FormLabel>
-                    <FormControl>
-                      <Input
-                        id="user-password"
-                        type="password"
-                        placeholder="Contraseña"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit">Guardar Cambios</Button>
-            </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="user-role">Rol</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger id="user-role">
+                            <SelectValue placeholder="Seleccionar rol" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="estudiante">Estudiante</SelectItem>
+                          <SelectItem value="admin">Administrador</SelectItem>
+                          <SelectItem value="superuser">Superusuario</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="user-password">Contraseña</FormLabel>
+                      <FormControl>
+                        <Input
+                          id="user-password"
+                          type="password"
+                          placeholder="Contraseña"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Guardar Cambios</Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </SuperAdminLayout>
   );
 };
 

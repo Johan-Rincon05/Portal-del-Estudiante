@@ -1,3 +1,11 @@
+/**
+ * Componente Calendar
+ * Este archivo contiene el componente necesario para crear calendarios en el Portal del Estudiante,
+ * implementado con react-day-picker y estilizado con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
@@ -5,8 +13,23 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+/**
+ * Tipo para las propiedades del calendario
+ * @property className - Clases CSS adicionales
+ * @property classNames - Clases CSS para elementos específicos del calendario
+ * @property showOutsideDays - Si se muestran los días fuera del mes actual
+ * @property props - Propiedades del componente DayPicker
+ */
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
+/**
+ * Componente Calendar
+ * Calendario interactivo con navegación y selección de fechas
+ * @param className - Clases CSS adicionales
+ * @param classNames - Clases CSS para elementos específicos del calendario
+ * @param showOutsideDays - Si se muestran los días fuera del mes actual
+ * @param props - Propiedades del componente DayPicker
+ */
 function Calendar({
   className,
   classNames,
@@ -44,7 +67,7 @@ function Calendar({
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
         day_outside:
-          "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
+          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
         day_disabled: "text-muted-foreground opacity-50",
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
@@ -52,12 +75,8 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-        ),
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />

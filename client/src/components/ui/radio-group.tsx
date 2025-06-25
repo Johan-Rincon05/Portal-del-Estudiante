@@ -1,9 +1,23 @@
+/**
+ * Componente RadioGroup
+ * Este archivo contiene los componentes necesarios para crear grupos de opciones de radio en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group"
 import { Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente RadioGroup
+ * Contenedor principal para grupos de opciones de radio
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente RadioGroup de Radix UI
+ */
 const RadioGroup = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>
@@ -18,6 +32,12 @@ const RadioGroup = React.forwardRef<
 })
 RadioGroup.displayName = RadioGroupPrimitive.Root.displayName
 
+/**
+ * Componente RadioGroupItem
+ * Elemento individual de radio
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente RadioGroupItem de Radix UI
+ */
 const RadioGroupItem = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>

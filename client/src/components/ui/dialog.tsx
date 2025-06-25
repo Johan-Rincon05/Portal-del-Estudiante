@@ -1,3 +1,9 @@
+/**
+ * Componente Dialog
+ * Este archivo contiene los componentes necesarios para crear diálogos modales en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -6,14 +12,40 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Dialog
+ * Contenedor principal para diálogos modales
+ * @param props - Propiedades del componente Dialog de Radix UI
+ */
 const Dialog = DialogPrimitive.Root
 
+/**
+ * Componente DialogTrigger
+ * Elemento que activa el diálogo
+ * @param props - Propiedades del componente DialogTrigger de Radix UI
+ */
 const DialogTrigger = DialogPrimitive.Trigger
 
+/**
+ * Componente DialogPortal
+ * Portal para renderizar el diálogo
+ * @param props - Propiedades del componente DialogPortal de Radix UI
+ */
 const DialogPortal = DialogPrimitive.Portal
 
+/**
+ * Componente DialogClose
+ * Botón para cerrar el diálogo
+ * @param props - Propiedades del componente DialogClose de Radix UI
+ */
 const DialogClose = DialogPrimitive.Close
 
+/**
+ * Componente DialogOverlay
+ * Fondo oscuro del diálogo
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente DialogOverlay de Radix UI
+ */
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -29,6 +61,13 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+/**
+ * Componente DialogContent
+ * Contenido principal del diálogo
+ * @param className - Clases CSS adicionales
+ * @param children - Contenido del diálogo
+ * @param props - Propiedades del componente DialogContent de Radix UI
+ */
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
@@ -46,13 +85,19 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">Cerrar</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+/**
+ * Componente DialogHeader
+ * Encabezado del diálogo
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const DialogHeader = ({
   className,
   ...props
@@ -67,6 +112,12 @@ const DialogHeader = ({
 )
 DialogHeader.displayName = "DialogHeader"
 
+/**
+ * Componente DialogFooter
+ * Pie del diálogo
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const DialogFooter = ({
   className,
   ...props
@@ -81,6 +132,12 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
+/**
+ * Componente DialogTitle
+ * Título del diálogo
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente DialogTitle de Radix UI
+ */
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
@@ -96,6 +153,12 @@ const DialogTitle = React.forwardRef<
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
+/**
+ * Componente DialogDescription
+ * Descripción del diálogo
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente DialogDescription de Radix UI
+ */
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>

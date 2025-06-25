@@ -1,3 +1,10 @@
+/**
+ * Componentes de panel deslizante
+ * Este archivo contiene los componentes necesarios para crear paneles deslizantes
+ * en el Portal del Estudiante, utilizando Radix UI para la funcionalidad y
+ * Tailwind CSS para el estilo.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -7,21 +14,47 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Sheet
+ * Contenedor principal para paneles deslizantes
+ * @param props - Propiedades del componente Sheet de Radix UI
+ */
 const Sheet = SheetPrimitive.Root
 
+/**
+ * Componente SheetTrigger
+ * Elemento que activa el panel
+ * @param props - Propiedades del componente SheetTrigger de Radix UI
+ */
 const SheetTrigger = SheetPrimitive.Trigger
 
+/**
+ * Componente SheetClose
+ * Botón para cerrar el panel
+ * @param props - Propiedades del componente SheetClose de Radix UI
+ */
 const SheetClose = SheetPrimitive.Close
 
+/**
+ * Componente SheetPortal
+ * Portal para renderizar el panel
+ * @param props - Propiedades del componente SheetPortal de Radix UI
+ */
 const SheetPortal = SheetPrimitive.Portal
 
+/**
+ * Componente SheetOverlay
+ * Fondo oscuro del panel
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente SheetOverlay de Radix UI
+ */
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -30,6 +63,10 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+/**
+ * Definición de variantes del panel
+ * @property side - Lado desde donde se desliza el panel (top, right, bottom, left)
+ */
 const sheetVariants = cva(
   "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
@@ -40,7 +77,7 @@ const sheetVariants = cva(
           "inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
         right:
-          "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+          "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       },
     },
     defaultVariants: {
@@ -49,13 +86,18 @@ const sheetVariants = cva(
   }
 )
 
-interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
-
+/**
+ * Componente SheetContent
+ * Contenido principal del panel
+ * @param className - Clases CSS adicionales
+ * @param side - Lado desde donde se desliza el panel
+ * @param children - Contenido del panel
+ * @param props - Propiedades del componente SheetContent de Radix UI
+ */
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  SheetContentProps
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> &
+    VariantProps<typeof sheetVariants>
 >(({ side = "right", className, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
@@ -67,13 +109,19 @@ const SheetContent = React.forwardRef<
       {children}
       <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">Cerrar</span>
       </SheetPrimitive.Close>
     </SheetPrimitive.Content>
   </SheetPortal>
 ))
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
+/**
+ * Componente SheetHeader
+ * Encabezado del panel
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const SheetHeader = ({
   className,
   ...props
@@ -88,6 +136,12 @@ const SheetHeader = ({
 )
 SheetHeader.displayName = "SheetHeader"
 
+/**
+ * Componente SheetFooter
+ * Pie del panel
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de div
+ */
 const SheetFooter = ({
   className,
   ...props
@@ -102,6 +156,12 @@ const SheetFooter = ({
 )
 SheetFooter.displayName = "SheetFooter"
 
+/**
+ * Componente SheetTitle
+ * Título del panel
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente SheetTitle de Radix UI
+ */
 const SheetTitle = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
@@ -114,6 +174,12 @@ const SheetTitle = React.forwardRef<
 ))
 SheetTitle.displayName = SheetPrimitive.Title.displayName
 
+/**
+ * Componente SheetDescription
+ * Descripción del panel
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente SheetDescription de Radix UI
+ */
 const SheetDescription = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>

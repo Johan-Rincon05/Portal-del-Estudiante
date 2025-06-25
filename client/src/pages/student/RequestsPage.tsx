@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, PlusCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { StudentLayout } from '@/components/layouts/StudentLayout';
 
 const requestFormSchema = z.object({
   subject: z.string().min(3, "Asunto es requerido"),
@@ -36,7 +37,7 @@ const getStatusBadge = (status: string) => {
 
 const RequestsPage = () => {
   const { user } = useAuth();
-  const { requests, isLoading, createRequestMutation } = useRequests(user?.id);
+  const { requests, isLoading, createRequestMutation } = useRequests(user?.id?.toString());
   const [showForm, setShowForm] = useState(false);
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
 
@@ -52,14 +53,8 @@ const RequestsPage = () => {
     if (!user?.id) return;
     
     createRequestMutation.mutate({
-      userId: user.id,
       subject: values.subject,
       message: values.message
-    }, {
-      onSuccess: () => {
-        form.reset();
-        setShowForm(false);
-      }
     });
   };
 
@@ -72,7 +67,7 @@ const RequestsPage = () => {
   };
 
   return (
-    <>
+    <StudentLayout>
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Mis Solicitudes</h2>
@@ -187,21 +182,21 @@ const RequestsPage = () => {
                       {getStatusBadge(request.status)}
                     </div>
                     <p className="text-sm text-gray-600 mb-2">
-                      {request.message.length > 100 && expandedRequestId !== request.id
+                      {request.message.length > 100 && expandedRequestId !== request.id?.toString()
                         ? `${request.message.slice(0, 100)}...`
                         : request.message}
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">
-                        Creada el {new Date(request.createdAt).toLocaleDateString()}
+                        Creada el {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}
                       </span>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="text-xs text-primary-600 hover:text-primary-500"
-                        onClick={() => toggleRequestDetails(request.id)}
+                        onClick={() => toggleRequestDetails(request.id?.toString() || '')}
                       >
-                        {expandedRequestId === request.id ? (
+                        {expandedRequestId === request.id?.toString() ? (
                           <>
                             Ocultar detalles
                             <ChevronUp className="ml-1 h-3 w-3" />
@@ -215,7 +210,7 @@ const RequestsPage = () => {
                       </Button>
                     </div>
                     
-                    {expandedRequestId === request.id && request.response && (
+                    {expandedRequestId === request.id?.toString() && request.response && (
                       <div className="mt-3 p-3 bg-gray-50 rounded-md">
                         <p className="text-xs font-medium text-gray-500">Respuesta:</p>
                         <p className="text-sm text-gray-700">{request.response}</p>
@@ -242,7 +237,7 @@ const RequestsPage = () => {
           )}
         </CardContent>
       </Card>
-    </>
+    </StudentLayout>
   );
 };
 

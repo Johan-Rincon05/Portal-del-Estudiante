@@ -1,11 +1,31 @@
+/**
+ * Componente de Acordeón
+ * Este archivo contiene los componentes necesarios para crear acordeones en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
 import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Accordion
+ * Contenedor principal para secciones colapsables
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Accordion de Radix UI
+ */
 const Accordion = AccordionPrimitive.Root
 
+/**
+ * Componente AccordionItem
+ * Elemento individual del acordeón
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente AccordionItem de Radix UI
+ */
 const AccordionItem = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
@@ -18,6 +38,12 @@ const AccordionItem = React.forwardRef<
 ))
 AccordionItem.displayName = "AccordionItem"
 
+/**
+ * Componente AccordionTrigger
+ * Botón que activa la expansión/colapso de una sección
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente AccordionTrigger de Radix UI
+ */
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
@@ -38,6 +64,12 @@ const AccordionTrigger = React.forwardRef<
 ))
 AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
 
+/**
+ * Componente AccordionContent
+ * Contenido colapsable de una sección
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente AccordionContent de Radix UI
+ */
 const AccordionContent = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
@@ -50,7 +82,6 @@ const AccordionContent = React.forwardRef<
     <div className={cn("pb-4 pt-0", className)}>{children}</div>
   </AccordionPrimitive.Content>
 ))
-
 AccordionContent.displayName = AccordionPrimitive.Content.displayName
 
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent }

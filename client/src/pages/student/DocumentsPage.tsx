@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Upload, Eye, Download, Trash2, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { StudentLayout } from '@/components/layouts/StudentLayout';
 
 const documentFormSchema = z.object({
   type: z.string().min(1, "Tipo de documento es requerido"),
@@ -82,7 +83,7 @@ const DocumentsPage = () => {
   };
 
   return (
-    <>
+    <StudentLayout>
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Mis Documentos</h2>
@@ -282,7 +283,7 @@ const DocumentsPage = () => {
           )}
         </CardContent>
       </Card>
-    </>
+    </StudentLayout>
   );
 };
 

@@ -1,3 +1,11 @@
+/**
+ * Componente Toast
+ * Este archivo contiene los componentes necesarios para crear notificaciones toast en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -5,8 +13,19 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente ToastProvider
+ * Proveedor de contexto para los toasts
+ * @param props - Propiedades del componente ToastProvider de Radix UI
+ */
 const ToastProvider = ToastPrimitives.Provider
 
+/**
+ * Componente ToastViewport
+ * Contenedor para los toasts
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ToastViewport de Radix UI
+ */
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
@@ -22,6 +41,10 @@ const ToastViewport = React.forwardRef<
 ))
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
+/**
+ * Definición de variantes del toast
+ * @property variant - Variante visual del toast (default, destructive)
+ */
 const toastVariants = cva(
   "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
   {
@@ -38,6 +61,13 @@ const toastVariants = cva(
   }
 )
 
+/**
+ * Componente Toast
+ * Notificación toast con variantes
+ * @param className - Clases CSS adicionales
+ * @param variant - Variante visual del toast
+ * @param props - Propiedades del componente Toast de Radix UI
+ */
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
@@ -53,6 +83,12 @@ const Toast = React.forwardRef<
 })
 Toast.displayName = ToastPrimitives.Root.displayName
 
+/**
+ * Componente ToastAction
+ * Acción del toast
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ToastAction de Radix UI
+ */
 const ToastAction = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Action>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
@@ -68,6 +104,12 @@ const ToastAction = React.forwardRef<
 ))
 ToastAction.displayName = ToastPrimitives.Action.displayName
 
+/**
+ * Componente ToastClose
+ * Botón para cerrar el toast
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ToastClose de Radix UI
+ */
 const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Close>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>
@@ -86,6 +128,12 @@ const ToastClose = React.forwardRef<
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
 
+/**
+ * Componente ToastTitle
+ * Título del toast
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ToastTitle de Radix UI
+ */
 const ToastTitle = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Title>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title>
@@ -98,6 +146,12 @@ const ToastTitle = React.forwardRef<
 ))
 ToastTitle.displayName = ToastPrimitives.Title.displayName
 
+/**
+ * Componente ToastDescription
+ * Descripción del toast
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ToastDescription de Radix UI
+ */
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>

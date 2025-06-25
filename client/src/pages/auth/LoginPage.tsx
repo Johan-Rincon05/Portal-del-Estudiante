@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -13,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
   const { user, isLoading, loginMutation } = useAuth();
+  const [, setLocation] = useLocation();
   const [rememberMe, setRememberMe] = useState(false);
 
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -29,14 +31,17 @@ const LoginPage = () => {
 
   // Redirect if already logged in
   if (user && !isLoading) {
-    const userRole = user.user_metadata?.role || 'estudiante';
+    const userRole = user.role || 'estudiante';
     
     if (userRole === 'superuser') {
-      return <Navigate to="/admin/users" replace />;
+      setLocation('/admin/users');
+      return null;
     } else if (userRole === 'admin') {
-      return <Navigate to="/admin/students" replace />;
+      setLocation('/admin/students');
+      return null;
     } else {
-      return <Navigate to="/profile" replace />;
+      setLocation('/profile');
+      return null;
     }
   }
 

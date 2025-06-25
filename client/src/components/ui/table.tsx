@@ -1,7 +1,19 @@
+/**
+ * Componentes de tabla
+ * Este archivo contiene los componentes necesarios para crear tablas
+ * en el Portal del Estudiante, utilizando Tailwind CSS para el estilo.
+ */
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente Table
+ * Contenedor principal para tablas
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de table
+ */
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
@@ -16,6 +28,12 @@ const Table = React.forwardRef<
 ))
 Table.displayName = "Table"
 
+/**
+ * Componente TableHeader
+ * Encabezado de la tabla
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de thead
+ */
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -24,6 +42,12 @@ const TableHeader = React.forwardRef<
 ))
 TableHeader.displayName = "TableHeader"
 
+/**
+ * Componente TableBody
+ * Cuerpo de la tabla
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de tbody
+ */
 const TableBody = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -36,6 +60,12 @@ const TableBody = React.forwardRef<
 ))
 TableBody.displayName = "TableBody"
 
+/**
+ * Componente TableFooter
+ * Pie de la tabla
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de tfoot
+ */
 const TableFooter = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -51,6 +81,12 @@ const TableFooter = React.forwardRef<
 ))
 TableFooter.displayName = "TableFooter"
 
+/**
+ * Componente TableRow
+ * Fila de la tabla
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de tr
+ */
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
@@ -66,6 +102,12 @@ const TableRow = React.forwardRef<
 ))
 TableRow.displayName = "TableRow"
 
+/**
+ * Componente TableHead
+ * Celda de encabezado
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de th
+ */
 const TableHead = React.forwardRef<
   HTMLTableCellElement,
   React.ThHTMLAttributes<HTMLTableCellElement>
@@ -81,6 +123,12 @@ const TableHead = React.forwardRef<
 ))
 TableHead.displayName = "TableHead"
 
+/**
+ * Componente TableCell
+ * Celda de datos
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de td
+ */
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
@@ -93,6 +141,12 @@ const TableCell = React.forwardRef<
 ))
 TableCell.displayName = "TableCell"
 
+/**
+ * Componente TableCaption
+ * Título de la tabla
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades HTML estándar de caption
+ */
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,
   React.HTMLAttributes<HTMLTableCaptionElement>

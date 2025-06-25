@@ -1,13 +1,24 @@
+/**
+ * Rutas de gestión de perfiles
+ * Este archivo maneja todas las operaciones relacionadas con los perfiles
+ * de usuario en el Portal del Estudiante.
+ */
+
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { profiles, documents, requests } from '@shared/schema';
 import db from '../db';
-import { requireAuth } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/profiles - Obtener todos los perfiles (admin)
-router.get('/', requireAuth, async (req, res) => {
+/**
+ * Obtener todos los perfiles
+ * GET /
+ * @requires Autenticación
+ * @returns Lista de perfiles con conteos de documentos y solicitudes pendientes
+ */
+router.get('/', authenticateToken, async (req, res) => {
   try {
     // Obtener todos los perfiles
     const allProfiles = await db.select().from(profiles);
@@ -51,9 +62,13 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/profiles/:id - Obtener un perfil específico
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID de perfil inválido' });
+    }
 
     // Obtener el perfil
     const [profile] = await db.select().from(profiles).where(eq(profiles.id, id));
@@ -91,9 +106,14 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // PUT /api/profiles/:id - Actualizar un perfil
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID de perfil inválido' });
+    }
+    
     const updates = req.body;
 
     // Verificar que el perfil existe

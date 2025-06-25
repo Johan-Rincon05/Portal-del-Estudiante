@@ -1,20 +1,26 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Document } from '@/types';
-import { apiRequest } from '@/lib/query-client';
+import { apiRequest, queryClient } from '@/lib/query-client';
 import { toast } from 'sonner';
 
-export function useDocuments() {
+export function useDocuments(userId?: number) {
   const documentsQuery = useQuery<Document[]>({
-    queryKey: ['documents'],
-    queryFn: () => apiRequest('/documents'),
+    queryKey: ['/api/documents', userId],
+    queryFn: () => apiRequest(`/api/documents${userId ? `?userId=${userId}` : ''}`),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (data: { userId: number; type: string; file: File }) => {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', data.file);
+      formData.append('type', data.type);
+      formData.append('userId', data.userId.toString());
       
-      return apiRequest<Document>('/documents/upload', {
+      return apiRequest<Document>('/api/documents/upload', {
         method: 'POST',
         body: formData,
         headers: {
@@ -23,9 +29,17 @@ export function useDocuments() {
         },
       });
     },
-    onSuccess: () => {
+    onSuccess: (newDocument) => {
+      // Actualizar inmediatamente el cache
+      queryClient.setQueryData(['/api/documents', userId], (old: Document[] = []) => {
+        return [...old, newDocument];
+      });
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      
       toast.success('Documento subido exitosamente');
-      documentsQuery.refetch();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Error al subir el documento');
@@ -34,26 +48,43 @@ export function useDocuments() {
 
   const deleteMutation = useMutation({
     mutationFn: (documentId: string) =>
-      apiRequest(`/documents/${documentId}`, {
+      apiRequest(`/api/documents/${documentId}`, {
         method: 'DELETE',
       }),
-    onSuccess: () => {
+    onSuccess: (_, documentId) => {
+      // Actualizar inmediatamente el cache
+      queryClient.setQueryData(['/api/documents', userId], (old: Document[] = []) => {
+        return old.filter(doc => doc.id !== documentId);
+      });
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      
       toast.success('Documento eliminado exitosamente');
-      documentsQuery.refetch();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Error al eliminar el documento');
     },
   });
 
+  const getDocumentUrl = async (documentPath: string): Promise<string> => {
+    try {
+      const response = await apiRequest<{ url: string }>(`/api/documents/${documentPath}/url`);
+      return response.url;
+    } catch (error) {
+      throw new Error('No se pudo obtener la URL del documento');
+    }
+  };
+
   return {
     documents: documentsQuery.data ?? [],
     isLoading: documentsQuery.isLoading,
     isError: documentsQuery.isError,
     error: documentsQuery.error,
-    uploadDocument: uploadMutation.mutate,
-    deleteDocument: deleteMutation.mutate,
-    isUploading: uploadMutation.isPending,
-    isDeleting: deleteMutation.isPending,
+    uploadDocumentMutation: uploadMutation,
+    deleteDocumentMutation: deleteMutation,
+    getDocumentUrl,
+    refetch: documentsQuery.refetch,
   };
 }

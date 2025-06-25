@@ -204,17 +204,49 @@ export default function HomePage() {
               <div className="flex flex-col items-start gap-1 w-full">
                 <div className="flex items-center gap-2 text-foreground">
                   <MessageSquare className="h-5 w-5 text-primary transition-transform duration-300 group-hover:scale-110" />
-                  <span className="font-semibold group-hover:text-primary transition-colors duration-300">Nueva Solicitud</span>
+                  <span className="font-semibold group-hover:text-primary transition-colors duration-300">Ver Solicitudes</span>
                 </div>
                 <span className="text-sm text-foreground/70 group-hover:text-foreground transition-colors duration-300 text-left">
-                  Crea una nueva solicitud o consulta el estado de las existentes
+                  Revisa el estado de tus solicitudes y crea nuevas si es necesario
                 </span>
                 <ArrowRight className="w-5 h-5 text-primary/0 group-hover:text-primary transition-all duration-300 ml-auto transform translate-x-[-10px] group-hover:translate-x-0 opacity-0 group-hover:opacity-100" />
               </div>
             </Button>
           </div>
+
+          {/* Información adicional */}
+          <Card className="bg-card/60 backdrop-blur-sm border border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Información Importante</CardTitle>
+              <CardDescription>
+                Mantente al día con los requisitos y fechas importantes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Asegúrate de subir todos los documentos requeridos antes de la fecha límite.
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Revisa regularmente el estado de tus solicitudes para estar al tanto de cualquier actualización.
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Si tienes alguna pregunta, no dudes en crear una nueva solicitud de ayuda.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </StudentLayout>
   );
-}
+} 

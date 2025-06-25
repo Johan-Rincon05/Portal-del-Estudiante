@@ -1,3 +1,9 @@
+/**
+ * Rutas de gestión de solicitudes
+ * Este archivo maneja todas las operaciones relacionadas con las solicitudes
+ * de los estudiantes en el Portal del Estudiante.
+ */
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
@@ -6,13 +12,20 @@ import { requests } from '@shared/schema';
 
 const router = Router();
 
-// Schema para validar la respuesta a una solicitud
+/**
+ * Esquema de validación para la respuesta a una solicitud
+ */
 const responseSchema = z.object({
   response: z.string().min(1, "La respuesta es requerida"),
   status: z.enum(["en_proceso", "completada", "rechazada"])
 });
 
-// Obtener todas las solicitudes
+/**
+ * Obtener todas las solicitudes
+ * GET /
+ * @requires Autenticación
+ * @returns Lista de solicitudes (todas para admin, propias para estudiante)
+ */
 router.get('/', async (req, res) => {
   try {
     if (!req.isAuthenticated()) {
@@ -101,7 +114,12 @@ router.put('/:id/respond', async (req, res) => {
   }
 });
 
-// Obtener el conteo de solicitudes activas
+/**
+ * Obtener el conteo de solicitudes activas
+ * GET /active-count
+ * @requires Autenticación
+ * @returns Número de solicitudes activas del usuario
+ */
 router.get('/active-count', async (req, res) => {
   try {
     if (!req.isAuthenticated()) {

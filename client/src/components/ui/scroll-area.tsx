@@ -1,8 +1,22 @@
+/**
+ * Componente ScrollArea
+ * Este archivo contiene los componentes necesarios para crear áreas de desplazamiento personalizadas en el Portal del Estudiante,
+ * implementados con Radix UI y estilizados con Tailwind CSS.
+ */
+
+"use client"
+
 import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente ScrollArea
+ * Contenedor principal para áreas de desplazamiento
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente ScrollArea de Radix UI
+ */
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
@@ -21,6 +35,13 @@ const ScrollArea = React.forwardRef<
 ))
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
 
+/**
+ * Componente ScrollBar
+ * Barra de desplazamiento personalizada
+ * @param className - Clases CSS adicionales
+ * @param orientation - Orientación de la barra (vertical, horizontal)
+ * @param props - Propiedades del componente ScrollBar de Radix UI
+ */
 const ScrollBar = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>

@@ -1,10 +1,23 @@
+/**
+ * Componente Resizable
+ * Este archivo contiene el componente necesario para crear elementos redimensionables en el Portal del Estudiante,
+ * implementado con Radix UI y estilizado con Tailwind CSS.
+ */
+
 "use client"
 
+import * as React from "react"
 import { GripVertical } from "lucide-react"
 import * as ResizablePrimitive from "react-resizable-panels"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Componente ResizablePanelGroup
+ * Grupo de paneles redimensionables
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente PanelGroup de react-resizable-panels
+ */
 const ResizablePanelGroup = ({
   className,
   ...props
@@ -18,8 +31,21 @@ const ResizablePanelGroup = ({
   />
 )
 
+/**
+ * Componente ResizablePanel
+ * Panel individual redimensionable
+ * @param className - Clases CSS adicionales
+ * @param props - Propiedades del componente Panel de react-resizable-panels
+ */
 const ResizablePanel = ResizablePrimitive.Panel
 
+/**
+ * Componente ResizableHandle
+ * Mango para redimensionar paneles
+ * @param className - Clases CSS adicionales
+ * @param withHandle - Si es true, muestra un mango visual
+ * @param props - Propiedades del componente PanelResizeHandle de react-resizable-panels
+ */
 const ResizableHandle = ({
   withHandle,
   className,
@@ -36,7 +62,21 @@ const ResizableHandle = ({
   >
     {withHandle && (
       <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
-        <GripVertical className="h-2.5 w-2.5" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4"
+        >
+          <path d="M15 18H9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2Z" />
+          <path d="M12 12v.01" />
+        </svg>
       </div>
     )}
   </ResizablePrimitive.PanelResizeHandle>

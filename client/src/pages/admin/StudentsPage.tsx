@@ -15,6 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { AdminLayout } from '@/components/layouts/AdminLayout';
 
 const StudentsPage = () => {
   const { allProfiles, isLoading } = useProfiles();
@@ -59,7 +60,7 @@ const StudentsPage = () => {
   const uniqueCities = [...new Set(allProfiles?.map(profile => profile.city) || [])];
 
   return (
-    <>
+    <AdminLayout>
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-gray-900">Lista de Estudiantes</h2>
         <p className="text-sm text-gray-500">Gestiona los perfiles de estudiantes registrados</p>
@@ -277,7 +278,7 @@ const StudentsPage = () => {
           </div>
         )}
       </Card>
-    </>
+    </AdminLayout>
   );
 };
 

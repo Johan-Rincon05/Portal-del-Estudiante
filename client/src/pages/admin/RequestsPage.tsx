@@ -27,6 +27,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { AdminLayout } from '@/components/layouts/AdminLayout';
 
 const responseFormSchema = z.object({
   response: z.string().min(5, "Respuesta es requerida"),
@@ -127,7 +128,7 @@ const RequestsPage = () => {
   };
 
   return (
-    <>
+    <AdminLayout>
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-gray-900">Gestión de Solicitudes</h2>
         <p className="text-sm text-gray-500">Administra todas las solicitudes recibidas</p>
@@ -384,7 +385,7 @@ const RequestsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </AdminLayout>
   );
 };
 
