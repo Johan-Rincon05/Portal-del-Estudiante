@@ -1,3 +1,9 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
 // server/index.ts
 import "dotenv/config";
 import express2 from "express";
@@ -7,25 +13,52 @@ import cors from "cors";
 import { createServer } from "http";
 import dotenv from "dotenv";
 
-// server/auth.ts
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import session2 from "express-session";
-import bcrypt from "bcrypt";
-import { scrypt } from "crypto";
-import { promisify } from "util";
-
 // shared/schema.ts
-import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric } from "drizzle-orm/pg-core";
+var schema_exports = {};
+__export(schema_exports, {
+  DEFAULT_ROLES: () => DEFAULT_ROLES,
+  PERMISSIONS: () => PERMISSIONS,
+  createRequestSchema: () => createRequestSchema,
+  createUserSchema: () => createUserSchema,
+  documents: () => documents,
+  insertDocumentSchema: () => insertDocumentSchema,
+  insertInstallmentObservationSchema: () => insertInstallmentObservationSchema,
+  insertInstallmentSchema: () => insertInstallmentSchema,
+  insertPaymentSchema: () => insertPaymentSchema,
+  insertProfileSchema: () => insertProfileSchema,
+  insertProgramSchema: () => insertProgramSchema,
+  insertRequestSchema: () => insertRequestSchema,
+  insertUniversityDataSchema: () => insertUniversityDataSchema,
+  insertUniversitySchema: () => insertUniversitySchema,
+  insertUserSchema: () => insertUserSchema,
+  installmentObservations: () => installmentObservations,
+  installments: () => installments,
+  loginSchema: () => loginSchema,
+  payments: () => payments,
+  profiles: () => profiles,
+  programs: () => programs,
+  registerUserSchema: () => registerUserSchema,
+  requests: () => requests,
+  roles: () => roles,
+  universities: () => universities,
+  universityData: () => universityData,
+  universityDataFormSchema: () => universityDataFormSchema,
+  updateRequestSchema: () => updateRequestSchema,
+  users: () => users
+});
+import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("estudiante"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
+  username: varchar("username", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().default("estudiante"),
+  isActive: boolean("is_active").notNull().default(true),
+  permissions: jsonb("permissions").$type().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 var profiles = pgTable("profiles", {
   id: serial("id").primaryKey(),
@@ -132,6 +165,7 @@ var insertUniversitySchema = createInsertSchema(universities).omit({ id: true })
 var insertProgramSchema = createInsertSchema(programs).omit({ id: true });
 var registerUserSchema = z.object({
   username: z.string().min(3, "Nombre de usuario es requerido"),
+  email: z.string().email("Email inv\xE1lido"),
   password: z.string().min(6, "La contrase\xF1a debe tener al menos 6 caracteres"),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
@@ -144,6 +178,7 @@ var loginSchema = z.object({
 });
 var createUserSchema = z.object({
   username: z.string().min(3, "Nombre de usuario es requerido"),
+  email: z.string().email("Email inv\xE1lido"),
   password: z.string().min(6, "La contrase\xF1a debe tener al menos 6 caracteres"),
   role: z.enum(["estudiante", "admin", "superuser"])
 });
@@ -174,75 +209,293 @@ var universityDataFormSchema = z.object({
   }),
   severancePaymentUsed: z.boolean()
 });
+var roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 50 }).notNull().unique(),
+  description: varchar("description", { length: 255 }),
+  permissions: jsonb("permissions").$type().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+var PERMISSIONS = {
+  // Permisos de usuario
+  USER_CREATE: "user:create",
+  USER_READ: "user:read",
+  USER_UPDATE: "user:update",
+  USER_DELETE: "user:delete",
+  // Permisos de documentos
+  DOCUMENT_CREATE: "document:create",
+  DOCUMENT_READ: "document:read",
+  DOCUMENT_UPDATE: "document:update",
+  DOCUMENT_DELETE: "document:delete",
+  // Permisos de administración
+  ADMIN_ACCESS: "admin:access",
+  ADMIN_MANAGE_USERS: "admin:manage_users",
+  ADMIN_MANAGE_ROLES: "admin:manage_roles",
+  // Permisos de superusuario
+  SUPERUSER_ACCESS: "superuser:access"
+};
+var DEFAULT_ROLES = {
+  estudiante: {
+    description: "Usuario b\xE1sico del sistema",
+    permissions: {
+      [PERMISSIONS.DOCUMENT_READ]: true
+    }
+  },
+  admin: {
+    description: "Administrador del sistema",
+    permissions: {
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.USER_UPDATE]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.DOCUMENT_UPDATE]: true,
+      [PERMISSIONS.ADMIN_ACCESS]: true,
+      [PERMISSIONS.ADMIN_MANAGE_USERS]: true
+    }
+  },
+  superuser: {
+    description: "Superusuario con acceso total",
+    permissions: {
+      [PERMISSIONS.USER_CREATE]: true,
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.USER_UPDATE]: true,
+      [PERMISSIONS.USER_DELETE]: true,
+      [PERMISSIONS.DOCUMENT_CREATE]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.DOCUMENT_UPDATE]: true,
+      [PERMISSIONS.DOCUMENT_DELETE]: true,
+      [PERMISSIONS.ADMIN_ACCESS]: true,
+      [PERMISSIONS.ADMIN_MANAGE_USERS]: true,
+      [PERMISSIONS.ADMIN_MANAGE_ROLES]: true,
+      [PERMISSIONS.SUPERUSER_ACCESS]: true
+    }
+  }
+};
 
 // server/storage.ts
 import session from "express-session";
-import createMemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
-import { eq, and, or } from "drizzle-orm";
-
-// server/db.ts
-import pg from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { config } from "dotenv";
-config();
-console.log("Variables de entorno:", {
-  DATABASE_URL: process.env.DATABASE_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL no est\xE1 definida en las variables de entorno");
-}
-var pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
-});
-var db = drizzle(pool);
-var db_default = db;
-
-// server/storage.ts
-var MemoryStore = createMemoryStore(session);
+import { eq, and, or, desc, count } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+var connectionString = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/portal_estudiante";
+var client = postgres(connectionString);
+var db = drizzle(client);
 var PgSessionStore = connectPgSimple(session);
-var DatabaseStorage = class {
-  sessionStore;
-  constructor() {
-    this.sessionStore = new PgSessionStore({
-      createTableIfMissing: true
-    });
-  }
-  // User methods
-  async getUser(id) {
-    const [user] = await db_default.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-  async getUserByUsername(username) {
-    const [user] = await db_default.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-  async createUser(insertUser) {
-    const [user] = await db_default.insert(users).values({
-      ...insertUser,
-      role: insertUser.role || "estudiante"
+var storage = {
+  /**
+   * Almacenamiento de sesiones
+   */
+  sessionStore: new PgSessionStore({
+    createTableIfMissing: true
+  }),
+  /**
+   * Operaciones de Usuario
+   */
+  /**
+   * Crea un nuevo usuario
+   * @param userData - Datos del usuario a crear
+   * @returns Usuario creado
+   */
+  async createUser(userData) {
+    const [user] = await db.insert(users).values({
+      ...userData,
+      permissions: userData.permissions || {}
     }).returning();
     return user;
-  }
-  // Request methods
+  },
+  /**
+   * Obtiene un usuario por su ID
+   * @param id - ID del usuario
+   * @returns Usuario encontrado o undefined
+   */
+  async getUser(id) {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || null;
+  },
+  /**
+   * Obtiene un usuario por su nombre de usuario
+   * @param username - Nombre de usuario
+   * @returns Usuario encontrado o undefined
+   */
+  async getUserByUsername(username) {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || null;
+  },
+  /**
+   * Obtiene un usuario por su email
+   * @param email - Email del usuario
+   * @returns Usuario encontrado o undefined
+   */
+  async getUserByEmail(email) {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || null;
+  },
+  /**
+   * Actualiza los datos de un usuario
+   * @param id - ID del usuario
+   * @param updates - Datos a actualizar
+   * @returns Usuario actualizado
+   */
+  async updateUser(id, updates) {
+    const [user] = await db.update(users).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, id)).returning();
+    return user || null;
+  },
+  /**
+   * Elimina un usuario
+   * @param id - ID del usuario
+   */
+  async deleteUser(id) {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return result.length > 0;
+  },
+  /**
+   * Lista usuarios con filtros opcionales
+   * @param filters - Filtros para la búsqueda
+   * @returns Lista de usuarios
+   */
+  async listUsers(filters) {
+    let query = db.select().from(users);
+    if (filters) {
+      const conditions = [];
+      if (filters.role) conditions.push(eq(users.role, filters.role));
+      if (filters.isActive !== void 0) conditions.push(eq(users.isActive, filters.isActive));
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+    return await query;
+  },
+  /**
+   * Operaciones de Roles
+   */
+  /**
+   * Crea un nuevo rol
+   * @param roleData - Datos del rol a crear
+   * @returns Rol creado
+   */
+  async createRole(roleData) {
+    const [role] = await db.insert(roles).values(roleData).returning();
+    return role;
+  },
+  /**
+   * Obtiene un rol por su nombre
+   * @param name - Nombre del rol
+   * @returns Rol encontrado o undefined
+   */
+  async getRole(name) {
+    const [role] = await db.select().from(roles).where(eq(roles.name, name));
+    return role;
+  },
+  /**
+   * Actualiza los datos de un rol
+   * @param name - Nombre del rol
+   * @param roleData - Datos a actualizar
+   * @returns Rol actualizado
+   */
+  async updateRole(name, roleData) {
+    const [role] = await db.update(roles).set({ ...roleData, updatedAt: /* @__PURE__ */ new Date() }).where(eq(roles.name, name)).returning();
+    return role;
+  },
+  /**
+   * Elimina un rol
+   * @param name - Nombre del rol
+   */
+  async deleteRole(name) {
+    await db.delete(roles).where(eq(roles.name, name));
+  },
+  /**
+   * Lista todos los roles
+   * @returns Lista de roles
+   */
+  async listRoles() {
+    return db.select().from(roles);
+  },
+  /**
+   * Operaciones de Permisos
+   */
+  /**
+   * Obtiene los permisos de un usuario
+   * @param userId - ID del usuario
+   * @returns Permisos del usuario
+   */
+  async getUserPermissions(userId) {
+    const user = await this.getUser(userId);
+    if (!user) return {};
+    return {
+      ...DEFAULT_ROLES[user.role]?.permissions,
+      ...user.permissions
+    };
+  },
+  /**
+   * Actualiza los permisos de un usuario
+   * @param userId - ID del usuario
+   * @param permissions - Nuevos permisos
+   * @returns Usuario actualizado
+   */
+  async updateUserPermissions(userId, permissions) {
+    const [user] = await db.update(users).set({ permissions, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, userId)).returning();
+    return user;
+  },
+  /**
+   * Inicializa los roles por defecto en el sistema
+   */
+  async initializeDefaultRoles() {
+    for (const [roleName, roleData] of Object.entries(DEFAULT_ROLES)) {
+      const existingRole = await this.getRole(roleName);
+      if (!existingRole) {
+        await this.createRole({
+          name: roleName,
+          description: roleData.description,
+          permissions: roleData.permissions
+        });
+      }
+    }
+  },
+  /**
+   * Operaciones de Solicitudes
+   */
+  /**
+   * Obtiene todas las solicitudes
+   * @returns Lista de solicitudes
+   */
   async getAllRequests() {
-    return await db_default.select().from(requests).orderBy(requests.createdAt);
-  }
+    return await db.select().from(requests).orderBy(requests.createdAt);
+  },
+  /**
+   * Obtiene las solicitudes de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de solicitudes del usuario
+   */
   async getRequestsByUserId(userId) {
-    return await db_default.select().from(requests).where(eq(requests.userId, userId));
-  }
+    return await db.select().from(requests).where(eq(requests.userId, userId));
+  },
+  /**
+   * Crea una nueva solicitud
+   * @param insertRequest - Datos de la solicitud
+   * @returns Solicitud creada
+   */
   async createRequest(insertRequest) {
-    const [request] = await db_default.insert(requests).values(insertRequest).returning();
+    const [request] = await db.insert(requests).values(insertRequest).returning();
     return request;
-  }
+  },
+  /**
+   * Actualiza una solicitud
+   * @param id - ID de la solicitud
+   * @param updateData - Datos a actualizar
+   * @returns Solicitud actualizada
+   */
   async updateRequest(id, updateData) {
-    const [request] = await db_default.update(requests).set(updateData).where(eq(requests.id, id)).returning();
+    const [request] = await db.update(requests).set(updateData).where(eq(requests.id, id)).returning();
     return request;
-  }
+  },
+  /**
+   * Obtiene el número de solicitudes activas de un usuario
+   * @param userId - ID del usuario
+   * @returns Número de solicitudes activas
+   */
   async getActiveRequestsCount(userId) {
-    const activeRequests = await db_default.select().from(requests).where(
+    const activeRequests = await db.select().from(requests).where(
       and(
         eq(requests.userId, userId),
         or(
@@ -252,203 +505,177 @@ var DatabaseStorage = class {
       )
     );
     return activeRequests.length;
-  }
-  async getAllStudentsWithDocuments() {
-    const studentsWithDocs = await db_default.select({
+  },
+  /**
+   * Operaciones de Perfiles
+   */
+  /**
+   * Obtiene el perfil de un usuario
+   * @param userId - ID del usuario
+   * @returns Perfil del usuario
+   */
+  async getProfile(userId) {
+    const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
+    return profile || null;
+  },
+  /**
+   * Crea un nuevo perfil para un usuario
+   * @param profileData - Datos del perfil
+   * @returns Perfil creado
+   */
+  async createProfile(profileData) {
+    const [profile] = await db.insert(profiles).values(profileData).returning();
+    return profile;
+  },
+  /**
+   * Actualiza el perfil de un usuario
+   * @param userId - ID del usuario
+   * @param updates - Datos a actualizar
+   * @returns Perfil actualizado
+   */
+  async updateProfile(userId, updates) {
+    const [profile] = await db.update(profiles).set(updates).where(eq(profiles.userId, userId)).returning();
+    return profile || null;
+  },
+  /**
+   * Operaciones de Documentos
+   */
+  /**
+   * Obtiene documentos de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de documentos
+   */
+  async getDocuments(userId) {
+    return await db.select().from(documents).where(eq(documents.userId, userId));
+  },
+  /**
+   * Obtiene un documento específico
+   * @param id - ID del documento
+   * @returns Documento encontrado o null
+   */
+  async getDocument(id) {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document || null;
+  },
+  /**
+   * Crea un nuevo documento
+   * @param documentData - Datos del documento
+   * @returns Documento creado
+   */
+  async createDocument(documentData) {
+    const [document] = await db.insert(documents).values(documentData).returning();
+    return document;
+  },
+  /**
+   * Elimina un documento
+   * @param id - ID del documento
+   * @param userId - ID del usuario propietario
+   * @returns true si se eliminó correctamente
+   */
+  async deleteDocument(id, userId) {
+    const result = await db.delete(documents).where(and(eq(documents.id, id), eq(documents.userId, userId)));
+    return result.length > 0;
+  },
+  /**
+   * Operaciones de Universidades
+   */
+  /**
+   * Obtiene la lista de universidades
+   * @returns Lista de universidades
+   */
+  async getUniversities() {
+    return await db.select().from(universities);
+  },
+  /**
+   * Obtiene la lista de programas de una universidad
+   * @param universityId - ID de la universidad
+   * @returns Lista de programas
+   */
+  async getPrograms(universityId) {
+    return await db.select().from(programs).where(eq(programs.universityId, universityId));
+  },
+  /**
+   * Operaciones de Datos Universitarios
+   */
+  /**
+   * Obtiene los datos universitarios de un usuario
+   * @param userId - ID del usuario
+   * @returns Datos universitarios del usuario
+   */
+  async getUniversityData(userId) {
+    const [data] = await db.select().from(universityData).where(eq(universityData.userId, userId));
+    return data || null;
+  },
+  /**
+   * Crea nuevos datos universitarios para un usuario
+   * @param data - Datos universitarios
+   * @returns Datos universitarios creados
+   */
+  async createUniversityData(data) {
+    const [newUniversityData] = await db.insert(universityData).values(data).returning();
+    return newUniversityData;
+  },
+  /**
+   * Actualiza los datos universitarios de un usuario
+   * @param userId - ID del usuario
+   * @param updates - Datos a actualizar
+   * @returns Datos universitarios actualizados
+   */
+  async updateUniversityData(userId, updates) {
+    const [data] = await db.update(universityData).set(updates).where(eq(universityData.userId, userId)).returning();
+    return data || null;
+  },
+  /**
+   * Operaciones de Usuarios
+   */
+  /**
+   * Obtiene la lista de todos los usuarios
+   * @returns Lista de usuarios
+   */
+  async getAllUsers() {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  },
+  /**
+   * Obtiene la lista de todos los usuarios con perfiles
+   * @returns Lista de usuarios con perfiles
+   */
+  async getAllUsersWithProfiles() {
+    const result = await db.select({
       id: users.id,
       username: users.username,
+      email: users.email,
       role: users.role,
-      fullName: profiles.fullName,
-      documentNumber: profiles.documentNumber,
-      document: documents
-    }).from(users).leftJoin(profiles, eq(users.id, profiles.userId)).leftJoin(documents, eq(users.id, documents.userId)).where(eq(users.role, "student"));
-    const studentsMap = /* @__PURE__ */ new Map();
-    for (const row of studentsWithDocs) {
-      const { document: doc, ...student } = row;
-      if (!studentsMap.has(student.id)) {
-        studentsMap.set(student.id, {
-          ...student,
-          documents: doc ? [doc] : []
-        });
-      } else if (doc) {
-        studentsMap.get(student.id).documents.push(doc);
-      }
-    }
-    return Array.from(studentsMap.values());
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+      profile: profiles
+    }).from(users).leftJoin(profiles, eq(users.id, profiles.userId)).orderBy(desc(users.createdAt));
+    return result.map((row) => ({
+      ...row,
+      profile: row.profile || null
+    }));
+  },
+  /**
+   * Obtiene la lista de todos los estudiantes con documentos
+   * @returns Lista de estudiantes con documentos
+   */
+  async getAllStudentsWithDocuments() {
+    const result = await db.select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+      profile: profiles,
+      documentsCount: count(documents.id)
+    }).from(users).leftJoin(profiles, eq(users.id, profiles.userId)).leftJoin(documents, eq(users.id, documents.userId)).where(eq(users.role, "estudiante")).groupBy(users.id, profiles.id).orderBy(desc(users.createdAt));
+    return result.map((row) => ({
+      ...row,
+      profile: row.profile || null,
+      documentsCount: Number(row.documentsCount)
+    }));
   }
 };
-var storage = new DatabaseStorage();
-
-// server/auth.ts
-var scryptAsync = promisify(scrypt);
-async function hashPassword(password) {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(password, salt);
-}
-async function comparePasswords(supplied, stored) {
-  try {
-    if (stored.includes(".")) {
-      const [hash, salt] = stored.split(".");
-      const buf = await scryptAsync(supplied, salt, 64);
-      return buf.toString("hex") === hash;
-    }
-    return await bcrypt.compare(supplied, stored);
-  } catch (error) {
-    console.error("Error al comparar contrase\xF1as:", error);
-    return false;
-  }
-}
-function setupAuth(app2) {
-  const sessionSettings = {
-    secret: process.env.JWT_SECRET || "tu_clave_secreta_jwt",
-    resave: true,
-    saveUninitialized: true,
-    store: storage.sessionStore,
-    name: "sessionId",
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1e3,
-      // 24 horas
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/"
-    }
-  };
-  app2.set("trust proxy", 1);
-  app2.use(session2(sessionSettings));
-  app2.use(passport.initialize());
-  app2.use(passport.session());
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        console.log("Intento de inicio de sesi\xF3n para usuario:", username);
-        const user = await storage.getUserByUsername(username);
-        if (!user) {
-          console.log("Usuario no encontrado:", username);
-          return done(null, false, { message: "Usuario no encontrado" });
-        }
-        const passwordMatch = await comparePasswords(password, user.password);
-        console.log("Resultado de comparaci\xF3n de contrase\xF1a:", passwordMatch);
-        if (!passwordMatch) {
-          console.log("Contrase\xF1a incorrecta para usuario:", username);
-          return done(null, false, { message: "Contrase\xF1a incorrecta" });
-        }
-        console.log("Inicio de sesi\xF3n exitoso para usuario:", username);
-        return done(null, user);
-      } catch (error) {
-        console.error("Error en la estrategia de autenticaci\xF3n:", error);
-        return done(error);
-      }
-    })
-  );
-  passport.serializeUser((user, done) => {
-    console.log("Serializando usuario:", user.id);
-    done(null, user.id);
-  });
-  passport.deserializeUser(async (id, done) => {
-    try {
-      console.log("Deserializando usuario:", id);
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      console.error("Error al deserializar usuario:", error);
-      done(error);
-    }
-  });
-  app2.post("/api/login", (req, res, next) => {
-    console.log("Intento de inicio de sesi\xF3n:", req.body);
-    if (!req.body || !req.body.username || !req.body.password) {
-      return res.status(400).json({
-        error: "Se requieren usuario y contrase\xF1a"
-      });
-    }
-    passport.authenticate("local", (err, user, info) => {
-      if (err) {
-        console.error("Error de autenticaci\xF3n:", err);
-        return res.status(500).json({
-          error: "Error interno del servidor"
-        });
-      }
-      if (!user) {
-        console.log("Autenticaci\xF3n fallida:", info?.message);
-        return res.status(401).json({
-          error: info?.message || "Credenciales inv\xE1lidas"
-        });
-      }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Error al iniciar sesi\xF3n:", loginErr);
-          return res.status(500).json({
-            error: "Error al iniciar sesi\xF3n"
-          });
-        }
-        console.log("Inicio de sesi\xF3n exitoso para usuario:", user.username);
-        res.json({
-          id: user.id,
-          username: user.username,
-          role: user.role
-        });
-      });
-    })(req, res, next);
-  });
-  app2.post("/api/register", async (req, res) => {
-    try {
-      if (!req.body.username || !req.body.password) {
-        return res.status(400).json({
-          error: "Se requieren usuario y contrase\xF1a"
-        });
-      }
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).json({
-          error: "El nombre de usuario ya existe"
-        });
-      }
-      const hashedPassword = await hashPassword(req.body.password);
-      const user = await storage.createUser({
-        ...req.body,
-        password: hashedPassword
-      });
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Error al iniciar sesi\xF3n despu\xE9s del registro:", err);
-          return res.status(500).json({
-            error: "Error al iniciar sesi\xF3n"
-          });
-        }
-        res.status(201).json({
-          id: user.id,
-          username: user.username,
-          role: user.role
-        });
-      });
-    } catch (error) {
-      console.error("Error en el registro:", error);
-      res.status(500).json({
-        error: "Error al registrar el usuario"
-      });
-    }
-  });
-  app2.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error("Error al cerrar sesi\xF3n:", err);
-        return res.status(500).json({
-          error: "Error al cerrar sesi\xF3n"
-        });
-      }
-      res.json({ message: "Sesi\xF3n cerrada exitosamente" });
-    });
-  });
-  app2.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({
-        error: "No autenticado"
-      });
-    }
-    res.json(req.user);
-  });
-}
 
 // server/routes/documents.ts
 import { Router } from "express";
@@ -505,11 +732,11 @@ var s3Client = new S3Client({
 var router = Router();
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      "SELECT * FROM documents WHERE user_id = $1 ORDER BY created_at DESC",
-      [req.user.id]
-    );
-    res.json(rows);
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuario no autenticado" });
+    }
+    const documents2 = await storage.getDocuments(req.user.id);
+    res.json(documents2);
   } catch (error) {
     console.error("Error al obtener documentos:", error);
     res.status(500).json({ error: "Error al obtener documentos" });
@@ -517,12 +744,15 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 router.post("/", authenticateToken, async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuario no autenticado" });
+    }
     const document = documentSchema.parse(req.body);
-    const { rows } = await pool.query(
-      "INSERT INTO documents (user_id, name, type, size, url) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [req.user.id, document.name, document.type, document.size, document.url]
-    );
-    res.status(201).json(rows[0]);
+    const createdDocument = await storage.createDocument({
+      ...document,
+      userId: req.user.id
+    });
+    res.status(201).json(createdDocument);
   } catch (error) {
     if (error instanceof z3.ZodError) {
       res.status(400).json({ error: error.errors });
@@ -534,11 +764,15 @@ router.post("/", authenticateToken, async (req, res) => {
 });
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      "DELETE FROM documents WHERE id = $1 AND user_id = $2 RETURNING *",
-      [req.params.id, req.user.id]
-    );
-    if (rows.length === 0) {
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuario no autenticado" });
+    }
+    const documentId = parseInt(req.params.id);
+    if (isNaN(documentId)) {
+      return res.status(400).json({ error: "ID de documento inv\xE1lido" });
+    }
+    const deleted = await storage.deleteDocument(documentId, req.user.id);
+    if (!deleted) {
       return res.status(404).json({ error: "Documento no encontrado" });
     }
     res.json({ message: "Documento eliminado exitosamente" });
@@ -552,16 +786,13 @@ router.get("/:id/url", async (req, res) => {
   if (isNaN(id)) {
     return res.status(400).send({ error: "Invalid document ID" });
   }
-  const doc = await pool.query(
-    "SELECT * FROM documents WHERE id = $1",
-    [id]
-  );
-  if (doc.rows.length === 0) {
+  const doc = await storage.getDocument(id);
+  if (doc === null) {
     return res.status(404).send({ error: "Document not found" });
   }
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
-    Key: doc.rows[0].url
+    Key: doc.url
   });
   const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
   res.send({ url });
@@ -571,16 +802,13 @@ router.get("/:id/download", async (req, res) => {
   if (isNaN(id)) {
     return res.status(400).send({ error: "Invalid document ID" });
   }
-  const doc = await pool.query(
-    "SELECT * FROM documents WHERE id = $1",
-    [id]
-  );
-  if (doc.rows.length === 0) {
+  const doc = await storage.getDocument(id);
+  if (doc === null) {
     return res.status(404).send({ error: "Document not found" });
   }
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
-    Key: doc.rows[0].url
+    Key: doc.url
   });
   const url = await getSignedUrl(s3Client, command, { expiresIn: 60 });
   res.send({ url });
@@ -666,8 +894,8 @@ router2.get("/active-count", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "No autenticado" });
     }
-    const count = await storage.getActiveRequestsCount(req.user.id);
-    res.json({ count });
+    const count2 = await storage.getActiveRequestsCount(req.user.id);
+    res.json({ count: count2 });
   } catch (error) {
     console.error("Error al obtener conteo de solicitudes:", error);
     res.status(500).json({ error: "Error al obtener el conteo de solicitudes" });
@@ -675,10 +903,21 @@ router2.get("/active-count", async (req, res) => {
 });
 var requests_default = router2;
 
+// server/utils.ts
+import bcrypt from "bcrypt";
+async function hashPassword(password) {
+  try {
+    const salt = await bcrypt.genSalt(10);
+    return bcrypt.hash(password, salt);
+  } catch (error) {
+    console.error("Error al hashear contrase\xF1a:", error);
+    throw new Error("Error al procesar la contrase\xF1a");
+  }
+}
+
 // server/routes.ts
 dotenv.config();
 async function registerRoutes(app2) {
-  setupAuth(app2);
   app2.use("/api/documents", documents_default);
   app2.use("/api/requests", requests_default);
   app2.get("/api/health", (req, res) => {
@@ -687,19 +926,48 @@ async function registerRoutes(app2) {
   app2.post("/api/admin/users", async (req, res) => {
     try {
       if (!req.isAuthenticated() || req.user?.role !== "admin" && req.user?.role !== "superuser") {
-        return res.status(403).json({ error: "Not authorized" });
+        return res.status(403).json({
+          error: "No autorizado",
+          details: "Se requieren permisos de administrador o superusuario"
+        });
       }
       const { username, password, role } = req.body;
       if (!username || !password || !role) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return res.status(400).json({
+          error: "Faltan campos requeridos",
+          details: "Se requieren username, password y role"
+        });
       }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(username)) {
+        return res.status(400).json({
+          error: "Formato de email inv\xE1lido",
+          details: "El username debe ser un email v\xE1lido"
+        });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: "Contrase\xF1a d\xE9bil",
+          details: "La contrase\xF1a debe tener al menos 8 caracteres"
+        });
+      }
+      if (!["estudiante", "admin", "superuser"].includes(role)) {
+        return res.status(400).json({
+          error: "Rol inv\xE1lido",
+          details: "El rol debe ser uno de: estudiante, admin, superuser"
+        });
+      }
+      const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         username,
-        password,
-        role
+        password: hashedPassword,
+        role,
+        email: username,
+        isActive: true,
+        permissions: {}
       });
-      res.json({
-        message: "User created successfully",
+      res.status(201).json({
+        message: "Usuario creado exitosamente",
         user: {
           id: user.id,
           username: user.username,
@@ -707,8 +975,55 @@ async function registerRoutes(app2) {
         }
       });
     } catch (error) {
-      console.error("Admin user creation error:", error);
+      console.error("Error al crear usuario:", error);
+      res.status(500).json({ error: "Error al crear usuario" });
+    }
+  });
+  app2.post("/api/admin/create-example-users", async (req, res) => {
+    try {
+      const exampleUsers = [
+        { username: "estudiante1", password: "password123", role: "estudiante" },
+        { username: "admin1", password: "password123", role: "admin" },
+        { username: "superuser1", password: "password123", role: "superuser" }
+      ];
+      const createdUsers = await Promise.all(
+        exampleUsers.map(async (user) => {
+          const hashedPassword = await hashPassword(user.password);
+          return await storage.createUser({
+            ...user,
+            password: hashedPassword,
+            email: user.username,
+            isActive: true,
+            permissions: {}
+          });
+        })
+      );
+      res.json({ message: "Usuarios de ejemplo creados exitosamente", users: createdUsers });
+    } catch (error) {
+      console.error("Error al crear usuarios de ejemplo:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/users", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin" && req.user?.role !== "superuser") {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      const usersWithProfiles = await storage.getAllUsersWithProfiles();
+      const result = usersWithProfiles.map((user) => ({
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        createdAt: user.createdAt,
+        fullName: user.profile?.fullName || null,
+        email: user.profile?.email || null,
+        documentType: user.profile?.documentType || null,
+        documentNumber: user.profile?.documentNumber || null
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Error al obtener usuarios:", error);
+      res.status(500).json({ error: "Error al obtener usuarios" });
     }
   });
   const httpServer = createServer(app2);
@@ -733,12 +1048,11 @@ var vite_config_default = defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared"),
-      "@assets": path.resolve(__dirname, "attached_assets")
+      "@shared": path.resolve(__dirname, "shared")
     }
   },
   build: {
-    outDir: "../dist",
+    outDir: path.resolve(__dirname, "dist/client"),
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -748,7 +1062,10 @@ var vite_config_default = defineConfig({
   },
   server: {
     port: 3e3,
-    host: true
+    host: true,
+    proxy: {
+      "/api": "http://localhost:5000"
+    }
   }
 });
 
@@ -780,7 +1097,10 @@ async function setupVite(app2, server) {
         process.exit(1);
       }
     },
-    server: serverOptions,
+    server: {
+      ...serverOptions,
+      allowedHosts: true
+    },
     appType: "custom"
   });
   app2.use(vite.middlewares);
@@ -821,11 +1141,32 @@ function serveStatic(app2) {
 
 // server/routes/universities.ts
 import { Router as Router3 } from "express";
+
+// server/db.ts
+import pg from "pg";
+import { drizzle as drizzle2 } from "drizzle-orm/node-postgres";
+import { config } from "dotenv";
+config();
+console.log("Variables de entorno:", {
+  DATABASE_URL: process.env.DATABASE_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL no est\xE1 definida en las variables de entorno");
+}
+var pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+});
+var db2 = drizzle2(pool, { schema: schema_exports });
+var db_default = db2;
+
+// server/routes/universities.ts
 import { eq as eq2 } from "drizzle-orm";
 var router3 = Router3();
 router3.get("/", async (req, res) => {
   try {
-    const allUniversities = await db.select().from(universities);
+    const allUniversities = await db2.select().from(universities);
     res.json(allUniversities);
   } catch (error) {
     console.error("Error al obtener universidades:", error);
@@ -835,7 +1176,7 @@ router3.get("/", async (req, res) => {
 router3.get("/:universityId/programs", async (req, res) => {
   try {
     const { universityId } = req.params;
-    const universityPrograms = await db.select().from(programs).where(eq2(programs.universityId, parseInt(universityId)));
+    const universityPrograms = await db2.select().from(programs).where(eq2(programs.universityId, parseInt(universityId)));
     res.json(universityPrograms);
   } catch (error) {
     console.error("Error al obtener programas:", error);
@@ -851,7 +1192,7 @@ var router4 = Router4();
 router4.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const data = await db.select().from(universityData).where(eq3(universityData.userId, parseInt(userId))).limit(1);
+    const data = await db2.select().from(universityData).where(eq3(universityData.userId, parseInt(userId))).limit(1);
     res.json(data[0] || null);
   } catch (error) {
     console.error("Error al obtener datos universitarios:", error);
@@ -861,12 +1202,12 @@ router4.get("/:userId", async (req, res) => {
 router4.post("/", async (req, res) => {
   try {
     const { userId, ...data } = req.body;
-    const existingData = await db.select().from(universityData).where(eq3(universityData.userId, userId)).limit(1);
+    const existingData = await db2.select().from(universityData).where(eq3(universityData.userId, userId)).limit(1);
     let result;
     if (existingData.length > 0) {
-      result = await db.update(universityData).set(data).where(eq3(universityData.userId, userId)).returning();
+      result = await db2.update(universityData).set(data).where(eq3(universityData.userId, userId)).returning();
     } else {
-      result = await db.insert(universityData).values({
+      result = await db2.insert(universityData).values({
         userId,
         ...data
       }).returning();
@@ -879,21 +1220,449 @@ router4.post("/", async (req, res) => {
 });
 var university_data_default = router4;
 
+// server/routes/auth.ts
+import { Router as Router5 } from "express";
+import passport2 from "passport";
+
+// server/auth.ts
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import session2 from "express-session";
+import bcrypt2 from "bcrypt";
+import jwt2 from "jsonwebtoken";
+import { z as z5 } from "zod";
+var JWT_SECRET = process.env.JWT_SECRET || "tu_clave_secreta_muy_segura";
+var JWT_EXPIRES_IN = "24h";
+var generateToken = (user) => {
+  return jwt2.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+};
+var hashPassword2 = async (password) => {
+  const salt = await bcrypt2.genSalt(10);
+  return bcrypt2.hash(password, salt);
+};
+var comparePasswords = async (password, hash) => {
+  return bcrypt2.compare(password, hash);
+};
+var registerSchema = z5.object({
+  username: z5.string().min(3).max(50),
+  email: z5.string().email(),
+  password: z5.string().min(6),
+  role: z5.enum(["estudiante", "admin", "superuser"]).optional()
+});
+var loginSchema2 = z5.object({
+  username: z5.string(),
+  password: z5.string()
+});
+function setupAuth(app2) {
+  const sessionSettings = {
+    secret: process.env.JWT_SECRET || "tu_clave_secreta_jwt",
+    resave: false,
+    saveUninitialized: false,
+    store: storage.sessionStore,
+    name: "sessionId",
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1e3,
+      // 24 horas
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/"
+    }
+  };
+  app2.set("trust proxy", 1);
+  app2.use(session2(sessionSettings));
+  app2.use(passport.initialize());
+  app2.use(passport.session());
+  app2.use((req, res, next) => {
+    console.log("Estado de la sesi\xF3n:", {
+      isAuthenticated: req.isAuthenticated(),
+      sessionID: req.sessionID,
+      user: req.user
+    });
+    next();
+  });
+  passport.use(
+    new LocalStrategy(async (username, password, done) => {
+      try {
+        console.log("=== INICIO DE PROCESO DE AUTENTICACI\xD3N ===");
+        console.log("Intento de inicio de sesi\xF3n para usuario:", username);
+        const user = await storage.getUserByUsername(username);
+        if (!user) {
+          console.log("Usuario no encontrado:", username);
+          return done(null, false, { message: "Usuario no encontrado" });
+        }
+        const passwordMatch = await comparePasswords(password, user.password);
+        if (!passwordMatch) {
+          console.log("Contrase\xF1a incorrecta para usuario:", username);
+          return done(null, false, { message: "Contrase\xF1a incorrecta" });
+        }
+        console.log("Inicio de sesi\xF3n exitoso para usuario:", username);
+        return done(null, user);
+      } catch (error) {
+        console.error("Error en la estrategia de autenticaci\xF3n:", error);
+        return done(error);
+      }
+    })
+  );
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user);
+    } catch (error) {
+      done(error);
+    }
+  });
+  app2.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        return res.status(500).json({ error: "Error interno del servidor" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Credenciales inv\xE1lidas" });
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ error: "Error al iniciar sesi\xF3n" });
+        }
+        const token = generateToken(user);
+        res.json({
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          token
+          // Incluir el token en la respuesta
+        });
+      });
+    })(req, res, next);
+  });
+  app2.post("/api/register", async (req, res) => {
+    try {
+      const { username, email, password, role } = registerSchema.parse(req.body);
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "El nombre de usuario ya est\xE1 en uso" });
+      }
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "El email ya est\xE1 en uso" });
+      }
+      const hashedPassword = await hashPassword2(password);
+      const user = await storage.createUser({
+        username,
+        email,
+        password: hashedPassword,
+        role: role || "estudiante",
+        isActive: true,
+        permissions: {}
+      });
+      const token = generateToken(user);
+      res.status(201).json({
+        message: "Usuario registrado exitosamente",
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (error) {
+      if (error instanceof z5.ZodError) {
+        return res.status(400).json({ error: "Datos de registro inv\xE1lidos", details: error.errors });
+      }
+      console.error("Error en registro:", error);
+      res.status(500).json({ error: "Error al registrar usuario" });
+    }
+  });
+  app2.post("/api/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Error al cerrar sesi\xF3n" });
+      }
+      res.json({ message: "Sesi\xF3n cerrada exitosamente" });
+    });
+  });
+  app2.get("/api/me", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+      const decoded = jwt2.verify(token, JWT_SECRET);
+      const user = await storage.getUser(decoded.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      });
+    } catch (error) {
+      console.error("Error al obtener informaci\xF3n del usuario:", error);
+      res.status(401).json({ error: "Token inv\xE1lido" });
+    }
+  });
+  app2.post("/api/change-password", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+      const decoded = jwt2.verify(token, JWT_SECRET);
+      const { currentPassword, newPassword } = req.body;
+      const user = await storage.getUser(decoded.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      const isValidPassword = await comparePasswords(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Contrase\xF1a actual incorrecta" });
+      }
+      const hashedPassword = await hashPassword2(newPassword);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      res.json({ message: "Contrase\xF1a actualizada exitosamente" });
+    } catch (error) {
+      console.error("Error al cambiar contrase\xF1a:", error);
+      res.status(500).json({ error: "Error al cambiar contrase\xF1a" });
+    }
+  });
+  app2.get("/api/user", async (req, res) => {
+    try {
+      console.log("Headers recibidos:", req.headers);
+      const authHeader = req.headers.authorization;
+      console.log("Authorization header:", authHeader);
+      const token = authHeader?.split(" ")[1];
+      console.log("Token extra\xEDdo:", token ? token.substring(0, 20) + "..." : "No token");
+      if (!token) {
+        console.log("No se proporcion\xF3 token");
+        return res.status(401).json({ error: "Token no proporcionado" });
+      }
+      const decoded = jwt2.verify(token, JWT_SECRET);
+      console.log("Token decodificado:", decoded);
+      const user = await storage.getUser(decoded.id);
+      console.log("Usuario encontrado:", user ? { id: user.id, username: user.username, role: user.role } : "No encontrado");
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      const response = {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      };
+      console.log("Enviando respuesta:", response);
+      res.json(response);
+    } catch (error) {
+      console.error("Error al obtener informaci\xF3n del usuario:", error);
+      res.status(401).json({ error: "Token inv\xE1lido" });
+    }
+  });
+}
+
+// server/routes/auth.ts
+import { z as z6 } from "zod";
+var router5 = Router5();
+var loginSchema3 = z6.object({
+  username: z6.string().min(1, "El nombre de usuario es requerido"),
+  password: z6.string().min(1, "La contrase\xF1a es requerida")
+});
+var registerSchema2 = z6.object({
+  username: z6.string().min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
+  email: z6.string().email("Email inv\xE1lido"),
+  password: z6.string().min(6, "La contrase\xF1a debe tener al menos 6 caracteres"),
+  role: z6.enum(["estudiante", "admin", "superuser"]).optional()
+});
+router5.post("/login", (req, res, next) => {
+  try {
+    const { username, password } = loginSchema3.parse(req.body);
+    passport2.authenticate("local", (err, user, info) => {
+      if (err) {
+        return res.status(500).json({ error: "Error interno del servidor" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Credenciales inv\xE1lidas" });
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ error: "Error al iniciar sesi\xF3n" });
+        }
+        const token = generateToken(user);
+        res.json({
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          token
+        });
+      });
+    })(req, res, next);
+  } catch (error) {
+    if (error instanceof z6.ZodError) {
+      return res.status(400).json({ error: "Datos inv\xE1lidos", details: error.errors });
+    }
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.post("/register", async (req, res) => {
+  try {
+    const { username, email, password, role } = registerSchema2.parse(req.body);
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ error: "El nombre de usuario ya est\xE1 en uso" });
+    }
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) {
+      return res.status(400).json({ error: "El email ya est\xE1 en uso" });
+    }
+    const hashedPassword = await hashPassword2(password);
+    const user = await storage.createUser({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || "estudiante",
+      isActive: true,
+      permissions: {}
+    });
+    const token = generateToken(user);
+    res.status(201).json({
+      message: "Usuario registrado exitosamente",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    if (error instanceof z6.ZodError) {
+      return res.status(400).json({ error: "Datos inv\xE1lidos", details: error.errors });
+    }
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.post("/logout", (req, res) => {
+  req.logout(() => {
+    res.json({ message: "Sesi\xF3n cerrada exitosamente" });
+  });
+});
+router5.get("/me", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "No autenticado" });
+  }
+  res.json({
+    id: req.user.id,
+    username: req.user.username,
+    role: req.user.role
+  });
+});
+var auth_default = router5;
+
+// server/routes/profiles.ts
+import { Router as Router6 } from "express";
+import { eq as eq4, sql as sql2 } from "drizzle-orm";
+var router6 = Router6();
+router6.get("/", authenticateToken, async (req, res) => {
+  try {
+    const allProfiles = await db_default.select().from(profiles);
+    const documentCounts = await db_default.select({
+      userId: documents.userId,
+      count: sql2`count(*)::int`
+    }).from(documents).groupBy(documents.userId);
+    const requestCounts = await db_default.select({
+      userId: requests.userId,
+      count: sql2`count(*)::int`
+    }).from(requests).where(sql2`status IN ('pendiente', 'en_proceso')`).groupBy(requests.userId);
+    const profilesWithCounts = allProfiles.map((profile) => {
+      const docCount = documentCounts.find((d) => d.userId === profile.id)?.count || 0;
+      const reqCount = requestCounts.find((r) => r.userId === profile.id)?.count || 0;
+      return {
+        ...profile,
+        documentCount: docCount,
+        pendingRequestCount: reqCount
+      };
+    });
+    res.json(profilesWithCounts);
+  } catch (error) {
+    console.error("Error al obtener perfiles:", error);
+    res.status(500).json({ error: "Error al obtener perfiles" });
+  }
+});
+router6.get("/:id", authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID de perfil inv\xE1lido" });
+    }
+    const [profile] = await db_default.select().from(profiles).where(eq4(profiles.id, id));
+    if (!profile) {
+      return res.status(404).json({ error: "Perfil no encontrado" });
+    }
+    const [{ count: documentCount }] = await db_default.select({
+      count: sql2`count(*)::int`
+    }).from(documents).where(eq4(documents.userId, id));
+    const [{ count: pendingRequestCount }] = await db_default.select({
+      count: sql2`count(*)::int`
+    }).from(requests).where(eq4(requests.userId, id)).where(sql2`status IN ('pendiente', 'en_proceso')`);
+    res.json({
+      ...profile,
+      documentCount,
+      pendingRequestCount
+    });
+  } catch (error) {
+    console.error("Error al obtener perfil:", error);
+    res.status(500).json({ error: "Error al obtener perfil" });
+  }
+});
+router6.put("/:id", authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID de perfil inv\xE1lido" });
+    }
+    const updates = req.body;
+    const [existingProfile] = await db_default.select().from(profiles).where(eq4(profiles.id, id));
+    if (!existingProfile) {
+      return res.status(404).json({ error: "Perfil no encontrado" });
+    }
+    const [updatedProfile] = await db_default.update(profiles).set(updates).where(eq4(profiles.id, id)).returning();
+    res.json(updatedProfile);
+  } catch (error) {
+    console.error("Error al actualizar perfil:", error);
+    res.status(500).json({ error: "Error al actualizar perfil" });
+  }
+});
+var profiles_default = router6;
+
 // server/index.ts
 var app = express2();
+var allowedOrigins = process.env.NODE_ENV === "production" ? [process.env.FRONTEND_URL || "https://tu-dominio.com"] : ["http://localhost:3000"];
 app.use(cors({
-  origin: process.env.NODE_ENV === "production" ? process.env.CLIENT_URL : ["http://localhost:5173", "http://localhost:3000"],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
 }));
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: true }));
 setupAuth(app);
+app.use("/api/auth", auth_default);
 app.use("/api/requests", requests_default);
 app.use("/api/documents", documents_default);
 app.use("/api/universities", universities_default);
 app.use("/api/university-data", university_data_default);
+app.use("/api/profiles", profiles_default);
 app.use((req, res, next) => {
   const start = Date.now();
   const path3 = req.path;
