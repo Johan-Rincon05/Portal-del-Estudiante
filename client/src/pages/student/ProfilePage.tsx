@@ -170,10 +170,10 @@ const ProfilePage = () => {
 
   return (
     <StudentLayout>
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-card rounded-lg shadow p-6 border">
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Información personal</h2>
-          <p className="text-sm text-gray-500">Actualiza tu información de contacto y datos personales</p>
+          <h2 className="text-lg font-semibold text-foreground">Información personal</h2>
+          <p className="text-sm text-muted-foreground">Actualiza tu información de contacto y datos personales</p>
         </div>
         
         <Form {...form}>
@@ -197,12 +197,13 @@ const ProfilePage = () => {
               />
               
               <div className="flex flex-col space-y-1.5">
-                <label htmlFor="profile-email" className="text-sm font-medium text-gray-700">Correo electrónico</label>
-                <Input
+                <label htmlFor="profile-email" className="text-sm font-medium text-foreground">Correo electrónico</label>
+                <input
                   id="profile-email"
                   type="email"
-                  value={user?.email || ''}
+                  value={user?.username || ''}
                   disabled
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
               
@@ -211,17 +212,18 @@ const ProfilePage = () => {
                 name="documentType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-document-type">Tipo de documento</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel>Tipo de documento</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger id="profile-document-type">
-                          <SelectValue placeholder="Seleccionar" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el tipo de documento" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="cedula">Cédula</SelectItem>
-                        <SelectItem value="pasaporte">Pasaporte</SelectItem>
-                        <SelectItem value="tarjeta_identidad">Tarjeta de identidad</SelectItem>
+                        <SelectItem value="cc">Cédula de Ciudadanía</SelectItem>
+                        <SelectItem value="ce">Cédula de Extranjería</SelectItem>
+                        <SelectItem value="ti">Tarjeta de Identidad</SelectItem>
+                        <SelectItem value="pp">Pasaporte</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -234,12 +236,9 @@ const ProfilePage = () => {
                 name="documentNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-document-number">Número de documento</FormLabel>
+                    <FormLabel>Número de documento</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-document-number"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -251,13 +250,9 @@ const ProfilePage = () => {
                 name="birthDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-birth-date">Fecha de nacimiento</FormLabel>
+                    <FormLabel>Fecha de nacimiento</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-birth-date"
-                        type="date"
-                        {...field}
-                      />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -271,7 +266,7 @@ const ProfilePage = () => {
                   <FormItem>
                     <FormLabel>Lugar de nacimiento</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Ej: Bogotá" />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -285,7 +280,7 @@ const ProfilePage = () => {
                   <FormItem>
                     <FormLabel>Correo personal</FormLabel>
                     <FormControl>
-                      <Input {...field} type="email" placeholder="correo@ejemplo.com" />
+                      <Input type="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -311,13 +306,9 @@ const ProfilePage = () => {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-phone">Teléfono</FormLabel>
+                    <FormLabel>Teléfono</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-phone"
-                        type="tel"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -329,12 +320,9 @@ const ProfilePage = () => {
                 name="city"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-city">Ciudad</FormLabel>
+                    <FormLabel>Ciudad</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-city"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -346,12 +334,9 @@ const ProfilePage = () => {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-address">Dirección</FormLabel>
+                    <FormLabel>Dirección</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-address"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -363,12 +348,9 @@ const ProfilePage = () => {
                 name="neighborhood"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-neighborhood">Barrio</FormLabel>
+                    <FormLabel>Barrio</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-neighborhood"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -380,12 +362,9 @@ const ProfilePage = () => {
                 name="locality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-locality">Localidad</FormLabel>
+                    <FormLabel>Localidad</FormLabel>
                     <FormControl>
-                      <Input
-                        id="profile-locality"
-                        {...field}
-                      />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -397,11 +376,11 @@ const ProfilePage = () => {
                 name="socialStratum"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-social-stratum">Estrato social</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel>Estrato social</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger id="profile-social-stratum">
-                          <SelectValue placeholder="Seleccionar" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el estrato" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -423,22 +402,22 @@ const ProfilePage = () => {
                 name="bloodType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-blood-type">Tipo de sangre</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel>Tipo de sangre</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger id="profile-blood-type">
-                          <SelectValue placeholder="Seleccionar" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el tipo de sangre" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="O+">O+</SelectItem>
+                        <SelectItem value="O-">O-</SelectItem>
                         <SelectItem value="A+">A+</SelectItem>
                         <SelectItem value="A-">A-</SelectItem>
                         <SelectItem value="B+">B+</SelectItem>
                         <SelectItem value="B-">B-</SelectItem>
                         <SelectItem value="AB+">AB+</SelectItem>
                         <SelectItem value="AB-">AB-</SelectItem>
-                        <SelectItem value="O+">O+</SelectItem>
-                        <SelectItem value="O-">O-</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -450,25 +429,20 @@ const ProfilePage = () => {
                 control={form.control}
                 name="conflictVictim"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>¿Es víctima del conflicto armado?</FormLabel>
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={(value) => field.onChange(value === "true")}
-                        value={field.value ? "true" : "false"}
-                        className="flex flex-col space-y-1"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="true" id="conflict-victim-yes" />
-                          <label htmlFor="conflict-victim-yes">Sí</label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="false" id="conflict-victim-no" />
-                          <label htmlFor="conflict-victim-no">No</label>
-                        </div>
-                      </RadioGroup>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        ¿Eres víctima del conflicto armado?
+                      </FormLabel>
+                    </div>
                   </FormItem>
                 )}
               />
@@ -478,19 +452,19 @@ const ProfilePage = () => {
                 name="maritalStatus"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="profile-marital-status">Estado civil</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel>Estado civil</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger id="profile-marital-status">
-                          <SelectValue placeholder="Seleccionar" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el estado civil" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="soltero">Soltero(a)</SelectItem>
-                        <SelectItem value="casado">Casado(a)</SelectItem>
-                        <SelectItem value="union_libre">Unión libre</SelectItem>
-                        <SelectItem value="divorciado">Divorciado(a)</SelectItem>
-                        <SelectItem value="viudo">Viudo(a)</SelectItem>
+                        <SelectItem value="soltero">Soltero</SelectItem>
+                        <SelectItem value="casado">Casado</SelectItem>
+                        <SelectItem value="union_libre">Unión Libre</SelectItem>
+                        <SelectItem value="divorciado">Divorciado</SelectItem>
+                        <SelectItem value="viudo">Viudo</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -501,8 +475,8 @@ const ProfilePage = () => {
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900">Información Universitaria</h3>
-                <p className="text-sm text-gray-500">Completa tu información académica</p>
+                <h3 className="text-lg font-medium text-foreground">Información Universitaria</h3>
+                <p className="text-sm text-muted-foreground">Completa tu información académica</p>
               </div>
               
               <div className="grid grid-cols-1 gap-6">
@@ -532,17 +506,9 @@ const ProfilePage = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Periodo académico</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || undefined}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar periodo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="2024-1">2024-1</SelectItem>
-                          <SelectItem value="2024-2">2024-2</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <Input {...field} placeholder="Ej: 2024-1" />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -555,19 +521,9 @@ const ProfilePage = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Duración de estudios</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar duración" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="4_semestres">4 semestres</SelectItem>
-                            <SelectItem value="6_semestres">6 semestres</SelectItem>
-                            <SelectItem value="8_semestres">8 semestres</SelectItem>
-                            <SelectItem value="10_semestres">10 semestres</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <Input {...field} placeholder="Ej: 8 semestres" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -579,16 +535,16 @@ const ProfilePage = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Metodología</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar metodología" />
+                              <SelectValue placeholder="Selecciona la metodología" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="presencial">Presencial</SelectItem>
                             <SelectItem value="virtual">Virtual</SelectItem>
-                            <SelectItem value="distancia">A distancia</SelectItem>
+                            <SelectItem value="distancia">Distancia</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -603,7 +559,7 @@ const ProfilePage = () => {
                       <FormItem>
                         <FormLabel>Título a obtener</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Ej: Ingeniero de Sistemas" />
+                          <Input {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -616,10 +572,10 @@ const ProfilePage = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tipo de inscripción</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar tipo" />
+                              <SelectValue placeholder="Selecciona el tipo de inscripción" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -639,14 +595,14 @@ const ProfilePage = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Método de aplicación</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar método" />
+                              <SelectValue placeholder="Selecciona el método de aplicación" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="online">En línea</SelectItem>
+                            <SelectItem value="online">Online</SelectItem>
                             <SelectItem value="presencial">Presencial</SelectItem>
                           </SelectContent>
                         </Select>
@@ -659,22 +615,19 @@ const ProfilePage = () => {
                     control={form.control}
                     name="severancePaymentUsed"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
                           <input
                             type="checkbox"
                             checked={field.value}
                             onChange={field.onChange}
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>
-                            Cesantías utilizadas
+                            ¿Usaste pago de cesantías?
                           </FormLabel>
-                          <p className="text-sm text-gray-500">
-                            Indica si utilizarás tus cesantías para el pago
-                          </p>
                         </div>
                       </FormItem>
                     )}
@@ -687,12 +640,16 @@ const ProfilePage = () => {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-primary text-white hover:bg-primary-600"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar cambios'
                 )}
-                Guardar cambios
               </Button>
             </div>
           </form>

@@ -7,7 +7,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import dotenv from 'dotenv';
-import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import documentsRouter from './routes/documents';
 import requestsRouter from './routes/requests';
@@ -34,9 +33,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
-
-  // Configurar autenticación al final para que las rutas de auth tengan prioridad
-  setupAuth(app);
 
   /**
    * Endpoint de administración - Crear usuarios con roles específicos

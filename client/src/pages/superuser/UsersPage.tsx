@@ -400,8 +400,8 @@ const UsersPage = () => {
     <SuperAdminLayout>
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Gestión de Usuarios</h2>
-          <p className="text-sm text-gray-500">Administra los usuarios y roles del sistema</p>
+          <h2 className="text-lg font-semibold text-foreground">Gestión de Usuarios</h2>
+          <p className="text-sm text-muted-foreground">Administra los usuarios y roles del sistema</p>
         </div>
         <Button 
           className="mt-3 sm:mt-0"
@@ -486,7 +486,7 @@ const UsersPage = () => {
 
                 <div className="flex items-center space-x-2">
                   <Checkbox id="send-email" />
-                  <label htmlFor="send-email" className="text-sm text-gray-600">
+                  <label htmlFor="send-email" className="text-sm text-muted-foreground">
                     Enviar email de bienvenida
                   </label>
                 </div>
@@ -530,7 +530,7 @@ const UsersPage = () => {
         <CardContent>
           <div className="relative w-64 mb-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+              <Search className="h-4 w-4 text-muted-foreground" />
             </div>
             <Input
               type="text"
@@ -542,8 +542,9 @@ const UsersPage = () => {
           </div>
 
           {isLoading && (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="mr-2 h-6 w-6 animate-spin" /> Cargando usuarios...
+            <div className="text-center text-muted-foreground mt-8">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin" />
+              <p className="mt-2">Cargando usuarios...</p>
             </div>
           )}
 
@@ -567,21 +568,21 @@ const UsersPage = () => {
 
           {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted/50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre completo</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actualizado</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Doc.</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Documento</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuario</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nombre completo</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Rol</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Creado</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actualizado</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tipo Doc.</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">N° Documento</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-border">
                   {paginatedUsers.map((user) => (
                     <tr key={user.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -590,7 +591,7 @@ const UsersPage = () => {
                             <UserCircle className="h-5 w-5" />
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.username || 'Sin usuario'}</div>
+                            <div className="text-sm font-medium text-foreground">{user.username || 'Sin usuario'}</div>
                           </div>
                         </div>
                       </td>
@@ -601,10 +602,10 @@ const UsersPage = () => {
                           {user.role || 'N/A'}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">{user.documentType || 'N/A'}</td>
@@ -629,7 +630,7 @@ const UsersPage = () => {
           {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
             <div className="mt-4 flex justify-between items-center">
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-muted-foreground">
                   Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
                   <span className="font-medium">
                     {Math.min(currentPage * itemsPerPage, filteredUsers.length)}

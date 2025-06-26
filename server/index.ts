@@ -10,6 +10,7 @@ import universityDataRouter from './routes/university-data';
 import { db } from './db';
 import authRouter from './routes/auth';
 import profilesRouter from './routes/profiles';
+import { setupAuth } from "./auth";
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use(cors({
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Configurar autenticación ANTES de registrar las rutas
+setupAuth(app);
 
 // Rutas
 app.use('/api/auth', authRouter);

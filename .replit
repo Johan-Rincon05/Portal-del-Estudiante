@@ -1,14 +1,50 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
 run = "npm run dev"
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+entrypoint = "client/src/main.tsx"
+hidden = [".config", ".git", "node_modules", "dist"]
 
 [nix]
-channel = "stable-24_05"
+channel = "stable-23_11"
+
+[env]
+PATH = "/home/runner/$REPL_SLUG/.config/npm/node_global/bin:/home/runner/$REPL_SLUG/node_modules/.bin"
+npm_config_prefix = "/home/runner/$REPL_SLUG/.config/npm/node_global"
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+
+[languages]
+[languages.javascript]
+pattern = "**/*.js"
+syntax = "javascript"
+
+[languages.typescript]
+pattern = "**/*.ts"
+syntax = "typescript"
+
+[languages.tsx]
+pattern = "**/*.tsx"
+syntax = "tsx"
+
+[languages.json]
+pattern = "**/*.json"
+syntax = "json"
+
+[languages.css]
+pattern = "**/*.css"
+syntax = "css"
+
+[languages.html]
+pattern = "**/*.html"
+syntax = "html"
 
 [deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+deploymentTarget = "cloudrun"
+run = ["sh", "-c", "npm run build"]
 
 [workflows]
 runButton = "Project"
