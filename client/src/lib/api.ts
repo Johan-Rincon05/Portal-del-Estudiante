@@ -7,13 +7,28 @@ export const api = axios.create({
   },
 });
 
+// Interceptor para agregar el token de autenticación
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Interceptor para manejar errores
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Manejar error de autenticación
-      window.location.href = '/login';
+      localStorage.removeItem('token');
+      window.location.href = '/auth';
     }
     return Promise.reject(error);
   }

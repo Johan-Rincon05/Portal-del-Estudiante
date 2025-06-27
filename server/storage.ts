@@ -21,11 +21,11 @@ import {
   DEFAULT_ROLES,
   universityData,
   universities,
-  programs
+  programs,
+  payments,
+  installments,
+  installmentObservations
 } from "@shared/schema";
-import session from "express-session";
-import createMemoryStoreLib from "memorystore";
-import connectPgSimple from "connect-pg-simple";
 import { eq, and, or, sql, desc, count } from "drizzle-orm";
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -40,21 +40,9 @@ const client = postgres(connectionString);
 const db = drizzle(client);
 
 /**
- * Configuración del almacenamiento de sesiones
- */
-const PgSessionStore = connectPgSimple(session);
-
-/**
  * Instancia de almacenamiento que maneja todas las operaciones de base de datos
  */
 export const storage = {
-  /**
-   * Almacenamiento de sesiones
-   */
-  sessionStore: new PgSessionStore({
-    createTableIfMissing: true
-  }),
-
   /**
    * Operaciones de Usuario
    */
@@ -198,7 +186,7 @@ export const storage = {
    * @returns Lista de roles
    */
   async listRoles(): Promise<Role[]> {
-    return db.select().from(roles);
+    return await db.select().from(roles);
   },
 
   /**
@@ -213,12 +201,8 @@ export const storage = {
   async getUserPermissions(userId: number): Promise<Record<string, boolean>> {
     const user = await this.getUser(userId);
     if (!user) return {};
-
-    // Combinar permisos del usuario con los permisos por defecto de su rol
-    return {
-      ...DEFAULT_ROLES[user.role as keyof typeof DEFAULT_ROLES]?.permissions,
-      ...user.permissions
-    };
+    
+    return user.permissions || {};
   },
 
   /**
@@ -228,8 +212,7 @@ export const storage = {
    * @returns Usuario actualizado
    */
   async updateUserPermissions(userId: number, permissions: Record<string, boolean>): Promise<User> {
-    const [user] = await db
-      .update(users)
+    const [user] = await db.update(users)
       .set({ permissions, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
@@ -237,7 +220,7 @@ export const storage = {
   },
 
   /**
-   * Inicializa los roles por defecto en el sistema
+   * Inicializa los roles por defecto
    */
   async initializeDefaultRoles(): Promise<void> {
     for (const [roleName, roleData] of Object.entries(DEFAULT_ROLES)) {
@@ -245,8 +228,8 @@ export const storage = {
       if (!existingRole) {
         await this.createRole({
           name: roleName,
-          description: roleData.description,
-          permissions: roleData.permissions
+          permissions: roleData.permissions,
+          description: roleData.description
         });
       }
     }
@@ -532,5 +515,108 @@ export const storage = {
       profile: row.profile || null,
       documentsCount: Number(row.documentsCount)
     }));
+  },
+
+  /**
+   * Operaciones de Pagos
+   */
+
+  /**
+   * Obtiene los pagos de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de pagos del usuario
+   */
+  async getPaymentsByUserId(userId: number): Promise<any[]> {
+    return await db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.paymentDate));
+  },
+
+  /**
+   * Obtiene un pago específico
+   * @param id - ID del pago
+   * @returns Pago encontrado o null
+   */
+  async getPayment(id: number): Promise<any | null> {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment || null;
+  },
+
+  /**
+   * Crea un nuevo pago
+   * @param paymentData - Datos del pago
+   * @returns Pago creado
+   */
+  async createPayment(paymentData: any): Promise<any> {
+    const [payment] = await db.insert(payments).values(paymentData).returning();
+    return payment;
+  },
+
+  /**
+   * Actualiza un pago
+   * @param id - ID del pago
+   * @param updates - Datos a actualizar
+   * @returns Pago actualizado
+   */
+  async updatePayment(id: number, updates: any): Promise<any | null> {
+    const [payment] = await db.update(payments)
+      .set(updates)
+      .where(eq(payments.id, id))
+      .returning();
+    return payment || null;
+  },
+
+  /**
+   * Operaciones de Cuotas
+   */
+
+  /**
+   * Obtiene las cuotas de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de cuotas del usuario
+   */
+  async getInstallmentsByUserId(userId: number): Promise<any[]> {
+    return await db.select().from(installments).where(eq(installments.userId, userId)).orderBy(installments.installmentNumber);
+  },
+
+  /**
+   * Obtiene una cuota específica
+   * @param id - ID de la cuota
+   * @returns Cuota encontrada o null
+   */
+  async getInstallment(id: number): Promise<any | null> {
+    const [installment] = await db.select().from(installments).where(eq(installments.id, id));
+    return installment || null;
+  },
+
+  /**
+   * Crea una nueva cuota
+   * @param installmentData - Datos de la cuota
+   * @returns Cuota creada
+   */
+  async createInstallment(installmentData: any): Promise<any> {
+    const [installment] = await db.insert(installments).values(installmentData).returning();
+    return installment;
+  },
+
+  /**
+   * Actualiza una cuota
+   * @param id - ID de la cuota
+   * @param updates - Datos a actualizar
+   * @returns Cuota actualizada
+   */
+  async updateInstallment(id: number, updates: any): Promise<any | null> {
+    const [installment] = await db.update(installments)
+      .set(updates)
+      .where(eq(installments.id, id))
+      .returning();
+    return installment || null;
+  },
+
+  /**
+   * Obtiene las observaciones de cuotas de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de observaciones de cuotas
+   */
+  async getInstallmentObservationsByUserId(userId: number): Promise<any[]> {
+    return await db.select().from(installmentObservations).where(eq(installmentObservations.userId, userId)).orderBy(desc(installmentObservations.createdAt));
   }
 };

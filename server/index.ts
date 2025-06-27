@@ -7,6 +7,7 @@ import requestsRouter from './routes/requests';
 import documentsRouter from './routes/documents';
 import universitiesRouter from './routes/universities';
 import universityDataRouter from './routes/university-data';
+import paymentsRouter from './routes/payments';
 import { db } from './db';
 import authRouter from './routes/auth';
 import profilesRouter from './routes/profiles';
@@ -44,6 +45,7 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);
 app.use('/api/profiles', profilesRouter);
+app.use('/api/payments', paymentsRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();

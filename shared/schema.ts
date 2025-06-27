@@ -3,9 +3,25 @@
  * Este archivo define las tablas, tipos y validaciones para la base de datos
  */
 
-import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+/**
+ * Enum para las etapas del proceso de matrícula
+ * Define los estados por los que pasa un estudiante durante su proceso de inscripción
+ */
+export const enrollmentStageEnum = pgEnum("enrollment_stage", [
+  "suscrito",
+  "documentos_completos", 
+  "registro_validado",
+  "proceso_universitario",
+  "matriculado",
+  "inicio_clases",
+  "estudiante_activo",
+  "pagos_al_dia",
+  "proceso_finalizado"
+]);
 
 /**
  * Tabla de usuarios
@@ -44,6 +60,7 @@ export const profiles = pgTable("profiles", {
   bloodType: text("blood_type"),
   conflictVictim: boolean("conflict_victim"),
   maritalStatus: text("marital_status"),
+  enrollmentStage: enrollmentStageEnum("enrollment_stage").notNull().default("suscrito"),
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -98,6 +115,10 @@ export const documents = pgTable("documents", {
   type: text("type").notNull(),  // "cedula", "diploma", "acta", "foto", "recibo", "formulario"
   name: text("name").notNull(),  // Nombre del documento
   path: text("path").notNull(),  // Storage path
+  status: text("status").notNull().default("pendiente"), // "pendiente", "aprobado", "rechazado"
+  rejectionReason: text("rejection_reason"), // Motivo del rechazo (opcional)
+  reviewedBy: integer("reviewed_by"), // ID del administrador que revisó
+  reviewedAt: timestamp("reviewed_at"), // Fecha de revisión
   uploadedAt: timestamp("uploaded_at").defaultNow()
 });
 
@@ -113,6 +134,18 @@ export const requests = pgTable("requests", {
   updatedAt: timestamp("updated_at", { mode: 'date' }),
   respondedAt: timestamp("responded_at", { mode: 'date' }),
   respondedBy: integer("responded_by")
+});
+
+// Notifications table - stores user notifications
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  link: text("link"), // URL opcional para redirección
+  isRead: boolean("is_read").notNull().default(false),
+  type: text("type").notNull().default("general"), // "document", "request", "stage", "general"
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
 // Universities table
@@ -142,6 +175,7 @@ export const insertInstallmentSchema = createInsertSchema(installments).omit({ i
 export const insertInstallmentObservationSchema = createInsertSchema(installmentObservations).omit({ id: true, createdAt: true });
 export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, uploadedAt: true });
 export const insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertUniversitySchema = createInsertSchema(universities).omit({ id: true });
 export const insertProgramSchema = createInsertSchema(programs).omit({ id: true });
 
@@ -198,25 +232,71 @@ export const universityDataFormSchema = z.object({
   severancePaymentUsed: z.boolean()
 });
 
+/**
+ * Esquema para actualizar la etapa de matrícula de un estudiante
+ * Solo puede ser utilizado por administradores y superusuarios
+ */
+export const updateEnrollmentStageSchema = z.object({
+  enrollmentStage: z.enum([
+    "suscrito",
+    "documentos_completos", 
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ], {
+    required_error: "La etapa de matrícula es requerida"
+  })
+});
+
+/**
+ * Esquema para actualizar el estado de un documento
+ * Solo puede ser utilizado por administradores y superusuarios
+ */
+export const updateDocumentStatusSchema = z.object({
+  status: z.enum(["pendiente", "aprobado", "rechazado"], {
+    required_error: "El estado del documento es requerido"
+  }),
+  rejectionReason: z.string().optional().nullable(),
+  reviewedBy: z.number().optional(),
+  reviewedAt: z.date().optional()
+});
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type NewUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
 
 export type Profile = typeof profiles.$inferSelect;
-export type InsertProfile = z.infer<typeof insertProfileSchema>;
+export type InsertProfile = typeof profiles.$inferInsert;
 
 export type Document = typeof documents.$inferSelect;
-export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type InsertDocument = typeof documents.$inferInsert;
 
 export type Request = typeof requests.$inferSelect;
 export type InsertRequest = typeof requests.$inferInsert;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
 
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export type UpdateRequest = z.infer<typeof updateRequestSchema>;
+
+/**
+ * Tipo para la actualización de etapa de matrícula
+ */
+export type UpdateEnrollmentStage = z.infer<typeof updateEnrollmentStageSchema>;
+
+/**
+ * Tipo para la actualización de estado de documento
+ */
+export type UpdateDocumentStatus = z.infer<typeof updateDocumentStatusSchema>;
 
 /**
  * Tabla de roles

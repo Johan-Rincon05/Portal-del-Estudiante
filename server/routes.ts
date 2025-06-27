@@ -44,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/users', async (req, res) => {
     try {
       // Verificar autenticación y rol
-      if (!req.isAuthenticated() || (req.user?.role !== 'admin' && req.user?.role !== 'superuser')) {
+      if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'superuser')) {
         return res.status(403).json({ 
           error: 'No autorizado',
           details: 'Se requieren permisos de administrador o superusuario'

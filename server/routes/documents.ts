@@ -6,14 +6,26 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireRole } from '../middleware/auth';
 import { storage } from '../storage';
 import { documentSchema } from '../schema';
+import { updateDocumentStatusSchema } from '@shared/schema';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client } from '../s3';
+import { db } from '../db';
+import { documents, users } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
+import multer from 'multer';
+import { 
+  createDocumentUploadNotification, 
+  createDocumentApprovedNotification, 
+  createDocumentRejectedNotification,
+  createAdminDocumentUploadNotification 
+} from '../utils/notifications.js';
 
 const router = Router();
+const upload = multer({ dest: 'uploads/' });
 
 /**
  * Obtener todos los documentos del usuario actual
@@ -42,25 +54,59 @@ router.get('/', authenticateToken, async (req, res) => {
  * @body {name, type, size, url} - Datos del documento
  * @returns Documento creado
  */
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
-    
-    const document = documentSchema.parse(req.body);
+
+    const { type } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'Archivo no proporcionado' });
+    }
+
+    // Guardar la información en la base de datos
     const createdDocument = await storage.createDocument({
-      ...document,
-      userId: req.user.id
+      name: file.originalname,
+      type,
+      path: file.filename, // o file.path según tu lógica
+      userId: req.user.id,
+      status: 'pendiente'
     });
+
+    // Crear notificación para el estudiante
+    await createDocumentUploadNotification(
+      req.user.id,
+      file.originalname,
+      type
+    );
+
+    // Obtener administradores para notificarles
+    const adminUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.role, 'admin'),
+        eq(users.isActive, true)
+      ));
+
+    const adminUserIds = adminUsers.map(admin => admin.id);
+
+    // Crear notificaciones para administradores
+    if (adminUserIds.length > 0) {
+      await createAdminDocumentUploadNotification(
+        adminUserIds,
+        req.user.username || 'Estudiante',
+        file.originalname
+      );
+    }
+
     res.status(201).json(createdDocument);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors });
-    } else {
-      console.error('Error al crear documento:', error);
-      res.status(500).json({ error: 'Error al crear documento' });
-    }
+    console.error('Error al crear documento:', error);
+    res.status(500).json({ error: 'Error al crear documento' });
   }
 });
 
@@ -129,6 +175,76 @@ router.get('/:id/download', async (req, res) => {
 
   const url = await getSignedUrl(s3Client, command, { expiresIn: 60 });
   res.send({ url });
+});
+
+/**
+ * Actualizar el estado de un documento
+ * PUT /:id/status
+ * @requires Autenticación y rol admin o superuser
+ * @body {status, rejectionReason} - Nuevo estado y motivo de rechazo (opcional)
+ * @returns Documento actualizado
+ */
+router.put('/:id/status', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+  try {
+    const documentId = parseInt(req.params.id);
+    
+    if (isNaN(documentId)) {
+      return res.status(400).json({ error: 'ID de documento inválido' });
+    }
+
+    // Validar los datos de entrada
+    const result = updateDocumentStatusSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ 
+        error: 'Datos inválidos',
+        details: result.error.issues 
+      });
+    }
+
+    const { status, rejectionReason } = result.data;
+
+    // Verificar que el documento existe
+    const [existingDocument] = await db.select().from(documents).where(eq(documents.id, documentId));
+    if (!existingDocument) {
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    // Actualizar el estado del documento
+    const [updatedDocument] = await db
+      .update(documents)
+      .set({ 
+        status,
+        rejectionReason,
+        reviewedBy: req.user?.id,
+        reviewedAt: new Date()
+      })
+      .where(eq(documents.id, documentId))
+      .returning();
+
+    // Crear notificación para el estudiante según el estado
+    if (status === 'aprobado') {
+      await createDocumentApprovedNotification(
+        existingDocument.userId,
+        existingDocument.name
+      );
+    } else if (status === 'rechazado' && rejectionReason) {
+      await createDocumentRejectedNotification(
+        existingDocument.userId,
+        existingDocument.name,
+        rejectionReason
+      );
+    }
+
+    console.log(`Estado de documento ${documentId} actualizado a: ${status}`);
+
+    res.json({
+      message: 'Estado de documento actualizado exitosamente',
+      document: updatedDocument
+    });
+  } catch (error) {
+    console.error('Error al actualizar estado de documento:', error);
+    res.status(500).json({ error: 'Error al actualizar el estado del documento' });
+  }
 });
 
 export default router; 

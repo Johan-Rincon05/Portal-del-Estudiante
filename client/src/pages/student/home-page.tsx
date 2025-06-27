@@ -1,16 +1,31 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests } from "@/hooks/use-requests";
 import { useDocuments } from "@/hooks/use-documents";
+import { useProfiles } from "@/hooks/use-profiles";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, MessageSquare, AlertCircle, CheckCircle, User, ArrowRight, Edit, Building, GraduationCap, Calendar, UserCheck, CreditCard } from "lucide-react";
 import { useLocation } from "wouter";
 import { StudentLayout } from "@/components/layouts/StudentLayout";
 
+// Definición de las etapas del proceso de matrícula
+const ENROLLMENT_STAGES = [
+  { key: 'suscrito', label: 'Suscrito', icon: User, description: 'Cuenta creada' },
+  { key: 'documentos_completos', label: 'Documentos', icon: FileText, description: 'Documentación completa' },
+  { key: 'registro_validado', label: 'Registro', icon: Edit, description: 'Validación de datos' },
+  { key: 'proceso_universitario', label: 'Universidad', icon: Building, description: 'Proceso universitario' },
+  { key: 'matriculado', label: 'Matriculado', icon: GraduationCap, description: 'Matrícula confirmada' },
+  { key: 'inicio_clases', label: 'Inicio Clases', icon: Calendar, description: 'Pronto a comenzar' },
+  { key: 'estudiante_activo', label: 'Estudiante', icon: UserCheck, description: 'Estado activo' },
+  { key: 'pagos_al_dia', label: 'Pagos', icon: CreditCard, description: 'Finanzas al día' },
+  { key: 'proceso_finalizado', label: 'Finalizado', icon: CheckCircle, description: 'Proceso completado' },
+];
+
 export default function HomePage() {
   const { user } = useAuth();
   const { requests } = useRequests();
   const { documents } = useDocuments();
+  const { profile } = useProfiles(user?.id?.toString());
   const [, setLocation] = useLocation();
 
   // Contadores
@@ -18,6 +33,51 @@ export default function HomePage() {
   const completedRequests = requests?.filter(r => r.status === "completada").length || 0;
   const uploadedDocuments = documents?.length || 0;
   const pendingDocuments = 5 - uploadedDocuments;
+
+  // Obtener la etapa actual del estudiante
+  const currentStage = profile?.enrollmentStage || 'suscrito';
+  const currentStageIndex = ENROLLMENT_STAGES.findIndex(stage => stage.key === currentStage);
+
+  // Función para determinar el estado visual de cada etapa
+  const getStageStatus = (stageIndex: number) => {
+    if (stageIndex < currentStageIndex) {
+      return 'completed'; // Etapa completada
+    } else if (stageIndex === currentStageIndex) {
+      return 'current'; // Etapa actual
+    } else {
+      return 'pending'; // Etapa pendiente
+    }
+  };
+
+  // Función para obtener los estilos de cada etapa
+  const getStageStyles = (status: 'completed' | 'current' | 'pending') => {
+    switch (status) {
+      case 'completed':
+        return {
+          container: 'bg-primary/10 border-primary/30 shadow-md',
+          icon: 'text-primary',
+          label: 'text-primary font-semibold',
+          description: 'text-primary/70',
+          line: 'bg-primary/40'
+        };
+      case 'current':
+        return {
+          container: 'bg-primary/20 border-primary/50 shadow-xl ring-2 ring-primary/20',
+          icon: 'text-primary',
+          label: 'text-primary font-bold',
+          description: 'text-primary/80',
+          line: 'bg-primary/50'
+        };
+      case 'pending':
+        return {
+          container: 'bg-muted/50 border-muted',
+          icon: 'text-muted-foreground/50',
+          label: 'text-muted-foreground/70',
+          description: 'text-muted-foreground/50',
+          line: 'bg-muted-foreground/30'
+        };
+    }
+  };
 
   const stats = [
     {
@@ -84,7 +144,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Nueva Timeline */}
+          {/* Línea de Tiempo Dinámica */}
           <Card className="p-6 border border-primary/20 rounded-lg shadow-sm mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl text-primary">Progreso de Acceso a Clases</CardTitle>
@@ -92,33 +152,34 @@ export default function HomePage() {
             </CardHeader>
             <CardContent className="pt-4">
               <div className="relative py-8">
-                {/* Línea de tiempo */}
-                <div className="absolute top-1/2 left-4 right-4 h-2 bg-primary/20 rounded-full"></div>
+                {/* Línea de tiempo base */}
+                <div className="absolute top-1/2 left-4 right-4 h-2 bg-gray-200 rounded-full"></div>
                 
                 {/* Contenedor de elementos */}
                 <div className="grid grid-cols-3 md:grid-cols-5 gap-8 relative">
-                  {[
-                    { label: 'Suscrito', icon: User, color: 'bg-primary/10', description: 'Cuenta creada' },
-                    { label: 'Documentos', icon: FileText, color: 'bg-secondary/10', description: 'Documentación completa' },
-                    { label: 'Registro', icon: Edit, color: 'bg-primary/10', description: 'Validación de datos' },
-                    { label: 'Universidad', icon: Building, color: 'bg-secondary/10', description: 'Proceso universitario' },
-                    { label: 'Matriculado', icon: GraduationCap, color: 'bg-primary/10', description: 'Matrícula confirmada' },
-                    { label: 'Inicio Clases', icon: Calendar, color: 'bg-secondary/10', description: 'Pronto a comenzar' },
-                    { label: 'Estudiante', icon: UserCheck, color: 'bg-primary/10', description: 'Estado activo' },
-                    { label: 'Pagos', icon: CreditCard, color: 'bg-secondary/10', description: 'Finanzas al día' },
-                    { label: 'Finalizado', icon: CheckCircle, color: 'bg-primary/10', description: 'Proceso completado' },
-                  ].map((step, index) => (
-                    <div key={index} className="relative z-10 flex flex-col items-center group text-center transition-all duration-300 hover:scale-105">
-                      <div className={`w-14 h-14 rounded-full ${step.color} flex items-center justify-center border-2 border-primary shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:scale-110 mb-3`}>
-                        <step.icon className="h-7 w-7 text-primary" />
+                  {ENROLLMENT_STAGES.map((stage, index) => {
+                    const status = getStageStatus(index);
+                    const styles = getStageStyles(status);
+                    
+                    return (
+                      <div key={stage.key} className="relative z-10 flex flex-col items-center group text-center transition-all duration-300 hover:scale-105">
+                        <div className={`w-14 h-14 rounded-full ${styles.container} flex items-center justify-center border-2 transition-all duration-300 group-hover:shadow-lg group-hover:scale-110 mb-3`}>
+                          <stage.icon className={`h-7 w-7 ${styles.icon}`} />
+                        </div>
+                        <span className={`font-medium text-sm transition-colors group-hover:text-primary mb-1 ${styles.label}`}>
+                          {stage.label}
+                        </span>
+                        <span className={`text-xs max-w-[100px] mx-auto ${styles.description}`}>
+                          {stage.description}
+                        </span>
+                        
+                        {/* Línea de conexión */}
+                        {index < ENROLLMENT_STAGES.length - 1 && (
+                          <div className={`absolute top-7 left-[calc(50%+35px)] w-[calc(100%-70px)] h-[2px] transition-all duration-300 ${styles.line}`}></div>
+                        )}
                       </div>
-                      <span className="font-medium text-sm text-foreground transition-colors group-hover:text-primary mb-1">{step.label}</span>
-                      <span className="text-xs text-muted-foreground max-w-[100px] mx-auto">{step.description}</span>
-                      {index < 8 && (
-                        <div className="absolute top-7 left-[calc(50%+35px)] w-[calc(100%-70px)] h-[2px] bg-primary/30"></div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>

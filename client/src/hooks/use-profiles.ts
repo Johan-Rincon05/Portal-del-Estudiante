@@ -1,7 +1,7 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Profile } from '@shared/schema';
+import { Profile, UpdateEnrollmentStage } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 
 export interface ProfileWithCounts extends Profile {
@@ -9,7 +9,13 @@ export interface ProfileWithCounts extends Profile {
   pendingRequestCount: number;
 }
 
-export const useProfiles = (userId?: string) => {
+interface UseProfilesOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}
+
+export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Get single profile by user ID
@@ -47,9 +53,8 @@ export const useProfiles = (userId?: string) => {
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: async (profileData: Partial<Profile> & { id: string }) => {
-      const { id, ...data } = profileData;
-      return apiRequest<Profile>(`/api/profiles/${id}`, {
+    mutationFn: async (data: Partial<Profile>) => {
+      return apiRequest<Profile>(`/api/profiles/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -67,15 +72,51 @@ export const useProfiles = (userId?: string) => {
       
       toast({
         title: "Perfil actualizado",
-        description: "Tu información ha sido actualizada correctamente",
+        description: "El perfil ha sido actualizado exitosamente.",
       });
+      options.onSuccess?.();
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "No se pudo actualizar el perfil",
+        description: error.message,
         variant: "destructive",
       });
+      options.onError?.(error);
+    },
+  });
+
+  // Actualizar etapa de matrícula
+  const updateEnrollmentStageMutation = useMutation({
+    mutationFn: async (data: UpdateEnrollmentStage) => {
+      return apiRequest<{ message: string; profile: Profile }>(`/api/profiles/${userId}/stage`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+    },
+    onSuccess: (response) => {
+      // Actualizar inmediatamente el cache
+      queryClient.setQueryData(['/api/profiles', userId], response.profile);
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      
+      toast({
+        title: "Etapa actualizada",
+        description: response.message,
+      });
+      options.onSuccess?.();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      options.onError?.(error);
     },
   });
 
@@ -85,8 +126,10 @@ export const useProfiles = (userId?: string) => {
     isLoading: isLoading || isLoadingAll,
     error: error || errorAll,
     updateProfileMutation,
+    updateEnrollmentStageMutation,
     refetch
   };
-};
+}
 
 export default useProfiles;
+

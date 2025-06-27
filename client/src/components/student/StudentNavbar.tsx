@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, FileText, MessageSquare, User, LogOut, Sun, Moon } from "lucide-react";
+import { Home, FileText, MessageSquare, User, LogOut, Sun, Moon, CreditCard } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function StudentNavbar() {
   const [location] = useLocation();
@@ -37,6 +38,14 @@ export function StudentNavbar() {
               <FileText className="w-5 h-5" />
               <span>Documentos</span>
             </Link>
+
+            <Link href="/payments" className={cn(
+              "flex items-center gap-2 transition-colors",
+              location === "/payments" ? "text-primary" : "text-muted-foreground hover:text-primary"
+            )}>
+              <CreditCard className="w-5 h-5" />
+              <span>Mis Pagos</span>
+            </Link>
             
             <Link href="/requests" className={cn(
               "flex items-center gap-2 transition-colors",
@@ -48,6 +57,8 @@ export function StudentNavbar() {
           </div>
 
           <div className="flex items-center gap-4">
+            <NotificationBell />
+            
             <Button
               variant="ghost"
               size="icon"

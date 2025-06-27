@@ -286,10 +286,20 @@ export type RequestWithUser = {
 
 export interface Document {
   id: string;
-  name: string;
-  url: string;
+  userId: number;
   type: string;
-  size: number;
-  created_at: string;
-  user_id: string;
+  name: string;
+  path: string;
+  uploadedAt: string;
+  status: 'pendiente' | 'aprobado' | 'rechazado';
+  rejectionReason?: string | null;
+  reviewedBy?: number | null;
+  reviewedAt?: string | null;
+}
+
+export interface UpdateDocumentStatus {
+  status: 'pendiente' | 'aprobado' | 'rechazado';
+  rejectionReason?: string | null;
+  reviewedBy?: number;
+  reviewedAt?: Date;
 }

@@ -11,6 +11,7 @@ import SuperAdminPage from "@/pages/superuser/superadmin-page";
 import DocumentsPage from "@/pages/student/DocumentsPage";
 import RequestsPage from "@/pages/student/RequestsPage";
 import ProfilePage from "@/pages/student/ProfilePage";
+import PaymentsPage from "@/pages/student/PaymentsPage";
 import { RoleBasedRoute } from "@/lib/role-based-route";
 import { AuthProvider } from "@/hooks/use-auth";
 import UsersPage from "@/pages/superuser/UsersPage";
@@ -42,6 +43,13 @@ function App() {
           <Route path="/requests">
             <RoleBasedRoute 
               component={RequestsPage} 
+              allowedRoles={['estudiante']} 
+            />
+          </Route>
+
+          <Route path="/payments">
+            <RoleBasedRoute 
+              component={PaymentsPage} 
               allowedRoles={['estudiante']} 
             />
           </Route>

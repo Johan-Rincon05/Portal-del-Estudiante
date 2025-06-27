@@ -7,8 +7,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
-import { eq } from 'drizzle-orm';
-import { requests } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
+import { requests, users } from '@shared/schema';
+import { db } from '../db.js';
+import { 
+  createRequestSubmittedNotification,
+  createRequestResponseNotification,
+  createAdminRequestNotification 
+} from '../utils/notifications.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -26,9 +33,9 @@ const responseSchema = z.object({
  * @requires Autenticación
  * @returns Lista de solicitudes (todas para admin, propias para estudiante)
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
@@ -51,9 +58,9 @@ router.get('/', async (req, res) => {
 });
 
 // Crear una nueva solicitud
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
@@ -63,6 +70,32 @@ router.post('/', async (req, res) => {
       status: 'pendiente'
     });
 
+    // Crear notificación para el estudiante
+    await createRequestSubmittedNotification(
+      req.user.id,
+      req.body.subject
+    );
+
+    // Obtener administradores para notificarles
+    const adminUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.role, 'admin'),
+        eq(users.isActive, true)
+      ));
+
+    const adminUserIds = adminUsers.map(admin => admin.id);
+
+    // Crear notificaciones para administradores
+    if (adminUserIds.length > 0) {
+      await createAdminRequestNotification(
+        adminUserIds,
+        req.user.username || 'Estudiante',
+        req.body.subject
+      );
+    }
+
     res.status(201).json(request);
   } catch (error) {
     console.error('Error al crear solicitud:', error);
@@ -71,9 +104,9 @@ router.post('/', async (req, res) => {
 });
 
 // Responder a una solicitud (solo admin)
-router.put('/:id/respond', async (req, res) => {
+router.put('/:id/respond', authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
@@ -93,6 +126,16 @@ router.put('/:id/respond', async (req, res) => {
 
     const { response, status } = result.data;
 
+    // Obtener la solicitud antes de actualizarla para tener el userId
+    const [existingRequest] = await db
+      .select()
+      .from(requests)
+      .where(eq(requests.id, parseInt(id)));
+
+    if (!existingRequest) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
     const updatedRequest = await storage.updateRequest(parseInt(id), {
       response,
       status,
@@ -104,8 +147,12 @@ router.put('/:id/respond', async (req, res) => {
       return res.status(404).json({ error: 'Solicitud no encontrada' });
     }
 
-    // Aquí podrías agregar lógica para notificar al estudiante
-    // Por ejemplo, enviar un email o una notificación en tiempo real
+    // Crear notificación para el estudiante
+    await createRequestResponseNotification(
+      existingRequest.userId,
+      existingRequest.subject,
+      status
+    );
 
     res.json(updatedRequest);
   } catch (error) {
@@ -120,9 +167,9 @@ router.put('/:id/respond', async (req, res) => {
  * @requires Autenticación
  * @returns Número de solicitudes activas del usuario
  */
-router.get('/active-count', async (req, res) => {
+router.get('/active-count', authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
 

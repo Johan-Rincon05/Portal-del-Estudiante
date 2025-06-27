@@ -4,14 +4,10 @@
  * y la configuración de las rutas de autenticación en el Portal del Estudiante.
  */
 
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response } from "express";
-import session from "express-session";
 import bcrypt from 'bcrypt';
 import { storage } from "./storage";
 import { User as SelectUser, PERMISSIONS, DEFAULT_ROLES } from "@shared/schema";
-import express from 'express';
 import jwt from 'jsonwebtoken';
 import { z } from "zod";
 
@@ -89,117 +85,51 @@ const loginSchema = z.object({
  * @param app - Instancia de Express
  */
 export function setupAuth(app: Express) {
-  // Configuración de la sesión
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.JWT_SECRET || 'tu_clave_secreta_jwt',
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    name: 'sessionId',
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    }
-  };
-
-  // Configurar middleware de sesión y autenticación
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  // Middleware para logging de sesión
-  app.use((req, res, next) => {
-    console.log('Estado de la sesión:', {
-      isAuthenticated: req.isAuthenticated(),
-      sessionID: req.sessionID,
-      user: req.user
-    });
-    next();
-  });
-
-  /**
-   * Configuración de la estrategia de autenticación local
-   * Utiliza username y password para autenticar usuarios
-   */
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        console.log('=== INICIO DE PROCESO DE AUTENTICACIÓN ===');
-        console.log('Intento de inicio de sesión para usuario:', username);
-        
-        const user = await storage.getUserByUsername(username);
-        
-        if (!user) {
-          console.log('Usuario no encontrado:', username);
-          return done(null, false, { message: 'Usuario no encontrado' });
-        }
-        
-        const passwordMatch = await comparePasswords(password, user.password);
-        
-        if (!passwordMatch) {
-          console.log('Contraseña incorrecta para usuario:', username);
-          return done(null, false, { message: 'Contraseña incorrecta' });
-        }
-        
-        console.log('Inicio de sesión exitoso para usuario:', username);
-        return done(null, user);
-      } catch (error) {
-        console.error('Error en la estrategia de autenticación:', error);
-        return done(error);
-      }
-    })
-  );
-
-  // Serialización y deserialización de usuarios
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-
   /**
    * Ruta de inicio de sesión
    * POST /api/login
    * @body {username, password} - Credenciales de inicio de sesión
    * @returns Token JWT y datos del usuario
    */
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error interno del servidor' });
-      }
-
+  app.post("/api/login", async (req: Request, res: Response) => {
+    try {
+      const { username, password } = loginSchema.parse(req.body);
+      
+      console.log('=== INICIO DE PROCESO DE AUTENTICACIÓN ===');
+      console.log('Intento de inicio de sesión para usuario:', username);
+      
+      const user = await storage.getUserByUsername(username);
+      
       if (!user) {
-        return res.status(401).json({ error: info?.message || 'Credenciales inválidas' });
+        console.log('Usuario no encontrado:', username);
+        return res.status(401).json({ error: 'Usuario no encontrado' });
       }
+      
+      const passwordMatch = await comparePasswords(password, user.password);
+      
+      if (!passwordMatch) {
+        console.log('Contraseña incorrecta para usuario:', username);
+        return res.status(401).json({ error: 'Contraseña incorrecta' });
+      }
+      
+      console.log('Inicio de sesión exitoso para usuario:', username);
+      
+      // Generar token JWT
+      const token = generateToken(user);
 
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ error: 'Error al iniciar sesión' });
-        }
-
-        // Generar token JWT
-        const token = generateToken(user);
-
-        res.json({
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          token // Incluir el token en la respuesta
-        });
+      res.json({
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        token
       });
-    })(req, res, next);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Datos de inicio de sesión inválidos", details: error.errors });
+      }
+      console.error('Error en inicio de sesión:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
   });
 
   /**
@@ -263,12 +193,8 @@ export function setupAuth(app: Express) {
    * @returns Mensaje de éxito
    */
   app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error al cerrar sesión' });
-      }
-      res.json({ message: 'Sesión cerrada exitosamente' });
-    });
+    // Con JWT, el logout se maneja en el frontend eliminando el token
+    res.json({ message: 'Sesión cerrada exitosamente' });
   });
 
   /**

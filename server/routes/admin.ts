@@ -1,14 +1,15 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { eq } from 'drizzle-orm';
 import { users, profiles, documents } from '@shared/schema';
 import { db } from "../db";
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
 // Middleware para verificar rol de administrador
-const requireAdmin = (req, res, next) => {
-  if (!req.isAuthenticated()) {
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
     return res.status(401).json({ error: 'No autenticado' });
   }
 
@@ -19,8 +20,11 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Ejemplo de uso:
+// router.get('/ruta-protegida', authenticateToken, requireAdmin, (req, res) => { ... });
+
 // Obtener todos los estudiantes con sus documentos
-router.get('/students', requireAdmin, async (req, res) => {
+router.get('/students', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Obtener estudiantes (usuarios con rol 'estudiante' y sus perfiles)
     const students = await storage.getAllStudentsWithDocuments();
@@ -31,13 +35,14 @@ router.get('/students', requireAdmin, async (req, res) => {
   }
 });
 
-// Obtener empleados
-router.get("/employees", async (req, res) => {
+// Obtener empleados (proteger si es necesario)
+router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const employees = await db.query("SELECT * FROM employees");
     res.json(employees);
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener los empleados" });
+    console.error('Error al obtener empleados:', error);
+    res.status(500).json({ error: 'Error al obtener empleados' });
   }
 });
 

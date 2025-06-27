@@ -1,18 +1,18 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
-import { User, Group, Inbox, File, MessageCircleQuestion, LogOut, Settings } from 'lucide-react';
+import { User, Group, Inbox, File, MessageCircleQuestion, LogOut, Settings, CreditCard } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { Button } from './ui/button';
 
 const Sidebar = () => {
-  const location = useLocation();
+  const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
   
   const handleLogout = () => {
     logoutMutation.mutate();
   };
   
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
+  const isActive = (path: string) => location === path;
   
   const userRole = user?.role || 'estudiante';
   
@@ -77,6 +77,17 @@ const Sidebar = () => {
               Mis Documentos
             </Link>
             <Link
+              to="/payments"
+              className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                isActive('/payments')
+                  ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
+                  : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
+              }`}
+            >
+              <CreditCard className={`mr-3 h-5 w-5 ${isActive('/payments') ? 'text-white' : 'text-white/80'}`} />
+              Mis Pagos
+            </Link>
+            <Link
               to="/requests"
               className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                 isActive('/requests')
@@ -99,12 +110,12 @@ const Sidebar = () => {
                 <Link
                   to="/admin/students"
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                    location.pathname.startsWith('/admin/students')
+                    location.startsWith('/admin/students')
                       ? 'bg-sidebar-accent/30 text-white border-l-2 border-white'
                       : 'text-white/90 hover:bg-sidebar-accent/20 hover:text-white'
                   }`}
                 >
-                  <Group className={`mr-3 h-5 w-5 ${location.pathname.startsWith('/admin/students') ? 'text-white' : 'text-white/80'}`} />
+                  <Group className={`mr-3 h-5 w-5 ${location.startsWith('/admin/students') ? 'text-white' : 'text-white/80'}`} />
                   Estudiantes
                 </Link>
                 <Link

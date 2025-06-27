@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Mail, ArrowLeft, FileText, Eye, Download, Trash2 } from 'lucide-react';
+import { Loader2, Mail, ArrowLeft, FileText, Eye, Download, Trash2, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 
@@ -23,12 +23,27 @@ const responseFormSchema = z.object({
   status: z.enum(["pendiente", "en_proceso", "completada", "rechazada"])
 });
 
+const enrollmentStageSchema = z.object({
+  enrollmentStage: z.enum([
+    "suscrito",
+    "documentos_completos", 
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ])
+});
+
 type ResponseFormValues = z.infer<typeof responseFormSchema>;
+type EnrollmentStageFormValues = z.infer<typeof enrollmentStageSchema>;
 
 const StudentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { profile, isLoading: isProfileLoading, updateProfileMutation } = useProfiles(id);
+  const { profile, isLoading: isProfileLoading, updateProfileMutation, updateEnrollmentStageMutation } = useProfiles(id);
   const { documents, isLoading: isDocumentsLoading, deleteDocumentMutation, getDocumentUrl } = useDocuments(id);
   const { 
     requests, 
@@ -39,11 +54,18 @@ const StudentDetailPage = () => {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
 
-  const form = useForm<ResponseFormValues>({
+  const responseForm = useForm<ResponseFormValues>({
     resolver: zodResolver(responseFormSchema),
     defaultValues: {
       response: '',
       status: 'en_proceso'
+    }
+  });
+
+  const enrollmentStageForm = useForm<EnrollmentStageFormValues>({
+    resolver: zodResolver(enrollmentStageSchema),
+    defaultValues: {
+      enrollmentStage: profile?.enrollmentStage || 'suscrito'
     }
   });
 
@@ -54,7 +76,7 @@ const StudentDetailPage = () => {
       status: values.status
     }, {
       onSuccess: () => {
-        form.reset();
+        responseForm.reset();
         setActiveRequestId(null);
       }
     });
@@ -94,6 +116,18 @@ const StudentDetailPage = () => {
       });
     }
   };
+
+  const handleUpdateEnrollmentStage = (values: EnrollmentStageFormValues) => {
+    updateEnrollmentStageMutation.mutate(values);
+  };
+
+  useEffect(() => {
+    if (profile) {
+      enrollmentStageForm.reset({
+        enrollmentStage: profile.enrollmentStage || 'suscrito'
+      });
+    }
+  }, [profile, enrollmentStageForm]);
 
   if (isProfileLoading || !profile) {
     return (
@@ -201,6 +235,69 @@ const StudentDetailPage = () => {
                   </dd>
                 </div>
               </dl>
+            </CardContent>
+          </Card>
+
+          {/* Componente de Etapa de Matrícula */}
+          <Card className="mt-6">
+            <CardHeader className="px-6 py-5">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Etapa de Matrícula
+              </CardTitle>
+              <p className="text-sm text-gray-500">Gestiona el progreso del estudiante en el proceso de matrícula</p>
+            </CardHeader>
+            <CardContent className="px-6 py-5">
+              <Form {...enrollmentStageForm}>
+                <form onSubmit={enrollmentStageForm.handleSubmit(handleUpdateEnrollmentStage)} className="space-y-4">
+                  <FormField
+                    control={enrollmentStageForm.control}
+                    name="enrollmentStage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          Etapa Actual del Estudiante
+                        </FormLabel>
+                        <div className="flex items-center gap-4">
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="w-64">
+                                <SelectValue placeholder="Selecciona la etapa" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="suscrito">Suscrito</SelectItem>
+                              <SelectItem value="documentos_completos">Documentos Completos</SelectItem>
+                              <SelectItem value="registro_validado">Registro Validado</SelectItem>
+                              <SelectItem value="proceso_universitario">Proceso Universitario</SelectItem>
+                              <SelectItem value="matriculado">Matriculado</SelectItem>
+                              <SelectItem value="inicio_clases">Inicio de Clases</SelectItem>
+                              <SelectItem value="estudiante_activo">Estudiante Activo</SelectItem>
+                              <SelectItem value="pagos_al_dia">Pagos al Día</SelectItem>
+                              <SelectItem value="proceso_finalizado">Proceso Finalizado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            type="submit"
+                            disabled={updateEnrollmentStageMutation.isPending}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {updateEnrollmentStageMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Actualizando...
+                              </>
+                            ) : (
+                              <>Actualizar Etapa</>
+                            )}
+                          </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -329,15 +426,15 @@ const StudentDetailPage = () => {
                           <p className="text-sm text-gray-900">{request.response}</p>
                         </div>
                       ) : (
-                        <Form {...form}>
+                        <Form {...responseForm}>
                           <form 
-                            onSubmit={form.handleSubmit((values) => handleRespondToRequest(request.id, values))}
+                            onSubmit={responseForm.handleSubmit((values) => handleRespondToRequest(request.id, values))}
                             className="mt-4 bg-white p-3 border border-gray-200 rounded-md"
                           >
                             <h5 className="text-xs font-medium text-gray-700 mb-2">Responder solicitud</h5>
                             
                             <FormField
-                              control={form.control}
+                              control={responseForm.control}
                               name="response"
                               render={({ field }) => (
                                 <FormItem>
@@ -356,7 +453,7 @@ const StudentDetailPage = () => {
                             
                             <div className="mt-3 flex items-center justify-between">
                               <FormField
-                                control={form.control}
+                                control={responseForm.control}
                                 name="status"
                                 render={({ field }) => (
                                   <FormItem>

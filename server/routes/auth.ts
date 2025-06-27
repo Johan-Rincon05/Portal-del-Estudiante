@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import passport from 'passport';
-import { generateToken, hashPassword } from '../auth';
+import { generateToken, hashPassword, comparePasswords } from '../auth';
 import { storage } from '../storage';
 import { z } from 'zod';
 
@@ -20,34 +19,26 @@ const registerSchema = z.object({
   role: z.enum(['estudiante', 'admin', 'superuser']).optional()
 });
 
-// Ruta de login
-router.post('/login', (req, res, next) => {
+// Ruta de login (solo JWT)
+router.post('/login', async (req, res) => {
   try {
     const { username, password } = loginSchema.parse(req.body);
-    
-    passport.authenticate('local', (err: any, user: any, info: any) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error interno del servidor' });
-      }
-
-      if (!user) {
-        return res.status(401).json({ error: info?.message || 'Credenciales inválidas' });
-      }
-
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ error: 'Error al iniciar sesión' });
-        }
-
-        const token = generateToken(user);
-        res.json({
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          token
-        });
-      });
-    })(req, res, next);
+    const user = await storage.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
+    const passwordMatch = await comparePasswords(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+    // Generar token JWT
+    const token = generateToken(user);
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      token
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Datos inválidos', details: error.errors });
@@ -56,23 +47,20 @@ router.post('/login', (req, res, next) => {
   }
 });
 
-// Ruta de registro
+// Ruta de registro (solo JWT)
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, role } = registerSchema.parse(req.body);
-    
     // Verificar si el usuario ya existe
     const existingUser = await storage.getUserByUsername(username);
     if (existingUser) {
       return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
     }
-
     // Verificar si el email ya está en uso
     const existingEmail = await storage.getUserByEmail(email);
     if (existingEmail) {
       return res.status(400).json({ error: 'El email ya está en uso' });
     }
-
     // Crear el usuario
     const hashedPassword = await hashPassword(password);
     const user = await storage.createUser({
@@ -83,10 +71,8 @@ router.post('/register', async (req, res) => {
       isActive: true,
       permissions: {}
     });
-
     // Generar token
     const token = generateToken(user);
-
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
       token,
@@ -105,23 +91,32 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Ruta de logout
-router.post('/logout', (req, res) => {
-  req.logout(() => {
-    res.json({ message: 'Sesión cerrada exitosamente' });
-  });
+// Ruta de logout (solo frontend elimina el token)
+router.post('/logout', (_req, res) => {
+  res.json({ message: 'Sesión cerrada exitosamente' });
 });
 
-// Ruta para verificar el estado de la sesión
-router.get('/me', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: 'No autenticado' });
+// Ruta para obtener información del usuario autenticado (requiere JWT)
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Token no proporcionado' });
+    }
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'tu_clave_secreta_muy_segura') as { id: number };
+    const user = await storage.getUser(decoded.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role
+    });
+  } catch (error) {
+    res.status(401).json({ error: 'Token inválido' });
   }
-  res.json({
-    id: req.user.id,
-    username: req.user.username,
-    role: req.user.role
-  });
 });
 
 export default router; 

@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function AdminNavbar() {
   const { user, logoutMutation } = useAuth();
@@ -46,6 +47,8 @@ export function AdminNavbar() {
         </div>
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
           <div className="flex items-center gap-2">
+            <NotificationBell />
+            
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-medium">
               {user?.username?.charAt(0).toUpperCase()}
             </div>

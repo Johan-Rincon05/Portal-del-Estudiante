@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Document } from '@/types';
+import { Document, UpdateDocumentStatus } from '@/types';
 import { apiRequest, queryClient } from '@/lib/query-client';
 import { toast } from 'sonner';
 
@@ -20,7 +20,7 @@ export function useDocuments(userId?: number) {
       formData.append('type', data.type);
       formData.append('userId', data.userId.toString());
       
-      return apiRequest<Document>('/api/documents/upload', {
+      return apiRequest<Document>('/api/documents', {
         method: 'POST',
         body: formData,
         headers: {
@@ -68,6 +68,32 @@ export function useDocuments(userId?: number) {
     },
   });
 
+  // Actualizar estado de documento (solo para administradores)
+  const updateDocumentStatusMutation = useMutation({
+    mutationFn: async ({ documentId, data }: { documentId: string; data: UpdateDocumentStatus }) => {
+      return apiRequest<{ message: string; document: Document }>(`/api/documents/${documentId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (response, { documentId }) => {
+      // Actualizar inmediatamente el cache
+      queryClient.setQueryData(['/api/documents', userId], (old: Document[] = []) => {
+        return old.map(doc => doc.id === documentId ? response.document : doc);
+      });
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      
+      toast.success(response.message);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Error al actualizar el estado del documento');
+    },
+  });
+
   const getDocumentUrl = async (documentPath: string): Promise<string> => {
     try {
       const response = await apiRequest<{ url: string }>(`/api/documents/${documentPath}/url`);
@@ -84,6 +110,7 @@ export function useDocuments(userId?: number) {
     error: documentsQuery.error,
     uploadDocumentMutation: uploadMutation,
     deleteDocumentMutation: deleteMutation,
+    updateDocumentStatusMutation: updateDocumentStatusMutation,
     getDocumentUrl,
     refetch: documentsQuery.refetch,
   };

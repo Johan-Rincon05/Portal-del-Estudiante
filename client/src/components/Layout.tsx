@@ -1,6 +1,6 @@
 import React from 'react';
-import Sidebar from './Sidebar';
-import { useLocation } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { useLocation } from 'wouter';
 import useAuth from '@/hooks/use-auth';
 import { Bell } from 'lucide-react';
 
