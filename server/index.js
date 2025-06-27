@@ -1,4 +1,10 @@
 var __defProp = Object.defineProperty;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -21,9 +27,11 @@ __export(schema_exports, {
   createRequestSchema: () => createRequestSchema,
   createUserSchema: () => createUserSchema,
   documents: () => documents,
+  enrollmentStageEnum: () => enrollmentStageEnum,
   insertDocumentSchema: () => insertDocumentSchema,
   insertInstallmentObservationSchema: () => insertInstallmentObservationSchema,
   insertInstallmentSchema: () => insertInstallmentSchema,
+  insertNotificationSchema: () => insertNotificationSchema,
   insertPaymentSchema: () => insertPaymentSchema,
   insertProfileSchema: () => insertProfileSchema,
   insertProgramSchema: () => insertProgramSchema,
@@ -34,6 +42,7 @@ __export(schema_exports, {
   installmentObservations: () => installmentObservations,
   installments: () => installments,
   loginSchema: () => loginSchema,
+  notifications: () => notifications,
   payments: () => payments,
   profiles: () => profiles,
   programs: () => programs,
@@ -43,12 +52,25 @@ __export(schema_exports, {
   universities: () => universities,
   universityData: () => universityData,
   universityDataFormSchema: () => universityDataFormSchema,
+  updateDocumentStatusSchema: () => updateDocumentStatusSchema,
+  updateEnrollmentStageSchema: () => updateEnrollmentStageSchema,
   updateRequestSchema: () => updateRequestSchema,
   users: () => users
 });
-import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+var enrollmentStageEnum = pgEnum("enrollment_stage", [
+  "suscrito",
+  "documentos_completos",
+  "registro_validado",
+  "proceso_universitario",
+  "matriculado",
+  "inicio_clases",
+  "estudiante_activo",
+  "pagos_al_dia",
+  "proceso_finalizado"
+]);
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
@@ -80,6 +102,7 @@ var profiles = pgTable("profiles", {
   bloodType: text("blood_type"),
   conflictVictim: boolean("conflict_victim"),
   maritalStatus: text("marital_status"),
+  enrollmentStage: enrollmentStageEnum("enrollment_stage").notNull().default("suscrito"),
   createdAt: timestamp("created_at").defaultNow()
 });
 var universityData = pgTable("university_data", {
@@ -127,6 +150,14 @@ var documents = pgTable("documents", {
   // Nombre del documento
   path: text("path").notNull(),
   // Storage path
+  status: text("status").notNull().default("pendiente"),
+  // "pendiente", "aprobado", "rechazado"
+  rejectionReason: text("rejection_reason"),
+  // Motivo del rechazo (opcional)
+  reviewedBy: integer("reviewed_by"),
+  // ID del administrador que revisó
+  reviewedAt: timestamp("reviewed_at"),
+  // Fecha de revisión
   uploadedAt: timestamp("uploaded_at").defaultNow()
 });
 var requests = pgTable("requests", {
@@ -140,6 +171,18 @@ var requests = pgTable("requests", {
   updatedAt: timestamp("updated_at", { mode: "date" }),
   respondedAt: timestamp("responded_at", { mode: "date" }),
   respondedBy: integer("responded_by")
+});
+var notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  link: text("link"),
+  // URL opcional para redirección
+  isRead: boolean("is_read").notNull().default(false),
+  type: text("type").notNull().default("general"),
+  // "document", "request", "stage", "general"
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 var universities = pgTable("universities", {
   id: serial("id").primaryKey(),
@@ -161,6 +204,7 @@ var insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, 
 var insertInstallmentObservationSchema = createInsertSchema(installmentObservations).omit({ id: true, createdAt: true });
 var insertDocumentSchema = createInsertSchema(documents).omit({ id: true, uploadedAt: true });
 var insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true });
+var insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 var insertUniversitySchema = createInsertSchema(universities).omit({ id: true });
 var insertProgramSchema = createInsertSchema(programs).omit({ id: true });
 var registerUserSchema = z.object({
@@ -208,6 +252,29 @@ var universityDataFormSchema = z.object({
     required_error: "El m\xE9todo de aplicaci\xF3n es requerido"
   }),
   severancePaymentUsed: z.boolean()
+});
+var updateEnrollmentStageSchema = z.object({
+  enrollmentStage: z.enum([
+    "suscrito",
+    "documentos_completos",
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ], {
+    required_error: "La etapa de matr\xEDcula es requerida"
+  })
+});
+var updateDocumentStatusSchema = z.object({
+  status: z.enum(["pendiente", "aprobado", "rechazado"], {
+    required_error: "El estado del documento es requerido"
+  }),
+  rejectionReason: z.string().optional().nullable(),
+  reviewedBy: z.number().optional(),
+  reviewedAt: z.date().optional()
 });
 var roles = pgTable("roles", {
   id: serial("id").primaryKey(),
@@ -273,22 +340,13 @@ var DEFAULT_ROLES = {
 };
 
 // server/storage.ts
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { eq, and, or, desc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 var connectionString = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/portal_estudiante";
 var client = postgres(connectionString);
 var db = drizzle(client);
-var PgSessionStore = connectPgSimple(session);
 var storage = {
-  /**
-   * Almacenamiento de sesiones
-   */
-  sessionStore: new PgSessionStore({
-    createTableIfMissing: true
-  }),
   /**
    * Operaciones de Usuario
    */
@@ -409,7 +467,7 @@ var storage = {
    * @returns Lista de roles
    */
   async listRoles() {
-    return db.select().from(roles);
+    return await db.select().from(roles);
   },
   /**
    * Operaciones de Permisos
@@ -422,10 +480,7 @@ var storage = {
   async getUserPermissions(userId) {
     const user = await this.getUser(userId);
     if (!user) return {};
-    return {
-      ...DEFAULT_ROLES[user.role]?.permissions,
-      ...user.permissions
-    };
+    return user.permissions || {};
   },
   /**
    * Actualiza los permisos de un usuario
@@ -438,7 +493,7 @@ var storage = {
     return user;
   },
   /**
-   * Inicializa los roles por defecto en el sistema
+   * Inicializa los roles por defecto
    */
   async initializeDefaultRoles() {
     for (const [roleName, roleData] of Object.entries(DEFAULT_ROLES)) {
@@ -446,8 +501,8 @@ var storage = {
       if (!existingRole) {
         await this.createRole({
           name: roleName,
-          description: roleData.description,
-          permissions: roleData.permissions
+          permissions: roleData.permissions,
+          description: roleData.description
         });
       }
     }
@@ -674,12 +729,97 @@ var storage = {
       profile: row.profile || null,
       documentsCount: Number(row.documentsCount)
     }));
+  },
+  /**
+   * Operaciones de Pagos
+   */
+  /**
+   * Obtiene los pagos de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de pagos del usuario
+   */
+  async getPaymentsByUserId(userId) {
+    return await db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.paymentDate));
+  },
+  /**
+   * Obtiene un pago específico
+   * @param id - ID del pago
+   * @returns Pago encontrado o null
+   */
+  async getPayment(id) {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment || null;
+  },
+  /**
+   * Crea un nuevo pago
+   * @param paymentData - Datos del pago
+   * @returns Pago creado
+   */
+  async createPayment(paymentData) {
+    const [payment] = await db.insert(payments).values(paymentData).returning();
+    return payment;
+  },
+  /**
+   * Actualiza un pago
+   * @param id - ID del pago
+   * @param updates - Datos a actualizar
+   * @returns Pago actualizado
+   */
+  async updatePayment(id, updates) {
+    const [payment] = await db.update(payments).set(updates).where(eq(payments.id, id)).returning();
+    return payment || null;
+  },
+  /**
+   * Operaciones de Cuotas
+   */
+  /**
+   * Obtiene las cuotas de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de cuotas del usuario
+   */
+  async getInstallmentsByUserId(userId) {
+    return await db.select().from(installments).where(eq(installments.userId, userId)).orderBy(installments.installmentNumber);
+  },
+  /**
+   * Obtiene una cuota específica
+   * @param id - ID de la cuota
+   * @returns Cuota encontrada o null
+   */
+  async getInstallment(id) {
+    const [installment] = await db.select().from(installments).where(eq(installments.id, id));
+    return installment || null;
+  },
+  /**
+   * Crea una nueva cuota
+   * @param installmentData - Datos de la cuota
+   * @returns Cuota creada
+   */
+  async createInstallment(installmentData) {
+    const [installment] = await db.insert(installments).values(installmentData).returning();
+    return installment;
+  },
+  /**
+   * Actualiza una cuota
+   * @param id - ID de la cuota
+   * @param updates - Datos a actualizar
+   * @returns Cuota actualizada
+   */
+  async updateInstallment(id, updates) {
+    const [installment] = await db.update(installments).set(updates).where(eq(installments.id, id)).returning();
+    return installment || null;
+  },
+  /**
+   * Obtiene las observaciones de cuotas de un usuario
+   * @param userId - ID del usuario
+   * @returns Lista de observaciones de cuotas
+   */
+  async getInstallmentObservationsByUserId(userId) {
+    return await db.select().from(installmentObservations).where(eq(installmentObservations.userId, userId)).orderBy(desc(installmentObservations.createdAt));
   }
 };
 
 // server/routes/documents.ts
 import { Router } from "express";
-import { z as z3 } from "zod";
 
 // server/middleware/auth.ts
 import jwt from "jsonwebtoken";
@@ -697,19 +837,17 @@ var authenticateToken = (req, res, next) => {
     return res.status(403).json({ error: "Token inv\xE1lido o expirado" });
   }
 };
-
-// server/schema.ts
-import { z as z2 } from "zod";
-var documentSchema = z2.object({
-  id: z2.string().uuid().optional(),
-  userId: z2.string().uuid(),
-  name: z2.string().min(1, "El nombre es requerido").max(255),
-  type: z2.string().min(1, "El tipo es requerido").max(50),
-  size: z2.number().positive("El tama\xF1o debe ser mayor a 0"),
-  url: z2.string().url("URL inv\xE1lida"),
-  createdAt: z2.date().optional(),
-  updatedAt: z2.date().optional()
-});
+var requireRole = (roles2) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "No autenticado" });
+    }
+    if (!roles2.includes(req.user.role)) {
+      return res.status(403).json({ error: "Acceso denegado: rol no autorizado" });
+    }
+    next();
+  };
+};
 
 // server/routes/documents.ts
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -728,8 +866,135 @@ var s3Client = new S3Client({
   }
 });
 
+// server/db.ts
+import pg from "pg";
+import { drizzle as drizzle2 } from "drizzle-orm/node-postgres";
+import { config } from "dotenv";
+config();
+console.log("Variables de entorno:", {
+  DATABASE_URL: process.env.DATABASE_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL no est\xE1 definida en las variables de entorno");
+}
+var pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+});
+var db2 = drizzle2(pool, { schema: schema_exports });
+var db_default = db2;
+
+// server/routes/documents.ts
+import { eq as eq2, and as and2 } from "drizzle-orm";
+import multer from "multer";
+
+// server/utils/notifications.ts
+async function createNotification(notificationData) {
+  try {
+    const [newNotification] = await db2.insert(notifications).values(notificationData).returning();
+    return newNotification;
+  } catch (error) {
+    console.error("Error al crear notificaci\xF3n:", error);
+    throw error;
+  }
+}
+async function createDocumentUploadNotification(userId, documentName, documentType) {
+  const notificationData = {
+    userId,
+    title: "Documento Subido",
+    body: `Has subido exitosamente el documento "${documentName}" (${documentType}). Ser\xE1 revisado por el administrador.`,
+    type: "document",
+    link: "/documents"
+  };
+  return createNotification(notificationData);
+}
+async function createDocumentApprovedNotification(userId, documentName) {
+  const notificationData = {
+    userId,
+    title: "Documento Aprobado",
+    body: `Tu documento "${documentName}" ha sido aprobado por el administrador.`,
+    type: "document",
+    link: "/documents"
+  };
+  return createNotification(notificationData);
+}
+async function createDocumentRejectedNotification(userId, documentName, rejectionReason) {
+  const notificationData = {
+    userId,
+    title: "Documento Rechazado",
+    body: `Tu documento "${documentName}" ha sido rechazado. Motivo: ${rejectionReason}`,
+    type: "document",
+    link: "/documents"
+  };
+  return createNotification(notificationData);
+}
+async function createRequestSubmittedNotification(userId, subject) {
+  const notificationData = {
+    userId,
+    title: "Solicitud Enviada",
+    body: `Tu solicitud "${subject}" ha sido enviada exitosamente. Recibir\xE1s una respuesta pronto.`,
+    type: "request",
+    link: "/requests"
+  };
+  return createNotification(notificationData);
+}
+async function createRequestResponseNotification(userId, subject, status) {
+  const notificationData = {
+    userId,
+    title: "Respuesta a Solicitud",
+    body: `Tu solicitud "${subject}" ha sido ${status}. Revisa los detalles en la secci\xF3n de solicitudes.`,
+    type: "request",
+    link: "/requests"
+  };
+  return createNotification(notificationData);
+}
+async function createEnrollmentStageNotification(userId, newStage) {
+  const stageNames = {
+    "suscrito": "Suscrito",
+    "documentos_completos": "Documentos Completos",
+    "registro_validado": "Registro Validado",
+    "proceso_universitario": "Proceso Universitario",
+    "matriculado": "Matriculado",
+    "inicio_clases": "Inicio de Clases",
+    "estudiante_activo": "Estudiante Activo",
+    "pagos_al_dia": "Pagos al D\xEDa",
+    "proceso_finalizado": "Proceso Finalizado"
+  };
+  const stageName = stageNames[newStage] || newStage;
+  const notificationData = {
+    userId,
+    title: "Progreso en Matr\xEDcula",
+    body: `Has avanzado a la etapa "${stageName}". \xA1Felicidades por tu progreso!`,
+    type: "stage",
+    link: "/"
+  };
+  return createNotification(notificationData);
+}
+async function createAdminDocumentUploadNotification(adminUserIds, studentName, documentName) {
+  const notifications2 = adminUserIds.map((adminId) => ({
+    userId: adminId,
+    title: "Nuevo Documento Pendiente",
+    body: `El estudiante ${studentName} ha subido el documento "${documentName}" y requiere revisi\xF3n.`,
+    type: "document",
+    link: "/admin/students"
+  }));
+  return Promise.all(notifications2.map(createNotification));
+}
+async function createAdminRequestNotification(adminUserIds, studentName, subject) {
+  const notifications2 = adminUserIds.map((adminId) => ({
+    userId: adminId,
+    title: "Nueva Solicitud de Estudiante",
+    body: `El estudiante ${studentName} ha enviado una solicitud: "${subject}".`,
+    type: "request",
+    link: "/admin/requests"
+  }));
+  return Promise.all(notifications2.map(createNotification));
+}
+
 // server/routes/documents.ts
 var router = Router();
+var upload = multer({ dest: "uploads/" });
 router.get("/", authenticateToken, async (req, res) => {
   try {
     if (!req.user) {
@@ -742,24 +1007,45 @@ router.get("/", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error al obtener documentos" });
   }
 });
-router.post("/", authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, upload.single("file"), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
-    const document = documentSchema.parse(req.body);
+    const { type } = req.body;
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "Archivo no proporcionado" });
+    }
     const createdDocument = await storage.createDocument({
-      ...document,
-      userId: req.user.id
+      name: file.originalname,
+      type,
+      path: file.filename,
+      // o file.path según tu lógica
+      userId: req.user.id,
+      status: "pendiente"
     });
+    await createDocumentUploadNotification(
+      req.user.id,
+      file.originalname,
+      type
+    );
+    const adminUsers = await db2.select({ id: users.id }).from(users).where(and2(
+      eq2(users.role, "admin"),
+      eq2(users.isActive, true)
+    ));
+    const adminUserIds = adminUsers.map((admin) => admin.id);
+    if (adminUserIds.length > 0) {
+      await createAdminDocumentUploadNotification(
+        adminUserIds,
+        req.user.username || "Estudiante",
+        file.originalname
+      );
+    }
     res.status(201).json(createdDocument);
   } catch (error) {
-    if (error instanceof z3.ZodError) {
-      res.status(400).json({ error: error.errors });
-    } else {
-      console.error("Error al crear documento:", error);
-      res.status(500).json({ error: "Error al crear documento" });
-    }
+    console.error("Error al crear documento:", error);
+    res.status(500).json({ error: "Error al crear documento" });
   }
 });
 router.delete("/:id", authenticateToken, async (req, res) => {
@@ -813,19 +1099,66 @@ router.get("/:id/download", async (req, res) => {
   const url = await getSignedUrl(s3Client, command, { expiresIn: 60 });
   res.send({ url });
 });
+router.put("/:id/status", authenticateToken, requireRole(["admin", "superuser"]), async (req, res) => {
+  try {
+    const documentId = parseInt(req.params.id);
+    if (isNaN(documentId)) {
+      return res.status(400).json({ error: "ID de documento inv\xE1lido" });
+    }
+    const result = updateDocumentStatusSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: "Datos inv\xE1lidos",
+        details: result.error.issues
+      });
+    }
+    const { status, rejectionReason } = result.data;
+    const [existingDocument] = await db2.select().from(documents).where(eq2(documents.id, documentId));
+    if (!existingDocument) {
+      return res.status(404).json({ error: "Documento no encontrado" });
+    }
+    const [updatedDocument] = await db2.update(documents).set({
+      status,
+      rejectionReason,
+      reviewedBy: req.user?.id,
+      reviewedAt: /* @__PURE__ */ new Date()
+    }).where(eq2(documents.id, documentId)).returning();
+    if (status === "aprobado") {
+      await createDocumentApprovedNotification(
+        existingDocument.userId,
+        existingDocument.name
+      );
+    } else if (status === "rechazado" && rejectionReason) {
+      await createDocumentRejectedNotification(
+        existingDocument.userId,
+        existingDocument.name,
+        rejectionReason
+      );
+    }
+    console.log(`Estado de documento ${documentId} actualizado a: ${status}`);
+    res.json({
+      message: "Estado de documento actualizado exitosamente",
+      document: updatedDocument
+    });
+  } catch (error) {
+    console.error("Error al actualizar estado de documento:", error);
+    res.status(500).json({ error: "Error al actualizar el estado del documento" });
+  }
+});
 var documents_default = router;
 
 // server/routes/requests.ts
 import { Router as Router2 } from "express";
-import { z as z4 } from "zod";
+import { z as z2 } from "zod";
+import { eq as eq3, and as and3 } from "drizzle-orm";
 var router2 = Router2();
-var responseSchema = z4.object({
-  response: z4.string().min(1, "La respuesta es requerida"),
-  status: z4.enum(["en_proceso", "completada", "rechazada"])
+var responseSchema = z2.object({
+  response: z2.string().min(1, "La respuesta es requerida"),
+  status: z2.enum(["en_proceso", "completada", "rechazada"])
 });
-router2.get("/", async (req, res) => {
+router2.get("/", authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: "No autenticado" });
     }
     const user = req.user;
@@ -841,9 +1174,9 @@ router2.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al obtener las solicitudes" });
   }
 });
-router2.post("/", async (req, res) => {
+router2.post("/", authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: "No autenticado" });
     }
     const request = await storage.createRequest({
@@ -851,15 +1184,31 @@ router2.post("/", async (req, res) => {
       userId: req.user.id,
       status: "pendiente"
     });
+    await createRequestSubmittedNotification(
+      req.user.id,
+      req.body.subject
+    );
+    const adminUsers = await db2.select({ id: users.id }).from(users).where(and3(
+      eq3(users.role, "admin"),
+      eq3(users.isActive, true)
+    ));
+    const adminUserIds = adminUsers.map((admin) => admin.id);
+    if (adminUserIds.length > 0) {
+      await createAdminRequestNotification(
+        adminUserIds,
+        req.user.username || "Estudiante",
+        req.body.subject
+      );
+    }
     res.status(201).json(request);
   } catch (error) {
     console.error("Error al crear solicitud:", error);
     res.status(500).json({ error: "Error al crear la solicitud" });
   }
 });
-router2.put("/:id/respond", async (req, res) => {
+router2.put("/:id/respond", authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: "No autenticado" });
     }
     if (req.user.role !== "admin") {
@@ -874,6 +1223,10 @@ router2.put("/:id/respond", async (req, res) => {
       });
     }
     const { response, status } = result.data;
+    const [existingRequest] = await db2.select().from(requests).where(eq3(requests.id, parseInt(id)));
+    if (!existingRequest) {
+      return res.status(404).json({ error: "Solicitud no encontrada" });
+    }
     const updatedRequest = await storage.updateRequest(parseInt(id), {
       response,
       status,
@@ -883,15 +1236,20 @@ router2.put("/:id/respond", async (req, res) => {
     if (!updatedRequest) {
       return res.status(404).json({ error: "Solicitud no encontrada" });
     }
+    await createRequestResponseNotification(
+      existingRequest.userId,
+      existingRequest.subject,
+      status
+    );
     res.json(updatedRequest);
   } catch (error) {
     console.error("Error al responder solicitud:", error);
     res.status(500).json({ error: "Error al responder la solicitud" });
   }
 });
-router2.get("/active-count", async (req, res) => {
+router2.get("/active-count", authenticateToken, async (req, res) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).json({ error: "No autenticado" });
     }
     const count2 = await storage.getActiveRequestsCount(req.user.id);
@@ -925,7 +1283,7 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/admin/users", async (req, res) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== "admin" && req.user?.role !== "superuser") {
+      if (!req.user || req.user?.role !== "admin" && req.user?.role !== "superuser") {
         return res.status(403).json({
           error: "No autorizado",
           details: "Se requieren permisos de administrador o superusuario"
@@ -1141,28 +1499,7 @@ function serveStatic(app2) {
 
 // server/routes/universities.ts
 import { Router as Router3 } from "express";
-
-// server/db.ts
-import pg from "pg";
-import { drizzle as drizzle2 } from "drizzle-orm/node-postgres";
-import { config } from "dotenv";
-config();
-console.log("Variables de entorno:", {
-  DATABASE_URL: process.env.DATABASE_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL no est\xE1 definida en las variables de entorno");
-}
-var pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
-});
-var db2 = drizzle2(pool, { schema: schema_exports });
-var db_default = db2;
-
-// server/routes/universities.ts
-import { eq as eq2 } from "drizzle-orm";
+import { eq as eq4 } from "drizzle-orm";
 var router3 = Router3();
 router3.get("/", async (req, res) => {
   try {
@@ -1176,7 +1513,7 @@ router3.get("/", async (req, res) => {
 router3.get("/:universityId/programs", async (req, res) => {
   try {
     const { universityId } = req.params;
-    const universityPrograms = await db2.select().from(programs).where(eq2(programs.universityId, parseInt(universityId)));
+    const universityPrograms = await db2.select().from(programs).where(eq4(programs.universityId, parseInt(universityId)));
     res.json(universityPrograms);
   } catch (error) {
     console.error("Error al obtener programas:", error);
@@ -1187,12 +1524,12 @@ var universities_default = router3;
 
 // server/routes/university-data.ts
 import { Router as Router4 } from "express";
-import { eq as eq3 } from "drizzle-orm";
+import { eq as eq5 } from "drizzle-orm";
 var router4 = Router4();
 router4.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const data = await db2.select().from(universityData).where(eq3(universityData.userId, parseInt(userId))).limit(1);
+    const data = await db2.select().from(universityData).where(eq5(universityData.userId, parseInt(userId))).limit(1);
     res.json(data[0] || null);
   } catch (error) {
     console.error("Error al obtener datos universitarios:", error);
@@ -1202,10 +1539,10 @@ router4.get("/:userId", async (req, res) => {
 router4.post("/", async (req, res) => {
   try {
     const { userId, ...data } = req.body;
-    const existingData = await db2.select().from(universityData).where(eq3(universityData.userId, userId)).limit(1);
+    const existingData = await db2.select().from(universityData).where(eq5(universityData.userId, userId)).limit(1);
     let result;
     if (existingData.length > 0) {
-      result = await db2.update(universityData).set(data).where(eq3(universityData.userId, userId)).returning();
+      result = await db2.update(universityData).set(data).where(eq5(universityData.userId, userId)).returning();
     } else {
       result = await db2.insert(universityData).values({
         userId,
@@ -1220,17 +1557,68 @@ router4.post("/", async (req, res) => {
 });
 var university_data_default = router4;
 
-// server/routes/auth.ts
+// server/routes/payments.ts
 import { Router as Router5 } from "express";
-import passport2 from "passport";
+var router5 = Router5();
+router5.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const payments2 = await storage.getPaymentsByUserId(userId);
+    res.json(payments2);
+  } catch (error) {
+    console.error("Error al obtener pagos:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.get("/installments/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const installments2 = await storage.getInstallmentsByUserId(userId);
+    res.json(installments2);
+  } catch (error) {
+    console.error("Error al obtener cuotas:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.get("/summary", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const payments2 = await storage.getPaymentsByUserId(userId);
+    const totalPaid = payments2.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const installments2 = await storage.getInstallmentsByUserId(userId);
+    const totalPending = installments2.reduce((sum, installment) => sum + Number(installment.amount || 0), 0);
+    const paidInstallments = installments2.filter((installment) => installment.status === "pagada");
+    const totalPaidInstallments = paidInstallments.reduce((sum, installment) => sum + Number(installment.amount || 0), 0);
+    const overdueInstallments = installments2.filter((installment) => {
+      if (installment.status === "pendiente" && installment.dueDate) {
+        return new Date(installment.dueDate) < /* @__PURE__ */ new Date();
+      }
+      return false;
+    });
+    const summary = {
+      totalPaid,
+      totalPending,
+      totalPaidInstallments,
+      overdueCount: overdueInstallments.length,
+      totalOverdue: overdueInstallments.reduce((sum, installment) => sum + Number(installment.amount || 0), 0),
+      paymentsCount: payments2.length,
+      installmentsCount: installments2.length
+    };
+    res.json(summary);
+  } catch (error) {
+    console.error("Error al obtener resumen financiero:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+var payments_default = router5;
+
+// server/routes/auth.ts
+import { Router as Router6 } from "express";
 
 // server/auth.ts
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import session2 from "express-session";
 import bcrypt2 from "bcrypt";
 import jwt2 from "jsonwebtoken";
-import { z as z5 } from "zod";
+import { z as z3 } from "zod";
 var JWT_SECRET = process.env.JWT_SECRET || "tu_clave_secreta_muy_segura";
 var JWT_EXPIRES_IN = "24h";
 var generateToken = (user) => {
@@ -1247,100 +1635,47 @@ var hashPassword2 = async (password) => {
 var comparePasswords = async (password, hash) => {
   return bcrypt2.compare(password, hash);
 };
-var registerSchema = z5.object({
-  username: z5.string().min(3).max(50),
-  email: z5.string().email(),
-  password: z5.string().min(6),
-  role: z5.enum(["estudiante", "admin", "superuser"]).optional()
+var registerSchema = z3.object({
+  username: z3.string().min(3).max(50),
+  email: z3.string().email(),
+  password: z3.string().min(6),
+  role: z3.enum(["estudiante", "admin", "superuser"]).optional()
 });
-var loginSchema2 = z5.object({
-  username: z5.string(),
-  password: z5.string()
+var loginSchema2 = z3.object({
+  username: z3.string(),
+  password: z3.string()
 });
 function setupAuth(app2) {
-  const sessionSettings = {
-    secret: process.env.JWT_SECRET || "tu_clave_secreta_jwt",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    name: "sessionId",
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1e3,
-      // 24 horas
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/"
-    }
-  };
-  app2.set("trust proxy", 1);
-  app2.use(session2(sessionSettings));
-  app2.use(passport.initialize());
-  app2.use(passport.session());
-  app2.use((req, res, next) => {
-    console.log("Estado de la sesi\xF3n:", {
-      isAuthenticated: req.isAuthenticated(),
-      sessionID: req.sessionID,
-      user: req.user
-    });
-    next();
-  });
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        console.log("=== INICIO DE PROCESO DE AUTENTICACI\xD3N ===");
-        console.log("Intento de inicio de sesi\xF3n para usuario:", username);
-        const user = await storage.getUserByUsername(username);
-        if (!user) {
-          console.log("Usuario no encontrado:", username);
-          return done(null, false, { message: "Usuario no encontrado" });
-        }
-        const passwordMatch = await comparePasswords(password, user.password);
-        if (!passwordMatch) {
-          console.log("Contrase\xF1a incorrecta para usuario:", username);
-          return done(null, false, { message: "Contrase\xF1a incorrecta" });
-        }
-        console.log("Inicio de sesi\xF3n exitoso para usuario:", username);
-        return done(null, user);
-      } catch (error) {
-        console.error("Error en la estrategia de autenticaci\xF3n:", error);
-        return done(error);
-      }
-    })
-  );
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-  passport.deserializeUser(async (id, done) => {
+  app2.post("/api/login", async (req, res) => {
     try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-  app2.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
-      if (err) {
-        return res.status(500).json({ error: "Error interno del servidor" });
-      }
+      const { username, password } = loginSchema2.parse(req.body);
+      console.log("=== INICIO DE PROCESO DE AUTENTICACI\xD3N ===");
+      console.log("Intento de inicio de sesi\xF3n para usuario:", username);
+      const user = await storage.getUserByUsername(username);
       if (!user) {
-        return res.status(401).json({ error: info?.message || "Credenciales inv\xE1lidas" });
+        console.log("Usuario no encontrado:", username);
+        return res.status(401).json({ error: "Usuario no encontrado" });
       }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ error: "Error al iniciar sesi\xF3n" });
-        }
-        const token = generateToken(user);
-        res.json({
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          token
-          // Incluir el token en la respuesta
-        });
+      const passwordMatch = await comparePasswords(password, user.password);
+      if (!passwordMatch) {
+        console.log("Contrase\xF1a incorrecta para usuario:", username);
+        return res.status(401).json({ error: "Contrase\xF1a incorrecta" });
+      }
+      console.log("Inicio de sesi\xF3n exitoso para usuario:", username);
+      const token = generateToken(user);
+      res.json({
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        token
       });
-    })(req, res, next);
+    } catch (error) {
+      if (error instanceof z3.ZodError) {
+        return res.status(400).json({ error: "Datos de inicio de sesi\xF3n inv\xE1lidos", details: error.errors });
+      }
+      console.error("Error en inicio de sesi\xF3n:", error);
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
   });
   app2.post("/api/register", async (req, res) => {
     try {
@@ -1374,7 +1709,7 @@ function setupAuth(app2) {
         }
       });
     } catch (error) {
-      if (error instanceof z5.ZodError) {
+      if (error instanceof z3.ZodError) {
         return res.status(400).json({ error: "Datos de registro inv\xE1lidos", details: error.errors });
       }
       console.error("Error en registro:", error);
@@ -1382,12 +1717,7 @@ function setupAuth(app2) {
     }
   });
   app2.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Error al cerrar sesi\xF3n" });
-      }
-      res.json({ message: "Sesi\xF3n cerrada exitosamente" });
-    });
+    res.json({ message: "Sesi\xF3n cerrada exitosamente" });
   });
   app2.get("/api/me", async (req, res) => {
     try {
@@ -1468,49 +1798,44 @@ function setupAuth(app2) {
 }
 
 // server/routes/auth.ts
-import { z as z6 } from "zod";
-var router5 = Router5();
-var loginSchema3 = z6.object({
-  username: z6.string().min(1, "El nombre de usuario es requerido"),
-  password: z6.string().min(1, "La contrase\xF1a es requerida")
+import { z as z4 } from "zod";
+var router6 = Router6();
+var loginSchema3 = z4.object({
+  username: z4.string().min(1, "El nombre de usuario es requerido"),
+  password: z4.string().min(1, "La contrase\xF1a es requerida")
 });
-var registerSchema2 = z6.object({
-  username: z6.string().min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
-  email: z6.string().email("Email inv\xE1lido"),
-  password: z6.string().min(6, "La contrase\xF1a debe tener al menos 6 caracteres"),
-  role: z6.enum(["estudiante", "admin", "superuser"]).optional()
+var registerSchema2 = z4.object({
+  username: z4.string().min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
+  email: z4.string().email("Email inv\xE1lido"),
+  password: z4.string().min(6, "La contrase\xF1a debe tener al menos 6 caracteres"),
+  role: z4.enum(["estudiante", "admin", "superuser"]).optional()
 });
-router5.post("/login", (req, res, next) => {
+router6.post("/login", async (req, res) => {
   try {
     const { username, password } = loginSchema3.parse(req.body);
-    passport2.authenticate("local", (err, user, info) => {
-      if (err) {
-        return res.status(500).json({ error: "Error interno del servidor" });
-      }
-      if (!user) {
-        return res.status(401).json({ error: info?.message || "Credenciales inv\xE1lidas" });
-      }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ error: "Error al iniciar sesi\xF3n" });
-        }
-        const token = generateToken(user);
-        res.json({
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          token
-        });
-      });
-    })(req, res, next);
+    const user = await storage.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: "Usuario no encontrado" });
+    }
+    const passwordMatch = await comparePasswords(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Contrase\xF1a incorrecta" });
+    }
+    const token = generateToken(user);
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      token
+    });
   } catch (error) {
-    if (error instanceof z6.ZodError) {
+    if (error instanceof z4.ZodError) {
       return res.status(400).json({ error: "Datos inv\xE1lidos", details: error.errors });
     }
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-router5.post("/register", async (req, res) => {
+router6.post("/register", async (req, res) => {
   try {
     const { username, email, password, role } = registerSchema2.parse(req.body);
     const existingUser = await storage.getUserByUsername(username);
@@ -1542,34 +1867,43 @@ router5.post("/register", async (req, res) => {
       }
     });
   } catch (error) {
-    if (error instanceof z6.ZodError) {
+    if (error instanceof z4.ZodError) {
       return res.status(400).json({ error: "Datos inv\xE1lidos", details: error.errors });
     }
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-router5.post("/logout", (req, res) => {
-  req.logout(() => {
-    res.json({ message: "Sesi\xF3n cerrada exitosamente" });
-  });
+router6.post("/logout", (_req, res) => {
+  res.json({ message: "Sesi\xF3n cerrada exitosamente" });
 });
-router5.get("/me", (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "No autenticado" });
+router6.get("/me", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "Token no proporcionado" });
+    }
+    const decoded = __require("jsonwebtoken").verify(token, process.env.JWT_SECRET || "tu_clave_secreta_muy_segura");
+    const user = await storage.getUser(decoded.id);
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role
+    });
+  } catch (error) {
+    res.status(401).json({ error: "Token inv\xE1lido" });
   }
-  res.json({
-    id: req.user.id,
-    username: req.user.username,
-    role: req.user.role
-  });
 });
-var auth_default = router5;
+var auth_default = router6;
 
 // server/routes/profiles.ts
-import { Router as Router6 } from "express";
-import { eq as eq4, sql as sql2 } from "drizzle-orm";
-var router6 = Router6();
-router6.get("/", authenticateToken, async (req, res) => {
+import { Router as Router7 } from "express";
+import { eq as eq6, sql as sql2 } from "drizzle-orm";
+var router7 = Router7();
+router7.get("/", authenticateToken, async (req, res) => {
   try {
     const allProfiles = await db_default.select().from(profiles);
     const documentCounts = await db_default.select({
@@ -1595,22 +1929,22 @@ router6.get("/", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error al obtener perfiles" });
   }
 });
-router6.get("/:id", authenticateToken, async (req, res) => {
+router7.get("/:id", authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ error: "ID de perfil inv\xE1lido" });
     }
-    const [profile] = await db_default.select().from(profiles).where(eq4(profiles.id, id));
+    const [profile] = await db_default.select().from(profiles).where(eq6(profiles.id, id));
     if (!profile) {
       return res.status(404).json({ error: "Perfil no encontrado" });
     }
     const [{ count: documentCount }] = await db_default.select({
       count: sql2`count(*)::int`
-    }).from(documents).where(eq4(documents.userId, id));
+    }).from(documents).where(eq6(documents.userId, id));
     const [{ count: pendingRequestCount }] = await db_default.select({
       count: sql2`count(*)::int`
-    }).from(requests).where(eq4(requests.userId, id)).where(sql2`status IN ('pendiente', 'en_proceso')`);
+    }).from(requests).where(sql2`${requests.userId} = ${id} AND status IN ('pendiente', 'en_proceso')`);
     res.json({
       ...profile,
       documentCount,
@@ -1621,25 +1955,55 @@ router6.get("/:id", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error al obtener perfil" });
   }
 });
-router6.put("/:id", authenticateToken, async (req, res) => {
+router7.put("/:id", authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ error: "ID de perfil inv\xE1lido" });
     }
     const updates = req.body;
-    const [existingProfile] = await db_default.select().from(profiles).where(eq4(profiles.id, id));
+    const [existingProfile] = await db_default.select().from(profiles).where(eq6(profiles.id, id));
     if (!existingProfile) {
       return res.status(404).json({ error: "Perfil no encontrado" });
     }
-    const [updatedProfile] = await db_default.update(profiles).set(updates).where(eq4(profiles.id, id)).returning();
+    const [updatedProfile] = await db_default.update(profiles).set(updates).where(eq6(profiles.id, id)).returning();
     res.json(updatedProfile);
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
     res.status(500).json({ error: "Error al actualizar perfil" });
   }
 });
-var profiles_default = router6;
+router7.put("/:userId/stage", authenticateToken, requireRole(["admin", "superuser"]), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "ID de usuario inv\xE1lido" });
+    }
+    const result = updateEnrollmentStageSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: "Datos inv\xE1lidos",
+        details: result.error.issues
+      });
+    }
+    const { enrollmentStage } = result.data;
+    const [existingProfile] = await db_default.select().from(profiles).where(eq6(profiles.userId, userId));
+    if (!existingProfile) {
+      return res.status(404).json({ error: "Perfil de estudiante no encontrado" });
+    }
+    const [updatedProfile] = await db_default.update(profiles).set({ enrollmentStage }).where(eq6(profiles.userId, userId)).returning();
+    await createEnrollmentStageNotification(userId, enrollmentStage);
+    console.log(`Etapa de matr\xEDcula actualizada para usuario ${userId}: ${enrollmentStage}`);
+    res.json({
+      message: "Etapa de matr\xEDcula actualizada exitosamente",
+      profile: updatedProfile
+    });
+  } catch (error) {
+    console.error("Error al actualizar etapa de matr\xEDcula:", error);
+    res.status(500).json({ error: "Error al actualizar la etapa de matr\xEDcula" });
+  }
+});
+var profiles_default = router7;
 
 // server/index.ts
 var app = express2();
@@ -1663,6 +2027,7 @@ app.use("/api/documents", documents_default);
 app.use("/api/universities", universities_default);
 app.use("/api/university-data", university_data_default);
 app.use("/api/profiles", profiles_default);
+app.use("/api/payments", payments_default);
 app.use((req, res, next) => {
   const start = Date.now();
   const path3 = req.path;
