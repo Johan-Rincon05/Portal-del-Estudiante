@@ -26,8 +26,11 @@ __export(schema_exports, {
   PERMISSIONS: () => PERMISSIONS,
   createRequestSchema: () => createRequestSchema,
   createUserSchema: () => createUserSchema,
+  documentStatusEnum: () => documentStatusEnum,
+  documentTypeEnum: () => documentTypeEnum,
   documents: () => documents,
   enrollmentStageEnum: () => enrollmentStageEnum,
+  enrollmentStageHistory: () => enrollmentStageHistory,
   insertDocumentSchema: () => insertDocumentSchema,
   insertInstallmentObservationSchema: () => insertInstallmentObservationSchema,
   insertInstallmentSchema: () => insertInstallmentSchema,
@@ -47,6 +50,7 @@ __export(schema_exports, {
   profiles: () => profiles,
   programs: () => programs,
   registerUserSchema: () => registerUserSchema,
+  requestTypeEnum: () => requestTypeEnum,
   requests: () => requests,
   roles: () => roles,
   universities: () => universities,
@@ -55,7 +59,8 @@ __export(schema_exports, {
   updateDocumentStatusSchema: () => updateDocumentStatusSchema,
   updateEnrollmentStageSchema: () => updateEnrollmentStageSchema,
   updateRequestSchema: () => updateRequestSchema,
-  users: () => users
+  users: () => users,
+  validateStageChangeSchema: () => validateStageChangeSchema
 });
 import { pgTable, text, timestamp, varchar, integer, serial, boolean, numeric, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -70,6 +75,28 @@ var enrollmentStageEnum = pgEnum("enrollment_stage", [
   "estudiante_activo",
   "pagos_al_dia",
   "proceso_finalizado"
+]);
+var documentTypeEnum = pgEnum("document_type", [
+  "cedula",
+  "diploma",
+  "acta",
+  "foto",
+  "recibo",
+  "formulario",
+  "certificado",
+  "otro"
+]);
+var documentStatusEnum = pgEnum("document_status", [
+  "pendiente",
+  "aprobado",
+  "rechazado",
+  "en_revision"
+]);
+var requestTypeEnum = pgEnum("request_type", [
+  "financiera",
+  "academica",
+  "documental_administrativa",
+  "datos_estudiante_administrativa"
 ]);
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -86,7 +113,7 @@ var profiles = pgTable("profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   fullName: text("full_name").notNull(),
-  email: text("email").notNull().unique(),
+  // email removido - se obtiene de users.email para evitar duplicación
   documentType: text("document_type"),
   documentNumber: text("document_number"),
   birthDate: timestamp("birth_date"),
@@ -125,7 +152,9 @@ var payments = pgTable("payments", {
   paymentMethod: text("payment_method"),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   giftReceived: boolean("gift_received"),
-  documentsStatus: text("documents_status")
+  documentsStatus: text("documents_status"),
+  installmentId: integer("installment_id").references(() => installments.id)
+  // Relación con cuota específica
 });
 var installments = pgTable("installments", {
   id: serial("id").primaryKey(),
@@ -133,6 +162,14 @@ var installments = pgTable("installments", {
   installmentNumber: integer("installment_number").notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   support: text("support"),
+  status: text("status").default("pendiente"),
+  // Estado de la cuota: pendiente, pagada, vencida, parcial
+  dueDate: timestamp("due_date"),
+  // Fecha de vencimiento
+  paidAmount: numeric("paid_amount", { precision: 10, scale: 2 }).default(0),
+  // Monto pagado
+  paymentDate: timestamp("payment_date"),
+  // Fecha de pago
   createdAt: timestamp("created_at").defaultNow()
 });
 var installmentObservations = pgTable("installment_observations", {
@@ -144,16 +181,18 @@ var installmentObservations = pgTable("installment_observations", {
 var documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  type: text("type").notNull(),
-  // "cedula", "diploma", "acta", "foto", "recibo", "formulario"
+  type: documentTypeEnum("type").notNull(),
+  // Tipo de documento validado
   name: text("name").notNull(),
   // Nombre del documento
   path: text("path").notNull(),
   // Storage path
-  status: text("status").notNull().default("pendiente"),
-  // "pendiente", "aprobado", "rechazado"
+  status: documentStatusEnum("status").notNull().default("pendiente"),
+  // Estado del documento validado
   rejectionReason: text("rejection_reason"),
   // Motivo del rechazo (opcional)
+  observations: text("observations"),
+  // Observaciones del estudiante al subir (opcional)
   reviewedBy: integer("reviewed_by"),
   // ID del administrador que revisó
   reviewedAt: timestamp("reviewed_at"),
@@ -163,6 +202,7 @@ var documents = pgTable("documents", {
 var requests = pgTable("requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  requestType: requestTypeEnum("request_type").notNull().default("academica"),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
   status: text("status").notNull().default("pendiente"),
@@ -182,6 +222,21 @@ var notifications = pgTable("notifications", {
   isRead: boolean("is_read").notNull().default(false),
   type: text("type").notNull().default("general"),
   // "document", "request", "stage", "general"
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+var enrollmentStageHistory = pgTable("enrollment_stage_history", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  previousStage: enrollmentStageEnum("previous_stage").notNull(),
+  newStage: enrollmentStageEnum("new_stage").notNull(),
+  changedBy: integer("changed_by").notNull().references(() => users.id),
+  // ID del admin que hizo el cambio
+  comments: text("comments"),
+  // Comentarios opcionales del administrador
+  validationStatus: text("validation_status").notNull().default("approved"),
+  // "pending", "approved", "rejected"
+  validationNotes: text("validation_notes"),
+  // Notas de validación
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 var universities = pgTable("universities", {
@@ -227,6 +282,9 @@ var createUserSchema = z.object({
   role: z.enum(["estudiante", "admin", "superuser"])
 });
 var createRequestSchema = z.object({
+  requestType: z.enum(["financiera", "academica", "documental_administrativa", "datos_estudiante_administrativa"], {
+    required_error: "El tipo de solicitud es requerido"
+  }),
   subject: z.string().min(1, "El asunto es requerido"),
   message: z.string().min(1, "El mensaje es requerido")
 });
@@ -266,7 +324,65 @@ var updateEnrollmentStageSchema = z.object({
     "proceso_finalizado"
   ], {
     required_error: "La etapa de matr\xEDcula es requerida"
-  })
+  }),
+  comments: z.string().optional(),
+  // Comentarios opcionales del administrador
+  validationNotes: z.string().optional()
+  // Notas de validación opcionales
+});
+var validateStageChangeSchema = z.object({
+  currentStage: z.enum([
+    "suscrito",
+    "documentos_completos",
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ]),
+  newStage: z.enum([
+    "suscrito",
+    "documentos_completos",
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ]),
+  userId: z.number(),
+  documentsCount: z.number().optional(),
+  pendingRequestsCount: z.number().optional()
+}).refine((data) => {
+  const stageOrder = [
+    "suscrito",
+    "documentos_completos",
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ];
+  const currentIndex = stageOrder.indexOf(data.currentStage);
+  const newIndex = stageOrder.indexOf(data.newStage);
+  if (newIndex < currentIndex - 1) {
+    return false;
+  }
+  if (data.newStage === "documentos_completos" && (!data.documentsCount || data.documentsCount < 3)) {
+    return false;
+  }
+  if (data.newStage === "matriculado" && data.pendingRequestsCount && data.pendingRequestsCount > 0) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Cambio de etapa no v\xE1lido. Verifica los requisitos previos.",
+  path: ["newStage"]
 });
 var updateDocumentStatusSchema = z.object({
   status: z.enum(["pendiente", "aprobado", "rechazado"], {
@@ -815,6 +931,15 @@ var storage = {
    */
   async getInstallmentObservationsByUserId(userId) {
     return await db.select().from(installmentObservations).where(eq(installmentObservations.userId, userId)).orderBy(desc(installmentObservations.createdAt));
+  },
+  /**
+   * Crea una nueva observación de cuota
+   * @param observationData - Datos de la observación
+   * @returns Observación creada
+   */
+  async createInstallmentObservation(observationData) {
+    const [observation] = await db.insert(installmentObservations).values(observationData).returning();
+    return observation;
   }
 };
 
@@ -824,17 +949,28 @@ import { Router } from "express";
 // server/middleware/auth.ts
 import jwt from "jsonwebtoken";
 var authenticateToken = (req, res, next) => {
+  console.log("=== MIDDLEWARE AUTHENTICATE TOKEN ===");
+  console.log("URL:", req.url);
+  console.log("Method:", req.method);
+  console.log("Headers:", req.headers);
   const authHeader = req.headers["authorization"];
+  console.log("Authorization header:", authHeader);
   const token = authHeader && authHeader.split(" ")[1];
+  console.log("Token extra\xEDdo:", token ? token.substring(0, 20) + "..." : "No token");
   if (!token) {
+    console.log("\u274C No se proporcion\xF3 token");
     return res.status(401).json({ error: "Token de autenticaci\xF3n no proporcionado" });
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
+    const JWT_SECRET2 = process.env.JWT_SECRET || "tu_clave_secreta_muy_segura";
+    console.log("JWT_SECRET usado:", JWT_SECRET2 ? JWT_SECRET2.substring(0, 10) + "..." : "No definido");
+    const decoded = jwt.verify(token, JWT_SECRET2);
+    console.log("\u2705 Token v\xE1lido, usuario decodificado:", decoded);
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: "Token inv\xE1lido o expirado" });
+    console.log("\u274C Error al verificar token:", error);
+    return res.status(401).json({ error: "Token inv\xE1lido o expirado" });
   }
 };
 var requireRole = (roles2) => {
@@ -848,23 +984,6 @@ var requireRole = (roles2) => {
     next();
   };
 };
-
-// server/routes/documents.ts
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-
-// server/s3.ts
-import { S3Client } from "@aws-sdk/client-s3";
-if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_REGION) {
-  throw new Error("Las credenciales de AWS no est\xE1n definidas en las variables de entorno");
-}
-var s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-});
 
 // server/db.ts
 import pg from "pg";
@@ -888,6 +1007,8 @@ var db_default = db2;
 // server/routes/documents.ts
 import { eq as eq2, and as and2 } from "drizzle-orm";
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 // server/utils/notifications.ts
 async function createNotification(notificationData) {
@@ -949,7 +1070,7 @@ async function createRequestResponseNotification(userId, subject, status) {
   };
   return createNotification(notificationData);
 }
-async function createEnrollmentStageNotification(userId, newStage) {
+async function createEnrollmentStageNotification(userId, newStage, comments) {
   const stageNames = {
     "suscrito": "Suscrito",
     "documentos_completos": "Documentos Completos",
@@ -962,10 +1083,13 @@ async function createEnrollmentStageNotification(userId, newStage) {
     "proceso_finalizado": "Proceso Finalizado"
   };
   const stageName = stageNames[newStage] || newStage;
+  const commentsText = comments ? `
+
+Comentarios del administrador: ${comments}` : "";
   const notificationData = {
     userId,
     title: "Progreso en Matr\xEDcula",
-    body: `Has avanzado a la etapa "${stageName}". \xA1Felicidades por tu progreso!`,
+    body: `Has avanzado a la etapa "${stageName}". \xA1Felicidades por tu progreso!${commentsText}`,
     type: "stage",
     link: "/"
   };
@@ -993,8 +1117,31 @@ async function createAdminRequestNotification(adminUserIds, studentName, subject
 }
 
 // server/routes/documents.ts
+import { fileURLToPath } from "url";
 var router = Router();
-var upload = multer({ dest: "uploads/" });
+var upload = multer({
+  dest: "uploads/documentos/",
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Tipo de archivo no permitido"));
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024
+    // 10MB máximo
+  }
+});
 router.get("/", authenticateToken, async (req, res) => {
   try {
     if (!req.user) {
@@ -1012,9 +1159,21 @@ router.post("/", authenticateToken, upload.single("file"), async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
-    const { type } = req.body;
+    console.log("[DEBUG] Subida de documento iniciada:", {
+      userId: req.user.id,
+      hasFile: !!req.file,
+      fileInfo: req.file ? {
+        originalname: req.file.originalname,
+        filename: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : null,
+      body: req.body
+    });
+    const { type, observations } = req.body;
     const file = req.file;
     if (!file) {
+      console.log("[DEBUG] No se recibi\xF3 archivo en la petici\xF3n de documento");
       return res.status(400).json({ error: "Archivo no proporcionado" });
     }
     const createdDocument = await storage.createDocument({
@@ -1023,7 +1182,8 @@ router.post("/", authenticateToken, upload.single("file"), async (req, res) => {
       path: file.filename,
       // o file.path según tu lógica
       userId: req.user.id,
-      status: "pendiente"
+      status: "pendiente",
+      observations: observations || null
     });
     await createDocumentUploadNotification(
       req.user.id,
@@ -1067,37 +1227,106 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error al eliminar documento" });
   }
 });
-router.get("/:id/url", async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).send({ error: "Invalid document ID" });
+router.get("/:id/url", authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).send({ error: "Invalid document ID" });
+    }
+    const doc = await storage.getDocument(id);
+    if (doc === null) {
+      return res.status(404).send({ error: "Document not found" });
+    }
+    if (req.user.role !== "admin" && req.user.role !== "superuser" && doc.userId !== req.user.id) {
+      return res.status(403).send({ error: "No tienes permisos para acceder a este documento" });
+    }
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const url = `${baseUrl}/api/documents/${id}/file`;
+    res.send({ url });
+  } catch (error) {
+    console.error("Error al obtener URL del documento:", error);
+    res.status(500).send({ error: "Error interno del servidor" });
   }
-  const doc = await storage.getDocument(id);
-  if (doc === null) {
-    return res.status(404).send({ error: "Document not found" });
-  }
-  const command = new GetObjectCommand({
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: doc.url
-  });
-  const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-  res.send({ url });
 });
-router.get("/:id/download", async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).send({ error: "Invalid document ID" });
+router.get("/:id/file", authenticateToken, async (req, res) => {
+  try {
+    const documentId = parseInt(req.params.id);
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    console.log(`[DEBUG] Solicitud de documento ID:`, documentId);
+    if (isNaN(documentId)) {
+      console.log(`[DEBUG] ID de documento inv\xE1lido:`, documentId);
+      return res.status(400).json({ error: "ID de documento inv\xE1lido" });
+    }
+    const document = await storage.getDocument(documentId);
+    if (!document) {
+      console.log(`[DEBUG] Documento NO encontrado con ID:`, documentId);
+      return res.status(404).json({ error: "Documento no encontrado" });
+    }
+    console.log(`[DEBUG] Documento encontrado:`, document);
+    if (userRole === "admin" || userRole === "superuser") {
+    } else {
+      if (document.userId !== userId) {
+        console.log(`[DEBUG] Usuario ${userId} no tiene permisos para documento ${documentId}`);
+        return res.status(403).json({ error: "No tienes permisos para ver este documento" });
+      }
+    }
+    const filePath = path.join(__dirname, "../../uploads/documentos", document.path);
+    console.log(`[DEBUG] Ruta absoluta buscada:`, filePath);
+    if (!fs.existsSync(filePath)) {
+      console.log(`[DEBUG] Archivo NO encontrado en:`, filePath);
+      return res.status(404).json({ error: "Archivo no encontrado" });
+    } else {
+      console.log(`[DEBUG] Archivo encontrado en:`, filePath);
+    }
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(document.name).toLowerCase();
+    let contentType = "application/octet-stream";
+    let disposition = "attachment";
+    if (ext === ".pdf") {
+      contentType = "application/pdf";
+      disposition = "inline";
+    } else if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+      contentType = `image/${ext.slice(1)}`;
+      disposition = "inline";
+    } else if (ext === ".txt") {
+      contentType = "text/plain";
+      disposition = "inline";
+    }
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", stats.size);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${document.name}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    console.log(`Acceso a documento: ${document.name} por usuario ${userId} (${userRole})`);
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Error al servir documento:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
-  const doc = await storage.getDocument(id);
-  if (doc === null) {
-    return res.status(404).send({ error: "Document not found" });
+});
+router.get("/:id/download", authenticateToken, async (req, res) => {
+  try {
+    const documentId = parseInt(req.params.id);
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    if (isNaN(documentId)) {
+      return res.status(400).send({ error: "Invalid document ID" });
+    }
+    const doc = await storage.getDocument(documentId);
+    if (doc === null) {
+      return res.status(404).send({ error: "Document not found" });
+    }
+    if (userRole !== "admin" && userRole !== "superuser" && doc.userId !== userId) {
+      return res.status(403).send({ error: "No tienes permisos para descargar este documento" });
+    }
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const url = `${baseUrl}/api/documents/${documentId}/file`;
+    res.send({ url });
+  } catch (error) {
+    console.error("Error al obtener URL de descarga:", error);
+    res.status(500).send({ error: "Error interno del servidor" });
   }
-  const command = new GetObjectCommand({
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: doc.url
-  });
-  const url = await getSignedUrl(s3Client, command, { expiresIn: 60 });
-  res.send({ url });
 });
 router.put("/:id/status", authenticateToken, requireRole(["admin", "superuser"]), async (req, res) => {
   try {
@@ -1143,6 +1372,65 @@ router.put("/:id/status", authenticateToken, requireRole(["admin", "superuser"])
   } catch (error) {
     console.error("Error al actualizar estado de documento:", error);
     res.status(500).json({ error: "Error al actualizar el estado del documento" });
+  }
+});
+router.get("/:id/iframe", async (req, res) => {
+  try {
+    const documentId = parseInt(req.params.id);
+    const token = req.query.token;
+    if (!token) {
+      return res.status(401).json({ error: "Token requerido" });
+    }
+    let user;
+    try {
+      const jwt3 = await import("jsonwebtoken");
+      const decoded = jwt3.default.verify(token, process.env.JWT_SECRET || "tu_clave_secreta_muy_segura");
+      user = decoded;
+    } catch (error) {
+      return res.status(401).json({ error: "Token inv\xE1lido" });
+    }
+    if (isNaN(documentId)) {
+      return res.status(400).json({ error: "ID de documento inv\xE1lido" });
+    }
+    const document = await storage.getDocument(documentId);
+    if (!document) {
+      return res.status(404).json({ error: "Documento no encontrado" });
+    }
+    if (user.role === "admin" || user.role === "superuser") {
+    } else {
+      if (document.userId !== user.id) {
+        return res.status(403).json({ error: "No tienes permisos para ver este documento" });
+      }
+    }
+    const __filename2 = fileURLToPath(import.meta.url);
+    const __dirname4 = path.dirname(__filename2);
+    const filePath = path.join(__dirname4, "../../uploads/documentos", document.path);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Archivo no encontrado" });
+    }
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(document.name).toLowerCase();
+    let contentType = "application/octet-stream";
+    let disposition = "inline";
+    if (ext === ".pdf") {
+      contentType = "application/pdf";
+      disposition = "inline";
+    } else if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+      contentType = `image/${ext.slice(1)}`;
+      disposition = "inline";
+    } else if (ext === ".txt") {
+      contentType = "text/plain";
+      disposition = "inline";
+    }
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", stats.size);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${document.name}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Error al servir documento en iframe:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 var documents_default = router;
@@ -1390,27 +1678,27 @@ async function registerRoutes(app2) {
 
 // server/vite.ts
 import express from "express";
-import fs from "fs";
-import path2 from "path";
+import fs2 from "fs";
+import path3 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
-import { fileURLToPath } from "url";
-var __dirname = path.dirname(fileURLToPath(import.meta.url));
+import path2 from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
+var __dirname2 = path2.dirname(fileURLToPath2(import.meta.url));
 var vite_config_default = defineConfig({
   plugins: [react()],
   root: "client",
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared")
+      "@": path2.resolve(__dirname2, "client", "src"),
+      "@shared": path2.resolve(__dirname2, "shared")
     }
   },
   build: {
-    outDir: path.resolve(__dirname, "dist/client"),
+    outDir: path2.resolve(__dirname2, "dist/client"),
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -1422,7 +1710,7 @@ var vite_config_default = defineConfig({
     port: 3e3,
     host: true,
     proxy: {
-      "/api": "http://localhost:5000"
+      "/api": "http://localhost:3000"
     }
   }
 });
@@ -1465,13 +1753,13 @@ async function setupVite(app2, server) {
   app2.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     try {
-      const clientTemplate = path2.resolve(
+      const clientTemplate = path3.resolve(
         import.meta.dirname,
         "..",
         "client",
         "index.html"
       );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs2.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -1485,15 +1773,15 @@ async function setupVite(app2, server) {
   });
 }
 function serveStatic(app2) {
-  const distPath = path2.resolve(import.meta.dirname, "public");
-  if (!fs.existsSync(distPath)) {
+  const distPath = path3.resolve(import.meta.dirname, "public");
+  if (!fs2.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
   app2.use(express.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
+    res.sendFile(path3.resolve(distPath, "index.html"));
   });
 }
 
@@ -1559,7 +1847,33 @@ var university_data_default = router4;
 
 // server/routes/payments.ts
 import { Router as Router5 } from "express";
+import multer2 from "multer";
+import path4 from "path";
+import fs3 from "fs";
+import { fileURLToPath as fileURLToPath3 } from "url";
+var __filename = fileURLToPath3(import.meta.url);
+var __dirname3 = path4.dirname(__filename);
 var router5 = Router5();
+var storageMulter = multer2.diskStorage({
+  destination: function(req, file, cb) {
+    const dir = path4.join(__dirname3, "../../uploads/soportes");
+    if (!fs3.existsSync(dir)) {
+      fs3.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function(req, file, cb) {
+    const ext = path4.extname(file.originalname);
+    cb(null, `cuota_${req.params.id}_${Date.now()}${ext}`);
+  }
+});
+var upload2 = multer2({ storage: storageMulter });
+function requireAdminRole(req, res, next) {
+  if (req.user && (req.user.role === "admin" || req.user.role === "superadmin")) {
+    return next();
+  }
+  return res.status(403).json({ error: "Acceso denegado: solo administradores" });
+}
 router5.get("/me", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1607,6 +1921,229 @@ router5.get("/summary", authenticateToken, async (req, res) => {
     res.json(summary);
   } catch (error) {
     console.error("Error al obtener resumen financiero:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.post("/installments/:id/support", authenticateToken, upload2.single("support"), async (req, res) => {
+  try {
+    const installmentId = Number(req.params.id);
+    const userId = req.user.id;
+    const observations = req.body.observations || "";
+    console.log("[DEBUG] Subida de soporte iniciada:", {
+      installmentId,
+      userId,
+      hasFile: !!req.file,
+      fileInfo: req.file ? {
+        originalname: req.file.originalname,
+        filename: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : null,
+      body: req.body
+    });
+    const installment = await storage.getInstallment(installmentId);
+    if (!installment) {
+      console.log("[DEBUG] Cuota no encontrada:", installmentId);
+      return res.status(404).json({ error: "Cuota no encontrada" });
+    }
+    if (installment.userId !== userId) {
+      console.log("[DEBUG] Usuario no autorizado:", { userId, installmentUserId: installment.userId });
+      return res.status(403).json({ error: "No tienes permiso para modificar esta cuota" });
+    }
+    if (!req.file) {
+      console.log("[DEBUG] No se recibi\xF3 archivo en la petici\xF3n");
+      return res.status(400).json({ error: "No se recibi\xF3 ning\xFAn archivo" });
+    }
+    const soportePath = `/uploads/soportes/${req.file.filename}`;
+    await storage.updateInstallment(installmentId, { support: soportePath });
+    if (observations.trim()) {
+      await storage.createInstallmentObservation({
+        userId,
+        installmentId,
+        observation: observations.trim(),
+        createdAt: /* @__PURE__ */ new Date()
+      });
+    }
+    return res.json({
+      message: "Soporte subido correctamente",
+      support: soportePath,
+      observations: observations.trim() ? "Observaciones guardadas" : null
+    });
+  } catch (error) {
+    console.error("Error al subir soporte de pago:", error);
+    res.status(500).json({ error: "Error al subir el soporte de pago" });
+  }
+});
+router5.get("/installments/:userId/admin", authenticateToken, requireAdminRole, async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    const installments2 = await storage.getInstallmentsByUserId(userId);
+    const observations = await storage.getInstallmentObservationsByUserId(userId);
+    const obsByInstallment = {};
+    observations.forEach((obs) => {
+      if (!obsByInstallment[obs.installmentId]) obsByInstallment[obs.installmentId] = [];
+      obsByInstallment[obs.installmentId].push({
+        id: obs.id,
+        observation: obs.observation,
+        createdAt: obs.createdAt
+      });
+    });
+    const result = installments2.map((inst) => ({
+      ...inst,
+      observations: obsByInstallment[inst.id] || []
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error("Error al consultar cuotas y observaciones:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.get("/support/:filename", async (req, res) => {
+  try {
+    let user;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const jwt3 = await import("jsonwebtoken");
+        const decoded = jwt3.default.verify(token, process.env.JWT_SECRET || "tu_clave_secreta_muy_segura");
+        user = decoded;
+      } catch (error) {
+        console.log("[DEBUG] Token del header inv\xE1lido:", error);
+      }
+    }
+    if (!user) {
+      const token = req.query.token;
+      if (token) {
+        try {
+          const jwt3 = await import("jsonwebtoken");
+          const decoded = jwt3.default.verify(token, process.env.JWT_SECRET || "tu_clave_secreta_muy_segura");
+          user = decoded;
+        } catch (error) {
+          console.log("[DEBUG] Token del query inv\xE1lido:", error);
+        }
+      }
+    }
+    if (!user) {
+      console.log("[DEBUG] No se proporcion\xF3 token v\xE1lido");
+      return res.status(401).json({ error: "Token de autenticaci\xF3n requerido" });
+    }
+    req.user = user;
+    const filename = req.params.filename;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    console.log(`[DEBUG] Solicitud de archivo:`, filename);
+    if (!filename || filename.includes("..") || filename.includes("/")) {
+      console.log(`[DEBUG] Nombre de archivo inv\xE1lido:`, filename);
+      return res.status(400).json({ error: "Nombre de archivo inv\xE1lido" });
+    }
+    const filePath = path4.join(__dirname3, "../../uploads/soportes", filename);
+    console.log(`[DEBUG] Ruta absoluta buscada:`, filePath);
+    if (!fs3.existsSync(filePath)) {
+      console.log(`[DEBUG] Archivo NO encontrado en:`, filePath);
+      return res.status(404).json({ error: "Archivo no encontrado" });
+    } else {
+      console.log(`[DEBUG] Archivo encontrado en:`, filePath);
+    }
+    if (userRole === "admin" || userRole === "superadmin") {
+    } else {
+      const installments2 = await storage.getInstallmentsByUserId(userId);
+      const installmentWithFile = installments2.find(
+        (inst) => inst.support && inst.support.includes(filename)
+      );
+      if (!installmentWithFile) {
+        return res.status(403).json({ error: "No tienes permisos para ver este archivo" });
+      }
+    }
+    const stats = fs3.statSync(filePath);
+    const ext = path4.extname(filename).toLowerCase();
+    let contentType = "application/octet-stream";
+    let disposition = "inline";
+    if (ext === ".pdf") {
+      contentType = "application/pdf";
+      disposition = "inline";
+    } else if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+      contentType = `image/${ext.slice(1)}`;
+      disposition = "inline";
+    } else if (ext === ".txt") {
+      contentType = "text/plain";
+      disposition = "inline";
+    }
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", stats.size);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    console.log(`Acceso a archivo: ${filename} por usuario ${userId} (${userRole})`);
+    const fileStream = fs3.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Error al servir archivo de soporte:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+router5.get("/support-iframe/:filename", async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const token = req.query.token;
+    console.log(`[DEBUG] Support-iframe request:`, {
+      filename,
+      hasToken: !!token,
+      tokenLength: token?.length
+    });
+    if (!token) {
+      console.log(`[DEBUG] No token provided`);
+      return res.status(401).json({ error: "Token requerido" });
+    }
+    let user;
+    try {
+      const jwt3 = await import("jsonwebtoken");
+      const decoded = jwt3.default.verify(token, process.env.JWT_SECRET || "tu_clave_secreta_muy_segura");
+      user = decoded;
+      console.log(`[DEBUG] Token v\xE1lido para usuario:`, user);
+    } catch (error) {
+      console.log(`[DEBUG] Token inv\xE1lido:`, error);
+      return res.status(401).json({ error: "Token inv\xE1lido" });
+    }
+    if (!filename || filename.includes("..") || filename.includes("/")) {
+      console.log(`[DEBUG] Nombre de archivo inv\xE1lido:`, filename);
+      return res.status(400).json({ error: "Nombre de archivo inv\xE1lido" });
+    }
+    const filePath = path4.join(__dirname3, "../../uploads/soportes", filename);
+    console.log(`[DEBUG] Ruta del archivo:`, filePath);
+    if (!fs3.existsSync(filePath)) {
+      console.log(`[DEBUG] Archivo no encontrado:`, filePath);
+      return res.status(404).json({ error: "Archivo no encontrado" });
+    }
+    console.log(`[DEBUG] Archivo encontrado, enviando...`);
+    const stats = fs3.statSync(filePath);
+    const ext = path4.extname(filename).toLowerCase();
+    let contentType = "application/octet-stream";
+    if (ext === ".pdf") {
+      contentType = "application/pdf";
+    } else if ([".jpg", ".jpeg"].includes(ext)) {
+      contentType = "image/jpeg";
+    } else if (ext === ".png") {
+      contentType = "image/png";
+    } else if (ext === ".gif") {
+      contentType = "image/gif";
+    } else if (ext === ".webp") {
+      contentType = "image/webp";
+    } else if (ext === ".txt") {
+      contentType = "text/plain";
+    }
+    console.log(`[DEBUG] Enviando archivo:`, {
+      contentType,
+      fileSize: stats.size,
+      filename
+    });
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", stats.size);
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    const fileStream = fs3.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Error al servir archivo de soporte en iframe:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -1902,6 +2439,7 @@ var auth_default = router6;
 // server/routes/profiles.ts
 import { Router as Router7 } from "express";
 import { eq as eq6, sql as sql2 } from "drizzle-orm";
+import { desc as desc2 } from "drizzle-orm";
 var router7 = Router7();
 router7.get("/", authenticateToken, async (req, res) => {
   try {
@@ -1986,21 +2524,71 @@ router7.put("/:userId/stage", authenticateToken, requireRole(["admin", "superuse
         details: result.error.issues
       });
     }
-    const { enrollmentStage } = result.data;
+    const { enrollmentStage, comments, validationNotes } = result.data;
     const [existingProfile] = await db_default.select().from(profiles).where(eq6(profiles.userId, userId));
     if (!existingProfile) {
       return res.status(404).json({ error: "Perfil de estudiante no encontrado" });
     }
+    const [documentsCount] = await db_default.select({ count: sql2`count(*)::int` }).from(documents).where(eq6(documents.userId, userId));
+    const [pendingRequestsCount] = await db_default.select({ count: sql2`count(*)::int` }).from(requests).where(sql2`${requests.userId} = ${userId} AND status IN ('pendiente', 'en_proceso')`);
+    const validationData = {
+      currentStage: existingProfile.enrollmentStage,
+      newStage: enrollmentStage,
+      userId,
+      documentsCount: documentsCount.count,
+      pendingRequestsCount: pendingRequestsCount.count
+    };
+    const validationResult = validateStageChangeSchema.safeParse(validationData);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: "Cambio de etapa no v\xE1lido",
+        details: validationResult.error.issues,
+        validationData
+      });
+    }
+    await db_default.insert(enrollmentStageHistory).values({
+      userId,
+      previousStage: existingProfile.enrollmentStage,
+      newStage: enrollmentStage,
+      changedBy: req.user.id,
+      comments: comments || null,
+      validationStatus: "approved",
+      validationNotes: validationNotes || null
+    });
     const [updatedProfile] = await db_default.update(profiles).set({ enrollmentStage }).where(eq6(profiles.userId, userId)).returning();
-    await createEnrollmentStageNotification(userId, enrollmentStage);
-    console.log(`Etapa de matr\xEDcula actualizada para usuario ${userId}: ${enrollmentStage}`);
+    await createEnrollmentStageNotification(userId, enrollmentStage, comments);
+    console.log(`Etapa de matr\xEDcula actualizada para usuario ${userId}: ${existingProfile.enrollmentStage} -> ${enrollmentStage}`);
     res.json({
       message: "Etapa de matr\xEDcula actualizada exitosamente",
-      profile: updatedProfile
+      profile: updatedProfile,
+      validationData
     });
   } catch (error) {
     console.error("Error al actualizar etapa de matr\xEDcula:", error);
     res.status(500).json({ error: "Error al actualizar la etapa de matr\xEDcula" });
+  }
+});
+router7.get("/:userId/stage-history", authenticateToken, requireRole(["admin", "superuser"]), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "ID de usuario inv\xE1lido" });
+    }
+    const history = await db_default.select({
+      id: enrollmentStageHistory.id,
+      previousStage: enrollmentStageHistory.previousStage,
+      newStage: enrollmentStageHistory.newStage,
+      comments: enrollmentStageHistory.comments,
+      validationStatus: enrollmentStageHistory.validationStatus,
+      validationNotes: enrollmentStageHistory.validationNotes,
+      createdAt: enrollmentStageHistory.createdAt,
+      changedBy: users.username,
+      changedByRole: users.role
+    }).from(enrollmentStageHistory).leftJoin(users, eq6(enrollmentStageHistory.changedBy, users.id)).where(eq6(enrollmentStageHistory.userId, userId)).orderBy(desc2(enrollmentStageHistory.createdAt));
+    res.json(history);
+  } catch (error) {
+    console.error("Error al obtener historial de etapas:", error);
+    res.status(500).json({ error: "Error al obtener el historial de etapas" });
   }
 });
 var profiles_default = router7;
@@ -2023,14 +2611,19 @@ app.use(express2.urlencoded({ extended: true }));
 setupAuth(app);
 app.use("/api/auth", auth_default);
 app.use("/api/requests", requests_default);
-app.use("/api/documents", documents_default);
 app.use("/api/universities", universities_default);
 app.use("/api/university-data", university_data_default);
 app.use("/api/profiles", profiles_default);
 app.use("/api/payments", payments_default);
+app.use("/api/documents", (req, res, next) => {
+  if (req.headers["content-type"]?.includes("multipart/form-data")) {
+    return next();
+  }
+  next();
+}, documents_default);
 app.use((req, res, next) => {
   const start = Date.now();
-  const path3 = req.path;
+  const path5 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -2039,8 +2632,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path3.startsWith("/api")) {
-      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+    if (path5.startsWith("/api")) {
+      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
