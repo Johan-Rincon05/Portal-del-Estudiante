@@ -124,46 +124,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      try {
-        console.log('Intentando iniciar sesión con:', credentials.username);
-        const response = await apiRequest<User & { token: string }>("/api/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(credentials),
-        });
-        console.log('Respuesta del servidor:', response);
-        return response;
-      } catch (error) {
-        console.error('Error en loginMutation:', error);
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error("Error al iniciar sesión");
-      }
+      // Realiza la petición de login
+      const response = await apiRequest<User & { token: string }>("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
+      return response;
     },
     onSuccess: (data) => {
-      console.log('Datos completos recibidos del login:', data);
+      // Extrae el token y el usuario de la respuesta
       const { token, ...user } = data;
-      console.log('Token extraído:', token ? token.substring(0, 20) + '...' : 'No token');
-      console.log('Usuario extraído:', user);
-      
-      // Guardar el token
-      if (token) {
-        console.log('Guardando token en localStorage...');
-        setToken(token);
-        console.log('Token guardado. Verificando...');
-        const savedToken = localStorage.getItem('token');
-        console.log('Token verificado en localStorage:', savedToken ? savedToken.substring(0, 20) + '...' : 'No encontrado');
-      } else {
-        console.error('No se recibió token en la respuesta del login');
-      }
-      
-      // Actualizar el estado local inmediatamente
+      // Guarda el token en localStorage para futuras peticiones
+      setToken(token);
+      // Actualiza el usuario local
       setLocalUser(user);
-      
-      // Actualizar el estado del usuario en el query client
+      // Actualiza el estado global del usuario
       queryClient.setQueryData(["/api/user"], user);
       
       // Redirigir inmediatamente según el rol

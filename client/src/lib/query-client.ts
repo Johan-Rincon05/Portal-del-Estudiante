@@ -35,36 +35,35 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Construir la URL correctamente sin duplicar /api
+  // Construir la URL de manera más simple y clara
   let url: string;
-  if (endpoint.startsWith('/api/')) {
-    // Si ya empieza con /api/, usar directamente
-    url = `${API_BASE_URL}${endpoint.substring(4)}`;
-  } else if (endpoint.startsWith('/')) {
-    // Si empieza con / pero no con /api/, agregar /api
-    url = `${API_BASE_URL}${endpoint}`;
+  
+  // Si el endpoint ya incluye la URL completa, usarlo directamente
+  if (endpoint.startsWith('http')) {
+    url = endpoint;
   } else {
-    // Si no empieza con /, agregar /api/
-    url = `${API_BASE_URL}/${endpoint}`;
+    // Remover /api/ si está presente para evitar duplicación
+    const cleanEndpoint = endpoint.startsWith('/api/') ? endpoint.substring(4) : endpoint;
+    // Asegurar que empiece con /
+    const normalizedEndpoint = cleanEndpoint.startsWith('/') ? cleanEndpoint : `/${cleanEndpoint}`;
+    url = `${API_BASE_URL}${normalizedEndpoint}`;
   }
   
   const defaultHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache"
   };
 
-  // Obtener el token si existe
+  // Solo establecer Content-Type si no es FormData
+  if (!(options.body instanceof FormData)) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  // Obtener el token si existe y agregarlo a los headers
   const token = getToken();
   if (token) {
     defaultHeaders["Authorization"] = `Bearer ${token}`;
-    console.log('Token encontrado y agregado al header:', token.substring(0, 20) + '...');
-  } else {
-    console.log('No se encontró token en localStorage');
   }
-
-  console.log('API Request URL:', url); // Debug log
-  console.log('Headers:', defaultHeaders); // Debug log
 
   const response = await fetch(url, {
     ...options,
@@ -76,21 +75,16 @@ export async function apiRequest<T>(
     mode: "cors"
   });
 
-  console.log('Response status:', response.status); // Debug log
-
   if (!response.ok) {
     if (response.status === 401) {
       // Si recibimos un 401, eliminamos el token
-      console.log('Recibido 401, eliminando token');
       removeToken();
     }
     const error = await response.json();
-    console.log('Error response:', error); // Debug log
     throw new Error(error.error || error.message || 'Ocurrió un error en la solicitud');
   }
 
   const data = await response.json();
-  console.log('Response data:', data); // Debug log
   return data;
 }
 

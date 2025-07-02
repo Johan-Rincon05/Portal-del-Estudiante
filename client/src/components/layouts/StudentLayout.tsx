@@ -1,10 +1,11 @@
 import { StudentNavbar } from "@/components/student/StudentNavbar";
+import { ReactNode } from "react";
 
 interface StudentLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-export function StudentLayout({ children }: StudentLayoutProps) {
+export function StudentLayout({ children }: StudentLayoutProps): JSX.Element {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <StudentNavbar />

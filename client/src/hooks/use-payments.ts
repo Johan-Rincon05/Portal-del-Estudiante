@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { apiRequest } from '@/lib/query-client';
 
 /**
  * Hook para obtener el historial de pagos del estudiante
@@ -13,10 +13,17 @@ export const usePayments = () => {
   return useQuery({
     queryKey: ['payments'],
     queryFn: async () => {
-      const response = await api.get('/api/payments/me');
-      return response.data;
+      const response = await apiRequest('/api/payments/me');
+      return response;
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error) => {
+      // No reintentar en errores de autenticación
+      if (error instanceof Error && error.message.includes('401')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 };
 
@@ -27,10 +34,17 @@ export const useInstallments = () => {
   return useQuery({
     queryKey: ['installments'],
     queryFn: async () => {
-      const response = await api.get('/api/payments/installments/me');
-      return response.data;
+      const response = await apiRequest('/api/payments/installments/me');
+      return response;
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error) => {
+      // No reintentar en errores de autenticación
+      if (error instanceof Error && error.message.includes('401')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 };
 
@@ -41,10 +55,17 @@ export const usePaymentSummary = () => {
   return useQuery({
     queryKey: ['payment-summary'],
     queryFn: async () => {
-      const response = await api.get('/api/payments/summary');
-      return response.data;
+      const response = await apiRequest('/api/payments/summary');
+      return response;
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error) => {
+      // No reintentar en errores de autenticación
+      if (error instanceof Error && error.message.includes('401')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 };
 

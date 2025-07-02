@@ -1,88 +1,44 @@
-import { useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDocuments } from '@/hooks/use-documents';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Upload, Eye, Download, Trash2, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Upload, 
+  Eye, 
+  Download, 
+  Trash2, 
+  FileText, 
+  AlertCircle, 
+  CheckCircle, 
+  Clock, 
+  Search,
+  Filter,
+  Loader2
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { StudentLayout } from '@/components/layouts/StudentLayout';
-
-const documentFormSchema = z.object({
-  type: z.string().min(1, "Tipo de documento es requerido"),
-  file: z.instanceof(File, { message: "Archivo es requerido" })
-});
-
-type DocumentFormValues = z.infer<typeof documentFormSchema>;
+import { DocumentViewerModal } from '@/components/DocumentViewerModal';
+import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 
 const DocumentsPage = () => {
   const { user } = useAuth();
-  const { documents, isLoading, uploadDocumentMutation, deleteDocumentMutation, getDocumentUrl } = useDocuments(user?.id);
+  const { documents, isLoading, uploadDocumentMutation, deleteDocumentMutation, refetch } = useDocuments(user?.id?.toString());
   const { toast } = useToast();
-  const [showUploadForm, setShowUploadForm] = useState(false);
-
-  const form = useForm<DocumentFormValues>({
-    resolver: zodResolver(documentFormSchema),
-    defaultValues: {
-      type: '',
-    }
-  });
-
-  const handleDocumentUpload = async (values: DocumentFormValues) => {
-    if (!user?.id) return;
-    
-    uploadDocumentMutation.mutate({
-      userId: user.id,
-      type: values.type,
-      file: values.file
-    }, {
-      onSuccess: () => {
-        form.reset();
-        setShowUploadForm(false);
-      }
-    });
-  };
-
-  const handleDeleteDocument = (documentId: string) => {
-    deleteDocumentMutation.mutate(documentId);
-  };
-
-  const handleViewDocument = async (documentPath: string) => {
-    try {
-      const url = await getDocumentUrl(documentPath);
-      window.open(url, '_blank');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo abrir el documento",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDownloadDocument = async (documentPath: string, documentType: string) => {
-    try {
-      const url = await getDocumentUrl(documentPath);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${documentType}-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo descargar el documento",
-        variant: "destructive",
-      });
-    }
-  };
+  
+  // Estados para modales
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [showViewerModal, setShowViewerModal] = useState(false);
+  
+  // Estados para filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   // Función para obtener el badge de estado del documento
   const getStatusBadge = (status: string, rejectionReason?: string | null) => {
@@ -96,22 +52,10 @@ const DocumentsPage = () => {
         );
       case 'rechazado':
         return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="bg-red-100 text-red-800 hover:bg-red-100 border-red-300 cursor-help">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Rechazado
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="max-w-xs">
-                  <p className="font-medium mb-1">Motivo del rechazo:</p>
-                  <p className="text-sm">{rejectionReason || 'No se especificó motivo'}</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Badge variant="outline" className="bg-red-100 text-red-800 hover:bg-red-100 border-red-300">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Rechazado
+          </Badge>
         );
       case 'pendiente':
       default:
@@ -124,206 +68,327 @@ const DocumentsPage = () => {
     }
   };
 
+  // Función para obtener el tipo de documento en español
+  const getDocumentTypeLabel = (type: string) => {
+    const types: Record<string, string> = {
+      'cedula': 'Cédula de Identidad',
+      'diploma': 'Diploma',
+      'acta': 'Acta',
+      'foto': 'Foto',
+      'recibo': 'Recibo',
+      'formulario': 'Formulario',
+      'certificado': 'Certificado',
+      'constancia': 'Constancia'
+    };
+    return types[type] || type;
+  };
+
+  // Filtrar documentos
+  const filteredDocuments = useMemo(() => {
+    return documents.filter(doc => {
+      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           getDocumentTypeLabel(doc.type).toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
+      const matchesType = typeFilter === 'all' || doc.type === typeFilter;
+      
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [documents, searchTerm, statusFilter, typeFilter]);
+
+  // Calcular estadísticas
+  const stats = useMemo(() => {
+    const total = documents.length;
+    const aprobados = documents.filter(doc => doc.status === 'aprobado').length;
+    const pendientes = documents.filter(doc => doc.status === 'pendiente').length;
+    const rechazados = documents.filter(doc => doc.status === 'rechazado').length;
+    
+    return { total, aprobados, pendientes, rechazados };
+  }, [documents]);
+
+  // Manejar subida de documento
+  const handleUploadDocument = async (data: { type: string; file: File; observations?: string }) => {
+    if (!user?.id) return;
+    
+    uploadDocumentMutation.mutate({
+      userId: user.id.toString(),
+      type: data.type,
+      file: data.file,
+      observations: data.observations
+    }, {
+      onSuccess: () => {
+        setShowUploadModal(false);
+        refetch();
+      }
+    });
+  };
+
+  // Manejar eliminación de documento
+  const handleDeleteDocument = (documentId: string) => {
+    if (!documentId) {
+      toast({
+        title: "Error",
+        description: "ID de documento no válido",
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteDocumentMutation.mutate(documentId, {
+      onSuccess: () => {
+        // Si el documento eliminado es el que está en el modal, ciérralo
+        if (selectedDocument && selectedDocument.id?.toString() === documentId) {
+          setShowViewerModal(false);
+          setSelectedDocument(null);
+        }
+      }
+    });
+  };
+
+  // Manejar visualización de documento
+  const handleViewDocument = (document: any) => {
+    setSelectedDocument(document);
+    setShowViewerModal(true);
+  };
+
   return (
     <StudentLayout>
-      <div className="container max-w-5xl mx-auto px-4 py-6">
-        <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Mis Documentos</h2>
-            <p className="text-sm text-gray-500">Sube y gestiona tus documentos académicos y personales</p>
+      <div className="container max-w-7xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Mis Documentos</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Gestiona y sube tus documentos académicos y personales
+              </p>
+            </div>
+            <Button 
+              className="mt-3 sm:mt-0"
+              onClick={() => setShowUploadModal(true)}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Subir Documento
+            </Button>
           </div>
-          <Button 
-            className="mt-3 sm:mt-0"
-            onClick={() => setShowUploadForm(!showUploadForm)}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Subir documento
-          </Button>
-        </div>
-        
-        {/* Document upload form */}
-        {showUploadForm && (
+
+          {/* Estadísticas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <FileText className="h-8 w-8 text-blue-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-600">Total</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-600">Aprobados</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.aprobados}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <Clock className="h-8 w-8 text-yellow-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-600">Pendientes</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.pendientes}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <AlertCircle className="h-8 w-8 text-red-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-600">Rechazados</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.rechazados}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filtros */}
           <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-md">Subir nuevo documento</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleDocumentUpload)}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="document-type">Tipo de documento</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger id="document-type">
-                                <SelectValue placeholder="Seleccione un tipo" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="cedula">Cédula</SelectItem>
-                              <SelectItem value="diploma">Diploma</SelectItem>
-                              <SelectItem value="acta">Acta</SelectItem>
-                              <SelectItem value="foto">Foto</SelectItem>
-                              <SelectItem value="recibo">Recibo</SelectItem>
-                              <SelectItem value="formulario">Formulario</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="file"
-                      render={({ field: { onChange, value, ...field } }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="document-file">Archivo</FormLabel>
-                          <FormControl>
-                            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                              <div className="space-y-1 text-center">
-                                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                <div className="flex text-sm text-gray-600">
-                                  <label htmlFor="document-file" className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
-                                    <span>Subir archivo</span>
-                                    <input
-                                      id="document-file"
-                                      type="file"
-                                      className="sr-only"
-                                      accept=".pdf,.png,.jpg,.jpeg"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          onChange(file);
-                                        }
-                                      }}
-                                      {...field}
-                                    />
-                                  </label>
-                                  <p className="pl-1">o arrastra y suelta</p>
-                                </div>
-                                <p className="text-xs text-gray-500">
-                                  PNG, JPG, PDF hasta 10MB
-                                </p>
-                              </div>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mr-3"
-                      onClick={() => {
-                        form.reset();
-                        setShowUploadForm(false);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={uploadDocumentMutation.isPending}
-                    >
-                      {uploadDocumentMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Subiendo...
-                        </>
-                      ) : (
-                        <>Subir documento</>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar documentos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="pendiente">Pendiente</SelectItem>
+                    <SelectItem value="aprobado">Aprobado</SelectItem>
+                    <SelectItem value="rechazado">Rechazado</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    <SelectItem value="cedula">Cédula</SelectItem>
+                    <SelectItem value="diploma">Diploma</SelectItem>
+                    <SelectItem value="acta">Acta</SelectItem>
+                    <SelectItem value="foto">Foto</SelectItem>
+                    <SelectItem value="recibo">Recibo</SelectItem>
+                    <SelectItem value="formulario">Formulario</SelectItem>
+                    <SelectItem value="certificado">Certificado</SelectItem>
+                    <SelectItem value="constancia">Constancia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
-        )}
-        
-        {/* Document list */}
+        </div>
+
+        {/* Lista de documentos */}
         <Card>
           <CardHeader className="px-6 py-4 border-b border-gray-200">
-            <CardTitle className="text-md">Mis documentos</CardTitle>
+            <CardTitle className="text-lg">
+              Documentos ({filteredDocuments.length})
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="flex justify-center items-center py-10">
+              <div className="flex justify-center items-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
               </div>
-            ) : documents && documents.length > 0 ? (
-              <div className="min-w-full divide-y divide-gray-200">
-                <div className="bg-white divide-y divide-gray-200">
-                  {documents.map((document) => (
-                    <div key={document.id} className="px-6 py-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center">
-                          <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900 capitalize">
-                              {document.type}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              Subido el {document.createdAt ? new Date(document.createdAt).toLocaleDateString() : 'N/A'}
-                            </p>
-                          </div>
+            ) : filteredDocuments.length > 0 ? (
+              <div className="divide-y divide-gray-200">
+                {filteredDocuments.map((document) => (
+                  <div key={document.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <FileText className="h-8 w-8 text-gray-400" />
                         </div>
-                        <div className="flex items-center space-x-2">
-                          {getStatusBadge(document.status, document.rejectionReason)}
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDocument(document.filePath)}
-                              className="text-primary-600 hover:text-primary-500"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadDocument(document.filePath, document.type)}
-                              className="text-primary-600 hover:text-primary-500"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteDocument(document.id?.toString() || '')}
-                              className="text-red-600 hover:text-red-500"
-                              disabled={deleteDocumentMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h3 className="text-sm font-medium text-gray-900 truncate">
+                              {document.name}
+                            </h3>
+                            {getStatusBadge(document.status, document.rejectionReason)}
                           </div>
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>{getDocumentTypeLabel(document.type)}</span>
+                            <span>•</span>
+                            <span>
+                              Subido el {document.uploadedAt ? new Date(document.uploadedAt).toLocaleDateString() : 'N/A'}
+                            </span>
+                            {document.rejectionReason && (
+                              <>
+                                <span>•</span>
+                                <span className="text-red-600">Rechazado</span>
+                              </>
+                            )}
+                          </div>
+                          {document.rejectionReason && (
+                            <p className="text-sm text-red-600 mt-1">
+                              Motivo: {document.rejectionReason}
+                            </p>
+                          )}
                         </div>
                       </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewDocument(document)}
+                          className="text-primary-600 hover:text-primary-500"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteDocument(document.id?.toString() || '')}
+                          className="text-red-600 hover:text-red-500"
+                          disabled={deleteDocumentMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center py-10">
+              <div className="text-center py-12">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No hay documentos</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  {documents.length === 0 ? 'No hay documentos' : 'No se encontraron documentos'}
+                </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Comienza subiendo tu primer documento.
+                  {documents.length === 0 
+                    ? 'Comienza subiendo tu primer documento.'
+                    : 'Intenta ajustar los filtros de búsqueda.'
+                  }
                 </p>
+                {documents.length === 0 && (
+                  <Button
+                    className="mt-4"
+                    onClick={() => setShowUploadModal(true)}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Subir Primer Documento
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modales */}
+      <UploadDocumentModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUpload={handleUploadDocument}
+        isUploading={uploadDocumentMutation.isPending}
+      />
+
+      <DocumentViewerModal
+        isOpen={showViewerModal}
+        onClose={() => {
+          setShowViewerModal(false);
+          setSelectedDocument(null);
+        }}
+        document={selectedDocument}
+      />
     </StudentLayout>
   );
 };

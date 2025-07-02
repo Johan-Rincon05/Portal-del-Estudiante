@@ -41,11 +41,19 @@ setupAuth(app);
 // Rutas
 app.use('/api/auth', authRouter);
 app.use('/api/requests', requestsRouter);
-app.use('/api/documents', documentsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);
 app.use('/api/profiles', profilesRouter);
 app.use('/api/payments', paymentsRouter);
+
+// Rutas de documentos (sin middleware de JSON para permitir multipart)
+app.use('/api/documents', (req, res, next) => {
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    // Para peticiones multipart, saltar el parsing de JSON
+    return next();
+  }
+  next();
+}, documentsRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -24,6 +24,43 @@ export const enrollmentStageEnum = pgEnum("enrollment_stage", [
 ]);
 
 /**
+ * Enum para tipos de documentos
+ * Define los tipos de documentos permitidos en el sistema
+ */
+export const documentTypeEnum = pgEnum("document_type", [
+  "cedula",
+  "diploma",
+  "acta", 
+  "foto",
+  "recibo",
+  "formulario",
+  "certificado",
+  "otro"
+]);
+
+/**
+ * Enum para estados de documentos
+ * Define los estados posibles de un documento en el sistema
+ */
+export const documentStatusEnum = pgEnum("document_status", [
+  "pendiente",
+  "aprobado", 
+  "rechazado",
+  "en_revision"
+]);
+
+/**
+ * Enum para tipos de solicitud
+ * Define las categorías de solicitudes que pueden crear los estudiantes
+ */
+export const requestTypeEnum = pgEnum("request_type", [
+  "financiera",
+  "academica", 
+  "documental_administrativa",
+  "datos_estudiante_administrativa"
+]);
+
+/**
  * Tabla de usuarios
  * Almacena la información de autenticación y roles de los usuarios
  */
@@ -44,7 +81,7 @@ export const profiles = pgTable("profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   fullName: text("full_name").notNull(),
-  email: text("email").notNull().unique(),
+  // email removido - se obtiene de users.email para evitar duplicación
   documentType: text("document_type"),
   documentNumber: text("document_number"),
   birthDate: timestamp("birth_date"),
@@ -87,7 +124,8 @@ export const payments = pgTable("payments", {
   paymentMethod: text("payment_method"),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   giftReceived: boolean("gift_received"),
-  documentsStatus: text("documents_status")
+  documentsStatus: text("documents_status"),
+  installmentId: integer("installment_id").references(() => installments.id) // Relación con cuota específica
 });
 
 // Installments table - stores payment plan installments
@@ -97,6 +135,10 @@ export const installments = pgTable("installments", {
   installmentNumber: integer("installment_number").notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   support: text("support"),
+  status: text("status").default("pendiente"), // Estado de la cuota: pendiente, pagada, vencida, parcial
+  dueDate: timestamp("due_date"), // Fecha de vencimiento
+  paidAmount: numeric("paid_amount", { precision: 10, scale: 2 }).default(0), // Monto pagado
+  paymentDate: timestamp("payment_date"), // Fecha de pago
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -112,11 +154,12 @@ export const installmentObservations = pgTable("installment_observations", {
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  type: text("type").notNull(),  // "cedula", "diploma", "acta", "foto", "recibo", "formulario"
+  type: documentTypeEnum("type").notNull(),  // Tipo de documento validado
   name: text("name").notNull(),  // Nombre del documento
   path: text("path").notNull(),  // Storage path
-  status: text("status").notNull().default("pendiente"), // "pendiente", "aprobado", "rechazado"
+  status: documentStatusEnum("status").notNull().default("pendiente"), // Estado del documento validado
   rejectionReason: text("rejection_reason"), // Motivo del rechazo (opcional)
+  observations: text("observations"), // Observaciones del estudiante al subir (opcional)
   reviewedBy: integer("reviewed_by"), // ID del administrador que revisó
   reviewedAt: timestamp("reviewed_at"), // Fecha de revisión
   uploadedAt: timestamp("uploaded_at").defaultNow()
@@ -126,6 +169,7 @@ export const documents = pgTable("documents", {
 export const requests = pgTable("requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  requestType: requestTypeEnum("request_type").notNull().default("academica"),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
   status: text("status").notNull().default("pendiente"),
@@ -145,6 +189,19 @@ export const notifications = pgTable("notifications", {
   link: text("link"), // URL opcional para redirección
   isRead: boolean("is_read").notNull().default(false),
   type: text("type").notNull().default("general"), // "document", "request", "stage", "general"
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+// Enrollment stage history table - stores stage change history
+export const enrollmentStageHistory = pgTable("enrollment_stage_history", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  previousStage: enrollmentStageEnum("previous_stage").notNull(),
+  newStage: enrollmentStageEnum("new_stage").notNull(),
+  changedBy: integer("changed_by").notNull().references(() => users.id), // ID del admin que hizo el cambio
+  comments: text("comments"), // Comentarios opcionales del administrador
+  validationStatus: text("validation_status").notNull().default("approved"), // "pending", "approved", "rejected"
+  validationNotes: text("validation_notes"), // Notas de validación
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
@@ -203,6 +260,9 @@ export const createUserSchema = z.object({
 });
 
 export const createRequestSchema = z.object({
+  requestType: z.enum(["financiera", "academica", "documental_administrativa", "datos_estudiante_administrativa"], {
+    required_error: "El tipo de solicitud es requerido"
+  }),
   subject: z.string().min(1, "El asunto es requerido"),
   message: z.string().min(1, "El mensaje es requerido")
 });
@@ -249,7 +309,76 @@ export const updateEnrollmentStageSchema = z.object({
     "proceso_finalizado"
   ], {
     required_error: "La etapa de matrícula es requerida"
-  })
+  }),
+  comments: z.string().optional(), // Comentarios opcionales del administrador
+  validationNotes: z.string().optional() // Notas de validación opcionales
+});
+
+/**
+ * Esquema para validar cambios de etapa
+ * Incluye validaciones adicionales antes del cambio
+ */
+export const validateStageChangeSchema = z.object({
+  currentStage: z.enum([
+    "suscrito",
+    "documentos_completos", 
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ]),
+  newStage: z.enum([
+    "suscrito",
+    "documentos_completos", 
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ]),
+  userId: z.number(),
+  documentsCount: z.number().optional(),
+  pendingRequestsCount: z.number().optional()
+}).refine((data) => {
+  // Validaciones de progresión lógica
+  const stageOrder = [
+    "suscrito",
+    "documentos_completos", 
+    "registro_validado",
+    "proceso_universitario",
+    "matriculado",
+    "inicio_clases",
+    "estudiante_activo",
+    "pagos_al_dia",
+    "proceso_finalizado"
+  ];
+  
+  const currentIndex = stageOrder.indexOf(data.currentStage);
+  const newIndex = stageOrder.indexOf(data.newStage);
+  
+  // Permitir retroceder solo una etapa (para correcciones)
+  if (newIndex < currentIndex - 1) {
+    return false;
+  }
+  
+  // Validaciones específicas por etapa
+  if (data.newStage === "documentos_completos" && (!data.documentsCount || data.documentsCount < 3)) {
+    return false;
+  }
+  
+  if (data.newStage === "matriculado" && data.pendingRequestsCount && data.pendingRequestsCount > 0) {
+    return false;
+  }
+  
+  return true;
+}, {
+  message: "Cambio de etapa no válido. Verifica los requisitos previos.",
+  path: ["newStage"]
 });
 
 /**
@@ -282,6 +411,9 @@ export type InsertRequest = typeof requests.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
 
+export type EnrollmentStageHistory = typeof enrollmentStageHistory.$inferSelect;
+export type InsertEnrollmentStageHistory = typeof enrollmentStageHistory.$inferInsert;
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -297,6 +429,11 @@ export type UpdateEnrollmentStage = z.infer<typeof updateEnrollmentStageSchema>;
  * Tipo para la actualización de estado de documento
  */
 export type UpdateDocumentStatus = z.infer<typeof updateDocumentStatusSchema>;
+
+/**
+ * Tipo para la validación de cambio de etapa
+ */
+export type ValidateStageChange = z.infer<typeof validateStageChangeSchema>;
 
 /**
  * Tabla de roles

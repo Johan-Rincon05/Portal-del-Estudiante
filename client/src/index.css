@@ -53,33 +53,59 @@
   }
 
   .dark {
-    --background: 0 0% 10%;
-    --foreground: 0 0% 95%;
+    /* Colores de fondo mejorados */
+    --background: 222 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 15%;
-    --card-foreground: 0 0% 95%;
+    /* Tarjetas y contenedores */
+    --card: 222 84% 6.9%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 15%;
-    --popover-foreground: 0 0% 95%;
+    /* Popovers y dropdowns */
+    --popover: 222 84% 6.9%;
+    --popover-foreground: 210 40% 98%;
 
+    /* Colores primarios más vibrantes */
     --primary: 300 76% 72%;
-    --primary-foreground: 0 0% 0%;
+    --primary-foreground: 222 84% 4.9%;
 
-    --secondary: 308 60% 25%;
-    --secondary-foreground: 0 0% 95%;
+    /* Secundarios más sutiles */
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 25%;
-    --muted-foreground: 0 0% 85%;
+    /* Muted mejorado para mejor legibilidad - texto más claro */
+    --muted: 217 32% 17%;
+    --muted-foreground: 210 40% 85%;
 
-    --accent: 308 64% 30%;
-    --accent-foreground: 0 0% 95%;
+    /* Acentos más definidos */
+    --accent: 217 32% 17%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 40.6%;
-    --destructive-foreground: 0 0% 95%;
+    /* Destructive más suave */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 0% 35%;
-    --input: 0 0% 35%;
+    /* Bordes e inputs más definidos */
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
     --ring: 300 76% 72%;
+
+    /* Chart colors para tema oscuro */
+    --chart-1: 300 76% 72%;
+    --chart-2: 300 76% 60%;
+    --chart-3: 300 76% 50%;
+    --chart-4: 300 76% 40%;
+    --chart-5: 300 40% 60%;
+    
+    /* Sidebar colors para tema oscuro */
+    --sidebar-background: 222 84% 6.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 300 76% 72%;
+    --sidebar-primary-foreground: 222 84% 4.9%;
+    --sidebar-accent: 217 32% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 32% 17%;
+    --sidebar-ring: 300 76% 72%;
   }
 
   * {
@@ -92,24 +118,476 @@
 }
 
 @layer components {
-  .sidebar-link.active {
-    @apply bg-secondary text-primary border-l-2 border-primary;
+  /* Mejoras para el tema oscuro */
+  .dark .sidebar-link.active {
+    @apply bg-primary/20 text-primary border-l-2 border-primary;
   }
   
-  /* Mejoras de legibilidad */
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+  /* Mejoras de legibilidad para tema oscuro */
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    @apply text-foreground font-semibold tracking-tight;
   }
   
-  .text-muted-foreground {
-    @apply font-medium;
-  }
+
   
-  .card .card-description {
+  .dark .card .card-description {
     @apply text-foreground/80;
   }
   
-  input, textarea, select {
-    @apply text-foreground placeholder:text-muted-foreground/70;
+  .dark input, .dark textarea, .dark select {
+    @apply text-foreground placeholder:text-muted-foreground/60 bg-card border-border;
   }
+
+  /* Mejoras para tablas en tema oscuro */
+  .dark table {
+    @apply border-border;
+  }
+  
+  .dark th {
+    @apply bg-muted/50 text-foreground border-border;
+  }
+  
+  .dark td {
+    @apply border-border;
+  }
+
+  /* Mejoras para botones en tema oscuro */
+  .dark .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  
+  .dark .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+  }
+
+  /* Mejoras para modales y dropdowns */
+  .dark .modal-content {
+    @apply bg-card border-border;
+  }
+  
+  .dark .dropdown-content {
+    @apply bg-popover border-border;
+  }
+
+  /* Mejoras para formularios */
+  .dark .form-input {
+    @apply bg-card border-border text-foreground placeholder:text-muted-foreground/60;
+  }
+  
+  .dark .form-input:focus {
+    @apply ring-primary border-primary;
+  }
+
+  /* Mejoras para navegación */
+.dark .nav-link {
+  @apply text-muted-foreground hover:text-foreground;
+}
+
+.dark .nav-link.active {
+  @apply text-primary bg-primary/10;
+}
+
+/* Mejoras específicas para navegación en tema oscuro */
+.dark .nav-link {
+  color: hsl(210 40% 85%);
+  transition: color 0.2s ease;
+}
+
+.dark .nav-link:hover {
+  color: hsl(210 40% 98%);
+}
+
+.dark .nav-link.active {
+  color: hsl(300 76% 72%);
+  background-color: hsl(300 76% 72% / 0.1);
+}
+
+/* Mejoras para enlaces y navegación general */
+.dark a {
+  color: hsl(300 76% 72%);
+  transition: color 0.2s ease;
+}
+
+.dark a:hover {
+  color: hsl(300 76% 85%);
+}
+
+.dark .link-subtle {
+  color: hsl(210 40% 85%);
+}
+
+.dark .link-subtle:hover {
+  color: hsl(210 40% 98%);
+}
+
+  /* Mejoras para notificaciones */
+.dark .notification {
+  @apply bg-card border-border;
+}
+
+.dark .notification.success {
+  @apply bg-green-900/20 border-green-700/30 text-green-300;
+}
+
+.dark .notification.error {
+  @apply bg-red-900/20 border-red-700/30 text-red-300;
+}
+
+.dark .notification.warning {
+  @apply bg-yellow-900/20 border-yellow-700/30 text-yellow-300;
+}
+
+.dark .notification.info {
+  @apply bg-blue-900/20 border-blue-700/30 text-blue-300;
+}
+
+/* Mejoras específicas para notificaciones en tema oscuro */
+.dark .notification {
+  background: hsl(222 84% 6.9%);
+  border: 1px solid hsl(217 32% 17%);
+  color: hsl(210 40% 98%);
+}
+
+.dark .notification.success {
+  background: linear-gradient(135deg, hsl(142, 76%, 36%, 0.1), hsl(142, 76%, 36%, 0.05));
+  border-color: hsl(142, 76%, 36%, 0.3);
+  color: hsl(142, 76%, 72%);
+}
+
+.dark .notification.error {
+  background: linear-gradient(135deg, hsl(0, 84%, 60%, 0.1), hsl(0, 84%, 60%, 0.05));
+  border-color: hsl(0, 84%, 60%, 0.3);
+  color: hsl(0, 84%, 72%);
+}
+
+.dark .notification.warning {
+  background: linear-gradient(135deg, hsl(48, 96%, 53%, 0.1), hsl(48, 96%, 53%, 0.05));
+  border-color: hsl(48, 96%, 53%, 0.3);
+  color: hsl(48, 96%, 72%);
+}
+
+.dark .notification.info {
+  background: linear-gradient(135deg, hsl(221, 83%, 53%, 0.1), hsl(221, 83%, 53%, 0.05));
+  border-color: hsl(221, 83%, 53%, 0.3);
+  color: hsl(221, 83%, 72%);
+}
+
+  /* Mejoras para scrollbars */
+  .dark ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  .dark ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Mejoras para tooltips */
+  .dark .tooltip {
+    @apply bg-popover text-popover-foreground border-border;
+  }
+
+  /* Mejoras para badges */
+  .dark .badge {
+    @apply bg-secondary text-secondary-foreground;
+  }
+  
+  .dark .badge-primary {
+    @apply bg-primary text-primary-foreground;
+  }
+  
+  .dark .badge-success {
+    @apply bg-green-900/30 text-green-300 border-green-700/30;
+  }
+  
+  .dark .badge-error {
+    @apply bg-red-900/30 text-red-300 border-red-700/30;
+  }
+  
+  .dark .badge-warning {
+    @apply bg-yellow-900/30 text-yellow-300 border-yellow-700/30;
+  }
+
+  /* Mejoras para cards */
+  .dark .card {
+    @apply bg-card border-border shadow-lg;
+  }
+  
+  .dark .card-header {
+    @apply border-border;
+  }
+  
+  .dark .card-content {
+    @apply text-foreground;
+  }
+
+  /* Mejoras para separadores */
+  .dark .separator {
+    @apply bg-border;
+  }
+
+  /* Mejoras para loading states */
+  .dark .skeleton {
+    @apply bg-muted animate-pulse;
+  }
+
+  /* Mejoras para focus states */
+  .dark *:focus-visible {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+}
+
+/* Mejoras generales de legibilidad */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-semibold tracking-tight;
+}
+
+/* Estilos generales para texto */
+.text-muted-foreground {
+  font-weight: 500;
+}
+
+
+
+/* Mejoras para placeholders en tema oscuro */
+.dark input::placeholder,
+.dark textarea::placeholder,
+.dark select::placeholder {
+  color: hsl(210 40% 75%);
+}
+
+/* Mejoras para textos secundarios en tema oscuro */
+.dark .card-description {
+  color: hsl(210 40% 90%);
+}
+
+.dark .text-secondary {
+  color: hsl(210 40% 85%);
+}
+
+.dark .text-tertiary {
+  color: hsl(210 40% 80%);
+}
+
+/* Mejoras para textos con mejor legibilidad en tema oscuro */
+.dark .text-subtle {
+  color: hsl(210 40% 85%);
+}
+
+.dark .text-muted {
+  color: hsl(210 40% 80%);
+}
+
+.dark .text-dim {
+  color: hsl(210 40% 75%);
+}
+
+/* Mejoras para elementos específicos */
+.dark .description {
+  color: hsl(210 40% 90%);
+}
+
+.dark .caption {
+  color: hsl(210 40% 85%);
+}
+
+.dark .helper-text {
+  color: hsl(210 40% 80%);
+}
+
+/* Mejoras para navegación en tema oscuro */
+.dark .nav-item {
+  color: hsl(210 40% 85%);
+  transition: color 0.2s ease;
+}
+
+.dark .nav-item:hover {
+  color: hsl(210 40% 98%);
+}
+
+.dark .nav-item.active {
+  color: hsl(300 76% 72%);
+  background-color: hsl(300 76% 72% / 0.1);
+}
+
+/* Mejoras para elementos de interfaz en tema oscuro */
+.dark .ui-text-muted {
+  color: hsl(210 40% 85%);
+  font-weight: 500;
+}
+
+.dark .ui-text-subtle {
+  color: hsl(210 40% 75%);
+}
+
+.dark .ui-text-dim {
+  color: hsl(210 40% 70%);
+}
+
+
+
+.card .card-description {
+  @apply text-foreground/80;
+}
+
+input, textarea, select {
+  @apply text-foreground placeholder:text-muted-foreground/70;
+}
+
+/* Estilos para el tema claro */
+.sidebar-link.active {
+  @apply bg-secondary text-primary border-l-2 border-primary;
+}
+
+/* Estilos generales para botones */
+.btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+/* Estilos para navegación */
+.nav-link {
+  @apply text-muted-foreground hover:text-foreground;
+}
+
+.nav-link.active {
+  @apply text-primary bg-primary/10;
+}
+
+/* Estilos para cards */
+.card {
+  @apply bg-card border-border shadow-sm;
+}
+
+.card:hover {
+  @apply shadow-md;
+}
+
+/* Estilos para formularios */
+.form-input {
+  @apply bg-card border-border text-foreground placeholder:text-muted-foreground/70;
+}
+
+.form-input:focus {
+  @apply ring-primary border-primary;
+}
+
+/* Estilos para tablas */
+table {
+  @apply border-border;
+}
+
+th {
+  @apply bg-muted/50 text-foreground border-border font-semibold;
+}
+
+td {
+  @apply border-border;
+}
+
+tr:hover {
+  @apply bg-muted/30;
+}
+
+/* Estilos para notificaciones */
+.notification {
+  @apply bg-card border-border;
+}
+
+.notification.success {
+  @apply bg-green-50 border-green-200 text-green-800;
+}
+
+.notification.error {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.notification.warning {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+}
+
+.notification.info {
+  @apply bg-blue-50 border-blue-200 text-blue-800;
+}
+
+/* Estilos para badges */
+.badge {
+  @apply bg-secondary text-secondary-foreground;
+}
+
+.badge-primary {
+  @apply bg-primary text-primary-foreground;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-800 border-green-200;
+}
+
+.badge-error {
+  @apply bg-red-100 text-red-800 border-red-200;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+}
+
+/* Estilos para modales */
+.modal-overlay {
+  @apply bg-black/50 backdrop-blur-sm;
+}
+
+.modal-content {
+  @apply bg-card border-border shadow-xl;
+}
+
+/* Estilos para dropdowns */
+.dropdown-content {
+  @apply bg-popover border-border shadow-lg;
+}
+
+/* Estilos para tooltips */
+.tooltip {
+  @apply bg-popover text-popover-foreground border-border shadow-md;
+}
+
+/* Estilos para separadores */
+.separator {
+  @apply bg-border;
+}
+
+/* Estilos para loading states */
+.skeleton {
+  @apply bg-muted animate-pulse;
+}
+
+/* Estilos para focus states */
+*:focus-visible {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+}
+
+/* Estilos para scrollbars */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
 }

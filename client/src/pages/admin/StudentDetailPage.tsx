@@ -34,7 +34,9 @@ const enrollmentStageSchema = z.object({
     "estudiante_activo",
     "pagos_al_dia",
     "proceso_finalizado"
-  ])
+  ]),
+  comments: z.string().optional(),
+  validationNotes: z.string().optional()
 });
 
 type ResponseFormValues = z.infer<typeof responseFormSchema>;
@@ -43,8 +45,8 @@ type EnrollmentStageFormValues = z.infer<typeof enrollmentStageSchema>;
 const StudentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { profile, isLoading: isProfileLoading, updateProfileMutation, updateEnrollmentStageMutation } = useProfiles(id);
-  const { documents, isLoading: isDocumentsLoading, deleteDocumentMutation, getDocumentUrl } = useDocuments(id);
+  const { profile, isLoading: isProfileLoading, updateProfileMutation, updateEnrollmentStageMutation, stageHistory } = useProfiles(id);
+  const { documents, isLoading: isDocumentsLoading, deleteDocumentMutation, getDocumentUrl } = useDocuments(id ? parseInt(id) : undefined);
   const { 
     requests, 
     isLoading: isRequestsLoading, 
@@ -65,15 +67,19 @@ const StudentDetailPage = () => {
   const enrollmentStageForm = useForm<EnrollmentStageFormValues>({
     resolver: zodResolver(enrollmentStageSchema),
     defaultValues: {
-      enrollmentStage: profile?.enrollmentStage || 'suscrito'
+      enrollmentStage: profile?.enrollmentStage || 'suscrito',
+      comments: '',
+      validationNotes: ''
     }
   });
 
-  const handleRespondToRequest = (requestId: string, values: ResponseFormValues) => {
+  const handleRespondToRequest = (requestId: number, values: ResponseFormValues) => {
     respondToRequestMutation.mutate({
-      requestId,
-      response: values.response,
-      status: values.status
+      id: requestId,
+      data: {
+        response: values.response,
+        status: values.status
+      }
     }, {
       onSuccess: () => {
         responseForm.reset();
@@ -124,7 +130,9 @@ const StudentDetailPage = () => {
   useEffect(() => {
     if (profile) {
       enrollmentStageForm.reset({
-        enrollmentStage: profile.enrollmentStage || 'suscrito'
+        enrollmentStage: profile.enrollmentStage || 'suscrito',
+        comments: '',
+        validationNotes: ''
       });
     }
   }, [profile, enrollmentStageForm]);
@@ -176,6 +184,14 @@ const StudentDetailPage = () => {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="history">
+            Historial
+            {stageHistory && (
+              <span className="ml-2 text-xs bg-gray-200 px-2 py-0.5 rounded-full">
+                {stageHistory.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="profile">
@@ -213,7 +229,7 @@ const StudentDetailPage = () => {
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Fecha de nacimiento</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(profile.birthDate).toLocaleDateString()}
+                    {profile.birthDate ? new Date(profile.birthDate).toLocaleDateString() : 'No especificada'}
                   </dd>
                 </div>
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -231,7 +247,7 @@ const StudentDetailPage = () => {
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Fecha de registro</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(profile.createdAt).toLocaleDateString()}
+                    {profile.createdAt ? new Date(profile.createdAt).toLocaleDateString() : 'No especificada'}
                   </dd>
                 </div>
               </dl>
@@ -277,25 +293,70 @@ const StudentDetailPage = () => {
                               <SelectItem value="proceso_finalizado">Proceso Finalizado</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Button 
-                            type="submit"
-                            disabled={updateEnrollmentStageMutation.isPending}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {updateEnrollmentStageMutation.isPending ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Actualizando...
-                              </>
-                            ) : (
-                              <>Actualizar Etapa</>
-                            )}
-                          </Button>
                         </div>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={enrollmentStageForm.control}
+                    name="comments"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          Comentarios (Opcional)
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Agrega comentarios sobre el cambio de etapa..."
+                            className="resize-none"
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={enrollmentStageForm.control}
+                    name="validationNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700">
+                          Notas de Validación (Opcional)
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Notas internas sobre la validación del cambio..."
+                            className="resize-none"
+                            rows={2}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end">
+                    <Button 
+                      type="submit"
+                      disabled={updateEnrollmentStageMutation.isPending}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {updateEnrollmentStageMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Actualizando...
+                        </>
+                      ) : (
+                        <>Actualizar Etapa</>
+                      )}
+                    </Button>
+                  </div>
                 </form>
               </Form>
             </CardContent>
@@ -340,7 +401,7 @@ const StudentDetailPage = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {new Date(document.uploadedAt).toLocaleDateString()}
+                              {document.createdAt ? new Date(document.createdAt).toLocaleDateString() : 'No especificada'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -348,7 +409,7 @@ const StudentDetailPage = () => {
                               variant="ghost" 
                               size="sm" 
                               className="text-primary-600 hover:text-primary-900 mr-2"
-                              onClick={() => handleViewDocument(document.path)}
+                              onClick={() => handleViewDocument(document.id.toString())}
                             >
                               <Eye className="h-4 w-4" />
                               <span className="ml-1">Ver</span>
@@ -357,7 +418,7 @@ const StudentDetailPage = () => {
                               variant="ghost" 
                               size="sm" 
                               className="text-primary-600 hover:text-primary-900 mr-2"
-                              onClick={() => handleDownloadDocument(document.path, document.type)}
+                              onClick={() => handleDownloadDocument(document.id.toString(), document.type)}
                             >
                               <Download className="h-4 w-4" />
                               <span className="ml-1">Descargar</span>
@@ -366,7 +427,7 @@ const StudentDetailPage = () => {
                               variant="ghost" 
                               size="sm" 
                               className="text-red-600 hover:text-red-900"
-                              onClick={() => handleDeleteDocument(document.id)}
+                              onClick={() => handleDeleteDocument(document.id.toString())}
                             >
                               <Trash2 className="h-4 w-4" />
                               <span className="ml-1">Eliminar</span>
@@ -418,7 +479,7 @@ const StudentDetailPage = () => {
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-4">{request.message}</p>
-                      <div className="text-xs text-gray-500 mb-4">Creada el {new Date(request.createdAt).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500 mb-4">Creada el {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Fecha no especificada'}</div>
                       
                       {request.response ? (
                         <div className="bg-white p-3 border border-gray-200 rounded-md">
@@ -505,6 +566,62 @@ const StudentDetailPage = () => {
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No hay solicitudes</h3>
                   <p className="mt-1 text-sm text-gray-500">El estudiante aún no ha realizado solicitudes.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="history">
+          <Card>
+            <CardHeader className="px-6 py-5">
+              <CardTitle className="text-lg">Historial de Etapas</CardTitle>
+              <p className="text-sm text-gray-500">Historial de cambios de etapa del estudiante</p>
+            </CardHeader>
+            <CardContent className="border-t border-gray-200">
+              {stageHistory && stageHistory.length > 0 ? (
+                <div className="px-4 py-5 space-y-6">
+                  {stageHistory.map((stage) => (
+                    <div key={stage.id} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900">
+                            {stage.previousStage} → {stage.newStage}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            Cambiado por: {stage.changedBy} ({stage.changedByRole})
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="bg-green-100 text-green-800">
+                          {stage.validationStatus === 'approved' ? 'Aprobado' : 
+                           stage.validationStatus === 'pending' ? 'Pendiente' : 'Rechazado'}
+                        </Badge>
+                      </div>
+                      {stage.comments && (
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600">
+                            <strong>Comentarios:</strong> {stage.comments}
+                          </p>
+                        </div>
+                      )}
+                      {stage.validationNotes && (
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600">
+                            <strong>Notas de validación:</strong> {stage.validationNotes}
+                          </p>
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500">
+                        Fecha: {stage.createdAt ? new Date(stage.createdAt).toLocaleDateString() : 'Fecha no especificada'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-6 py-10 text-center">
+                  <GraduationCap className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No hay historial</h3>
+                  <p className="mt-1 text-sm text-gray-500">El estudiante aún no ha cambiado de etapa.</p>
                 </div>
               )}
             </CardContent>

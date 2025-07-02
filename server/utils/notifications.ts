@@ -136,10 +136,12 @@ export async function createRequestResponseNotification(
  * Crea una notificación cuando cambia la etapa de matrícula
  * @param userId - ID del usuario
  * @param newStage - Nueva etapa de matrícula
+ * @param comments - Comentarios opcionales del administrador
  */
 export async function createEnrollmentStageNotification(
   userId: number,
-  newStage: string
+  newStage: string,
+  comments?: string
 ) {
   const stageNames: Record<string, string> = {
     'suscrito': 'Suscrito',
@@ -154,11 +156,12 @@ export async function createEnrollmentStageNotification(
   };
 
   const stageName = stageNames[newStage] || newStage;
+  const commentsText = comments ? `\n\nComentarios del administrador: ${comments}` : '';
 
   const notificationData: InsertNotification = {
     userId,
     title: 'Progreso en Matrícula',
-    body: `Has avanzado a la etapa "${stageName}". ¡Felicidades por tu progreso!`,
+    body: `Has avanzado a la etapa "${stageName}". ¡Felicidades por tu progreso!${commentsText}`,
     type: 'stage',
     link: '/'
   };

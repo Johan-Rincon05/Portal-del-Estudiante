@@ -26,7 +26,7 @@ export function useRequests(userId?: string, options: UseRequestsOptions = {}) {
 
   // Crear una nueva solicitud
   const createRequestMutation = useMutation({
-    mutationFn: async (data: { subject: string; message: string }) => {
+    mutationFn: async (data: { requestType: string; subject: string; message: string }) => {
       return apiRequest<Request>("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

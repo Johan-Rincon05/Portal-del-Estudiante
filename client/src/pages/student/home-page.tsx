@@ -1,3 +1,4 @@
+import React from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests } from "@/hooks/use-requests";
 import { useDocuments } from "@/hooks/use-documents";
@@ -28,13 +29,22 @@ export default function HomePage() {
   const { profile } = useProfiles(user?.id?.toString());
   const [, setLocation] = useLocation();
 
-  // Contadores
-  const pendingRequests = requests?.filter(r => r.status === "pendiente" || r.status === "en_proceso").length || 0;
-  const completedRequests = requests?.filter(r => r.status === "completada").length || 0;
-  const uploadedDocuments = documents?.length || 0;
-  const pendingDocuments = 5 - uploadedDocuments;
+    // Memoizar contadores para evitar recálculos innecesarios
+  const stats = React.useMemo(() => {
+    const pendingRequests = requests?.filter(r => r.status === "pendiente" || r.status === "en_proceso").length || 0;
+    const completedRequests = requests?.filter(r => r.status === "completada").length || 0;
+    const uploadedDocuments = documents?.length || 0;
+    const pendingDocuments = 5 - uploadedDocuments;
 
-  // Obtener la etapa actual del estudiante
+    return {
+      pendingRequests,
+      completedRequests,
+      uploadedDocuments,
+      pendingDocuments
+    };
+  }, [requests, documents]);
+
+  // Obtener la etapa actual del estudiante con validación
   const currentStage = profile?.enrollmentStage || 'suscrito';
   const currentStageIndex = ENROLLMENT_STAGES.findIndex(stage => stage.key === currentStage);
 
@@ -79,39 +89,6 @@ export default function HomePage() {
     }
   };
 
-  const stats = [
-    {
-      title: "Documentos Pendientes",
-      value: pendingDocuments,
-      description: "Documentos requeridos por subir",
-      icon: FileText,
-      color: pendingDocuments > 0 ? "text-secondary" : "text-primary",
-      bgColor: pendingDocuments > 0 ? "bg-secondary/10" : "bg-primary/10",
-      borderColor: pendingDocuments > 0 ? "border-secondary/20" : "border-primary/20",
-      action: () => setLocation("/documents")
-    },
-    {
-      title: "Solicitudes Activas",
-      value: pendingRequests,
-      description: "Solicitudes en proceso",
-      icon: MessageSquare,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-      borderColor: "border-primary/20",
-      action: () => setLocation("/requests")
-    },
-    {
-      title: "Solicitudes Completadas",
-      value: completedRequests,
-      description: "Solicitudes resueltas",
-      icon: CheckCircle,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-      borderColor: "border-primary/20",
-      action: () => setLocation("/requests")
-    }
-  ];
-
   return (
     <StudentLayout>
       <div className="container max-w-5xl mx-auto px-4 py-6">
@@ -137,10 +114,10 @@ export default function HomePage() {
           </div>
 
           {/* Alertas */}
-          {pendingDocuments > 0 && (
+          {stats.pendingDocuments > 0 && (
             <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-4 flex items-center gap-3 text-secondary">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p>Tienes {pendingDocuments} documento(s) pendiente(s) por subir.</p>
+              <p>Tienes {stats.pendingDocuments} documento(s) pendiente(s) por subir.</p>
             </div>
           )}
 
@@ -198,7 +175,7 @@ export default function HomePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{uploadedDocuments}</div>
+                <div className="text-2xl font-bold">{stats.uploadedDocuments}</div>
                 <p className="text-muted-foreground">documentos subidos</p>
               </CardContent>
             </Card>
@@ -214,7 +191,7 @@ export default function HomePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{pendingRequests}</div>
+                <div className="text-2xl font-bold">{stats.pendingRequests}</div>
                 <p className="text-muted-foreground">solicitudes en proceso</p>
               </CardContent>
             </Card>
@@ -231,7 +208,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {completedRequests}
+                  {stats.completedRequests}
                 </div>
                 <p className="text-muted-foreground">solicitudes resueltas</p>
               </CardContent>

@@ -3,7 +3,7 @@ import { Document, UpdateDocumentStatus } from '@/types';
 import { apiRequest, queryClient } from '@/lib/query-client';
 import { toast } from 'sonner';
 
-export function useDocuments(userId?: number) {
+export function useDocuments(userId?: string) {
   const documentsQuery = useQuery<Document[]>({
     queryKey: ['/api/documents', userId],
     queryFn: () => apiRequest(`/api/documents${userId ? `?userId=${userId}` : ''}`),
@@ -14,19 +14,33 @@ export function useDocuments(userId?: number) {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async (data: { userId: number; type: string; file: File }) => {
+    mutationFn: async (data: { userId: string; type: string; file: File; observations?: string }) => {
       const formData = new FormData();
       formData.append('file', data.file);
       formData.append('type', data.type);
-      formData.append('userId', data.userId.toString());
+      formData.append('userId', data.userId);
+      if (data.observations) {
+        formData.append('observations', data.observations);
+      }
+      
+      // Log de depuración
+      console.log('[DEBUG] Frontend - Documento a enviar:', {
+        fileName: data.file.name,
+        fileSize: data.file.size,
+        fileType: data.file.type,
+        type: data.type,
+        observations: data.observations
+      });
+      
+      // Verificar que el FormData tenga el archivo
+      for (let [key, value] of formData.entries()) {
+        console.log('[DEBUG] FormData entry:', key, value);
+      }
       
       return apiRequest<Document>('/api/documents', {
         method: 'POST',
         body: formData,
-        headers: {
-          // Remove Content-Type to let browser set it with boundary
-          'Content-Type': undefined as any,
-        },
+        // No establecer Content-Type para que el navegador lo configure automáticamente con el boundary
       });
     },
     onSuccess: (newDocument) => {
@@ -52,9 +66,14 @@ export function useDocuments(userId?: number) {
         method: 'DELETE',
       }),
     onSuccess: (_, documentId) => {
+      console.log('[DEBUG] Eliminando documento del cache:', documentId);
+      
       // Actualizar inmediatamente el cache
       queryClient.setQueryData(['/api/documents', userId], (old: Document[] = []) => {
-        return old.filter(doc => doc.id !== documentId);
+        console.log('[DEBUG] Documentos antes de eliminar:', old.length);
+        const filtered = old.filter(doc => doc.id?.toString() !== documentId);
+        console.log('[DEBUG] Documentos después de eliminar:', filtered.length);
+        return filtered;
       });
       
       // Invalidar queries relacionadas

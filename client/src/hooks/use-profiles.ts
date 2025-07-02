@@ -1,12 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/query-client';
 import { useToast } from '@/hooks/use-toast';
-import { Profile, UpdateEnrollmentStage } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
+import { Profile, UpdateEnrollmentStage, EnrollmentStageHistory } from '@shared/schema';
+import { useAuth } from './use-auth';
 
 export interface ProfileWithCounts extends Profile {
   documentCount: number;
   pendingRequestCount: number;
+}
+
+export interface StageHistoryItem extends EnrollmentStageHistory {
+  changedBy: string;
+  changedByRole: string;
 }
 
 interface UseProfilesOptions {
@@ -17,6 +22,7 @@ interface UseProfilesOptions {
 export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Get single profile by user ID
   const {
@@ -30,7 +36,7 @@ export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
       if (!userId) return null;
       return apiRequest<ProfileWithCounts>(`/api/profiles/${userId}`);
     },
-    enabled: !!userId,
+    enabled: !!userId && !!user, // Solo ejecutar si hay userId y usuario autenticado
     staleTime: 1000 * 60 * 2, // 2 minutos
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -46,7 +52,26 @@ export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
     queryFn: async () => {
       return apiRequest<ProfileWithCounts[]>('/api/profiles');
     },
+    enabled: !!user, // Solo ejecutar si hay usuario autenticado
     staleTime: 1000 * 60 * 5, // 5 minutos
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
+  // Get stage history for a user
+  const {
+    data: stageHistory,
+    isLoading: isLoadingHistory,
+    error: errorHistory,
+    refetch: refetchHistory
+  } = useQuery<StageHistoryItem[]>({
+    queryKey: ['/api/profiles', userId, 'stage-history'],
+    queryFn: async () => {
+      if (!userId) return [];
+      return apiRequest<StageHistoryItem[]>(`/api/profiles/${userId}/stage-history`);
+    },
+    enabled: !!userId && !!user, // Solo ejecutar si hay userId y usuario autenticado
+    staleTime: 1000 * 60 * 2, // 2 minutos
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
@@ -86,10 +111,10 @@ export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
     },
   });
 
-  // Actualizar etapa de matrícula
+  // Actualizar etapa de matrícula con comentarios y validaciones
   const updateEnrollmentStageMutation = useMutation({
     mutationFn: async (data: UpdateEnrollmentStage) => {
-      return apiRequest<{ message: string; profile: Profile }>(`/api/profiles/${userId}/stage`, {
+      return apiRequest<{ message: string; profile: Profile; validationData: any }>(`/api/profiles/${userId}/stage`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -103,6 +128,7 @@ export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
       
       // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles', userId, 'stage-history'] });
       
       toast({
         title: "Etapa actualizada",
@@ -123,11 +149,13 @@ export function useProfiles(userId?: string, options: UseProfilesOptions = {}) {
   return {
     profile,
     allProfiles,
-    isLoading: isLoading || isLoadingAll,
-    error: error || errorAll,
+    stageHistory,
+    isLoading: isLoading || isLoadingAll || isLoadingHistory,
+    error: error || errorAll || errorHistory,
     updateProfileMutation,
     updateEnrollmentStageMutation,
-    refetch
+    refetch,
+    refetchHistory
   };
 }
 

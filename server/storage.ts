@@ -201,7 +201,7 @@ export const storage = {
   async getUserPermissions(userId: number): Promise<Record<string, boolean>> {
     const user = await this.getUser(userId);
     if (!user) return {};
-    
+
     return user.permissions || {};
   },
 
@@ -618,5 +618,15 @@ export const storage = {
    */
   async getInstallmentObservationsByUserId(userId: number): Promise<any[]> {
     return await db.select().from(installmentObservations).where(eq(installmentObservations.userId, userId)).orderBy(desc(installmentObservations.createdAt));
+  },
+
+  /**
+   * Crea una nueva observación de cuota
+   * @param observationData - Datos de la observación
+   * @returns Observación creada
+   */
+  async createInstallmentObservation(observationData: any): Promise<any> {
+    const [observation] = await db.insert(installmentObservations).values(observationData).returning();
+    return observation;
   }
 };

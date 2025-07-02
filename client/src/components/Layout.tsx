@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sidebar } from './Sidebar';
 import { useLocation } from 'wouter';
-import useAuth from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Bell } from 'lucide-react';
 
 interface LayoutProps {

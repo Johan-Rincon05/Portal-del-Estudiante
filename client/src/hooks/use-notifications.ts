@@ -117,7 +117,21 @@ export function useMarkAllNotificationsAsRead() {
 /**
  * Hook personalizado que combina todas las funcionalidades de notificaciones
  */
-export function useNotificationSystem() {
+export function useNotificationSystem(): {
+  notifications: Notification[];
+  unreadCount: number;
+  isOpen: boolean;
+  isLoadingNotifications: boolean;
+  isLoadingCount: boolean;
+  isMarkingAsRead: boolean;
+  isMarkingAllAsRead: boolean;
+  openNotifications: () => void;
+  closeNotifications: () => void;
+  handleMarkAsRead: (notificationId: number) => Promise<void>;
+  handleMarkAllAsRead: () => Promise<void>;
+  markAsRead: ReturnType<typeof useMarkNotificationAsRead>;
+  markAllAsRead: ReturnType<typeof useMarkAllNotificationsAsRead>;
+} {
   const [isOpen, setIsOpen] = useState(false);
   
   const { data: notifications = [], isLoading: isLoadingNotifications } = useNotifications(10, false);

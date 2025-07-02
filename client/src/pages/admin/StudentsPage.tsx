@@ -20,7 +20,7 @@ import { AdminLayout } from '@/components/layouts/AdminLayout';
 const StudentsPage = () => {
   const { allProfiles, isLoading } = useProfiles();
   const [searchTerm, setSearchTerm] = useState('');
-  const [cityFilter, setCityFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('all');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,7 +32,7 @@ const StudentsPage = () => {
       profile.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       profile.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCity = !cityFilter || profile.city.toLowerCase() === cityFilter.toLowerCase();
+    const matchesCity = !cityFilter || cityFilter === 'all' || profile.city.toLowerCase() === cityFilter.toLowerCase();
     
     const createdAtDate = new Date(profile.createdAt);
     const matchesDateFrom = !dateFromFilter || createdAtDate >= new Date(dateFromFilter);
@@ -96,7 +96,7 @@ const StudentsPage = () => {
                     <SelectValue placeholder="Todas las ciudades" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas las ciudades</SelectItem>
+                    <SelectItem value="all">Todas las ciudades</SelectItem>
                     {uniqueCities.map((city, index) => (
                       <SelectItem key={index} value={city}>{city}</SelectItem>
                     ))}

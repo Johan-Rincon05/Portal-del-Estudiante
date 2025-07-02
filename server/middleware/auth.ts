@@ -33,24 +33,39 @@ declare global {
  * @returns Error 401 si no hay token, 403 si el token es inválido
  */
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  console.log('=== MIDDLEWARE AUTHENTICATE TOKEN ===');
+  console.log('URL:', req.url);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  
   const authHeader = req.headers['authorization'];
+  console.log('Authorization header:', authHeader);
+  
   const token = authHeader && authHeader.split(' ')[1];
+  console.log('Token extraído:', token ? token.substring(0, 20) + '...' : 'No token');
 
   if (!token) {
+    console.log('❌ No se proporcionó token');
     return res.status(401).json({ error: 'Token de autenticación no proporcionado' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+    const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_muy_segura';
+    console.log('JWT_SECRET usado:', JWT_SECRET ? JWT_SECRET.substring(0, 10) + '...' : 'No definido');
+    
+    const decoded = jwt.verify(token, JWT_SECRET) as {
       id: number;
       username: string;
       role: string;
       permissions: Record<string, boolean>;
     };
+    
+    console.log('✅ Token válido, usuario decodificado:', decoded);
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Token inválido o expirado' });
+    console.log('❌ Error al verificar token:', error);
+    return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 };
 
