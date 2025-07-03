@@ -89,7 +89,7 @@ const RequestsPage = () => {
 
   return (
     <StudentLayout>
-      <div className="container max-w-5xl mx-auto px-4 py-6">
+      <div className="container w-full max-w-5xl mx-auto px-4 sm:px-6 py-6">
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Mis Solicitudes</h2>
@@ -235,6 +235,29 @@ const RequestsPage = () => {
                         ? `${request.message.slice(0, 100)}...`
                         : request.message}
                     </p>
+                    
+                    {/* Mostrar respuesta del administrador cuando está expandida */}
+                    {expandedRequestId === request.id?.toString() && request.response && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageSquare className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-900">Respuesta del Administrador</span>
+                        </div>
+                        <p className="text-sm text-blue-800 mb-2">{request.response}</p>
+                        {request.respondedAt && (
+                          <span className="text-xs text-blue-600">
+                            Respondida el {new Date(request.respondedAt).toLocaleDateString('es-ES', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
                         Creada el {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}
@@ -257,7 +280,7 @@ const RequestsPage = () => {
                           </>
                         )}
                       </Button>
-                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

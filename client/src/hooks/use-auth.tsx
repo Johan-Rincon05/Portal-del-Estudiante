@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       // Realiza la petición de login
-      const response = await apiRequest<User & { token: string }>("/api/login", {
+      const response = await apiRequest<User & { token: string }>("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -185,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      return await apiRequest<User>("/api/register", {
+      return await apiRequest<User>("/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("/api/logout", {
+      await apiRequest("/api/auth/logout", {
         method: "POST",
       });
     },
@@ -345,5 +345,10 @@ export function useAuth() {
   if (!context) {
     throw new Error("useAuth debe ser usado dentro de un AuthProvider");
   }
+  
+  // Log de depuración
+  console.log('[DEBUG] useAuth - Context:', context);
+  console.log('[DEBUG] useAuth - User:', context.user);
+  
   return context;
 }

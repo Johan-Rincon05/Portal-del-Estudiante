@@ -236,15 +236,201 @@ export const storage = {
   },
 
   /**
+   * Operaciones de Validación de Documentos
+   */
+
+  /**
+   * Obtiene documentos pendientes de validación
+   * @returns Lista de documentos pendientes con información del estudiante
+   */
+  async getPendingDocumentsForValidation(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: documents.id,
+        name: documents.name,
+        type: documents.type,
+        status: documents.status,
+        userId: documents.userId,
+        createdAt: documents.createdAt,
+        observations: documents.observations,
+        rejectionReason: documents.rejectionReason,
+        studentName: profiles.fullName,
+        studentEmail: profiles.email
+      })
+      .from(documents)
+      .leftJoin(profiles, eq(documents.userId, profiles.userId))
+      .where(eq(documents.status, 'pendiente'))
+      .orderBy(desc(documents.createdAt));
+
+    return result;
+  },
+
+  /**
+   * Obtiene historial de validaciones de documentos por estudiante
+   * @param studentId - ID del estudiante
+   * @returns Historial de validaciones
+   */
+  async getDocumentValidationHistory(studentId: number): Promise<any[]> {
+    const result = await db
+      .select({
+        id: documents.id,
+        name: documents.name,
+        type: documents.type,
+        status: documents.status,
+        createdAt: documents.createdAt,
+        reviewedAt: documents.reviewedAt,
+        observations: documents.observations,
+        rejectionReason: documents.rejectionReason,
+        reviewedBy: documents.reviewedBy
+      })
+      .from(documents)
+      .where(eq(documents.userId, studentId))
+      .orderBy(desc(documents.reviewedAt || documents.createdAt));
+
+    return result;
+  },
+
+  /**
+   * Operaciones de Validación de Pagos
+   */
+
+  /**
+   * Obtiene pagos pendientes de validación
+   * @returns Lista de pagos pendientes con información del estudiante
+   */
+  async getPendingPaymentsForValidation(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: installments.id,
+        installmentNumber: installments.installmentNumber,
+        amount: installments.amount,
+        status: installments.status,
+        userId: installments.userId,
+        dueDate: installments.dueDate,
+        support: installments.support,
+        createdAt: installments.createdAt,
+        studentName: profiles.fullName,
+        studentEmail: profiles.email
+      })
+      .from(installments)
+      .leftJoin(profiles, eq(installments.userId, profiles.userId))
+      .where(eq(installments.status, 'pendiente'))
+      .orderBy(desc(installments.createdAt));
+
+    return result;
+  },
+
+  /**
+   * Valida o rechaza un pago
+   * @param paymentId - ID del pago
+   * @param status - Nuevo estado
+   * @param rejectionReason - Motivo de rechazo (opcional)
+   * @returns Pago actualizado
+   */
+  async validatePayment(paymentId: number, status: string, rejectionReason?: string): Promise<any> {
+    const [updatedPayment] = await db
+      .update(installments)
+      .set({ 
+        status,
+        updatedAt: new Date(),
+        ...(rejectionReason && { observations: rejectionReason })
+      })
+      .where(eq(installments.id, paymentId))
+      .returning();
+
+    return updatedPayment;
+  },
+
+  /**
+   * Operaciones de Reportes
+   */
+
+  /**
+   * Obtiene datos para reportes
+   * @param filters - Filtros opcionales
+   * @returns Datos de reporte
+   */
+  async getReportData(filters?: { dateFrom?: string; dateTo?: string; career?: string }): Promise<any> {
+    // Obtener estadísticas básicas
+    const totalStudents = await db.select({ count: sql`count(*)` }).from(users).where(eq(users.role, 'estudiante'));
+    const activeStudents = await db.select({ count: sql`count(*)` }).from(users).where(and(eq(users.role, 'estudiante'), eq(users.isActive, true)));
+    
+    // Obtener estadísticas de documentos
+    const documentStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      validated: sql`count(*) filter (where status = 'aprobado')`,
+      rejected: sql`count(*) filter (where status = 'rechazado')`
+    }).from(documents);
+
+    // Obtener estadísticas de pagos
+    const paymentStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      validated: sql`count(*) filter (where status = 'pagada')`
+    }).from(installments);
+
+    // Obtener estadísticas de solicitudes
+    const requestStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      completed: sql`count(*) filter (where status = 'completada')`
+    }).from(requests);
+
+    // Obtener distribución por etapas de matrícula
+    const enrollmentStages = await db.select({
+      stage: profiles.enrollmentStage,
+      count: sql`count(*)`
+    }).from(profiles).groupBy(profiles.enrollmentStage);
+
+    return {
+      totalStudents: totalStudents[0]?.count || 0,
+      activeStudents: activeStudents[0]?.count || 0,
+      documents: documentStats[0] || { pending: 0, validated: 0, rejected: 0 },
+      payments: paymentStats[0] || { pending: 0, validated: 0 },
+      requests: requestStats[0] || { pending: 0, completed: 0 },
+      enrollmentStages: enrollmentStages.reduce((acc, stage) => {
+        acc[stage.stage] = stage.count;
+        return acc;
+      }, {} as Record<string, number>)
+    };
+  },
+
+  /**
    * Operaciones de Solicitudes
    */
 
   /**
-   * Obtiene todas las solicitudes
-   * @returns Lista de solicitudes
+   * Obtiene todas las solicitudes con información del usuario
+   * @returns Lista de solicitudes con información del usuario
    */
-  async getAllRequests(): Promise<Request[]> {
-    return await db.select().from(requests).orderBy(requests.createdAt);
+  async getAllRequests(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: requests.id,
+        userId: requests.userId,
+        requestType: requests.requestType,
+        subject: requests.subject,
+        message: requests.message,
+        status: requests.status,
+        response: requests.response,
+        createdAt: requests.createdAt,
+        updatedAt: requests.updatedAt,
+        respondedAt: requests.respondedAt,
+        respondedBy: requests.respondedBy,
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email
+        }
+      })
+      .from(requests)
+      .leftJoin(users, eq(requests.userId, users.id))
+      .orderBy(desc(requests.createdAt));
+    
+    return result.map(row => ({
+      ...row,
+      userName: row.user?.username || 'Usuario',
+      userEmail: row.user?.email || 'usuario@ejemplo.com',
+      user: undefined // Remover el objeto user anidado
+    }));
   },
 
   /**
@@ -256,7 +442,8 @@ export const storage = {
     return await db
       .select()
       .from(requests)
-      .where(eq(requests.userId, userId));
+      .where(eq(requests.userId, userId))
+      .orderBy(desc(requests.createdAt));
   },
 
   /**
@@ -357,6 +544,55 @@ export const storage = {
    */
   async getDocuments(userId: number): Promise<any[]> {
     return await db.select().from(documents).where(eq(documents.userId, userId));
+  },
+
+  /**
+   * Obtiene todos los documentos del sistema
+   * @returns Lista de todos los documentos
+   */
+  async getAllDocuments(): Promise<any[]> {
+    return await db.select().from(documents);
+  },
+
+  /**
+   * Obtiene documentos con información del estudiante
+   * @returns Lista de documentos con información del estudiante
+   */
+  async getDocumentsWithStudents(): Promise<any[]> {
+    try {
+      // Consulta simple para evitar errores de Drizzle
+      const result = await db
+        .select()
+        .from(documents)
+        .orderBy(desc(documents.uploadedAt));
+      
+      // Obtener información de perfiles por separado
+      const documentsWithProfiles = await Promise.all(
+        result.map(async (doc) => {
+          const profile = await db
+            .select()
+            .from(profiles)
+            .where(eq(profiles.userId, doc.userId))
+            .limit(1);
+          
+          return {
+            ...doc,
+            student: profile[0] ? {
+              id: profile[0].id,
+              fullName: profile[0].fullName,
+              documentNumber: profile[0].documentNumber,
+              city: profile[0].city,
+              enrollmentStage: profile[0].enrollmentStage
+            } : null
+          };
+        })
+      );
+      
+      return documentsWithProfiles;
+    } catch (error) {
+      console.error('Error en getDocumentsWithStudents:', error);
+      return [];
+    }
   },
 
   /**
@@ -475,7 +711,28 @@ export const storage = {
         role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
-        profile: profiles
+        profile: {
+          id: profiles.id,
+          userId: profiles.userId,
+          fullName: profiles.fullName,
+          documentType: profiles.documentType,
+          documentNumber: profiles.documentNumber,
+          birthDate: profiles.birthDate,
+          birthPlace: profiles.birthPlace,
+          personalEmail: profiles.personalEmail,
+          icfesAc: profiles.icfesAc,
+          phone: profiles.phone,
+          city: profiles.city,
+          address: profiles.address,
+          neighborhood: profiles.neighborhood,
+          locality: profiles.locality,
+          socialStratum: profiles.socialStratum,
+          bloodType: profiles.bloodType,
+          conflictVictim: profiles.conflictVictim,
+          maritalStatus: profiles.maritalStatus,
+          enrollmentStage: profiles.enrollmentStage,
+          createdAt: profiles.createdAt
+        }
       })
       .from(users)
       .leftJoin(profiles, eq(users.id, profiles.userId))
@@ -500,7 +757,28 @@ export const storage = {
         role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
-        profile: profiles,
+        profile: {
+          id: profiles.id,
+          userId: profiles.userId,
+          fullName: profiles.fullName,
+          documentType: profiles.documentType,
+          documentNumber: profiles.documentNumber,
+          birthDate: profiles.birthDate,
+          birthPlace: profiles.birthPlace,
+          personalEmail: profiles.personalEmail,
+          icfesAc: profiles.icfesAc,
+          phone: profiles.phone,
+          city: profiles.city,
+          address: profiles.address,
+          neighborhood: profiles.neighborhood,
+          locality: profiles.locality,
+          socialStratum: profiles.socialStratum,
+          bloodType: profiles.bloodType,
+          conflictVictim: profiles.conflictVictim,
+          maritalStatus: profiles.maritalStatus,
+          enrollmentStage: profiles.enrollmentStage,
+          createdAt: profiles.createdAt
+        },
         documentsCount: count(documents.id)
       })
       .from(users)
@@ -522,12 +800,20 @@ export const storage = {
    */
 
   /**
-   * Obtiene los pagos de un usuario
+   * Obtiene los pagos de un usuario específico
    * @param userId - ID del usuario
    * @returns Lista de pagos del usuario
    */
   async getPaymentsByUserId(userId: number): Promise<any[]> {
-    return await db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.paymentDate));
+    return await db.select().from(payments).where(eq(payments.userId, userId));
+  },
+
+  /**
+   * Obtiene todos los pagos del sistema
+   * @returns Lista de todos los pagos
+   */
+  async getAllPayments(): Promise<any[]> {
+    return await db.select().from(payments);
   },
 
   /**

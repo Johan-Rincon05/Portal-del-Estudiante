@@ -64,10 +64,33 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
     
-    const documents = await storage.getDocuments(req.user.id);
-    res.json(documents);
+    // Si es admin o superuser, obtener todos los documentos
+    if (req.user.role === 'admin' || req.user.role === 'superuser') {
+      const allDocuments = await storage.getAllDocuments();
+      res.json(allDocuments);
+    } else {
+      // Si es estudiante, obtener solo sus documentos
+      const documents = await storage.getDocuments(req.user.id);
+      res.json(documents);
+    }
   } catch (error) {
     console.error('Error al obtener documentos:', error);
+    res.status(500).json({ error: 'Error al obtener documentos' });
+  }
+});
+
+/**
+ * Obtener documentos con información del estudiante (solo para admin/superuser)
+ * GET /admin
+ * @requires Autenticación y rol admin o superuser
+ * @returns Lista de documentos con información del estudiante
+ */
+router.get('/admin', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+  try {
+    const documentsWithStudents = await storage.getDocumentsWithStudents();
+    res.json(documentsWithStudents);
+  } catch (error) {
+    console.error('Error al obtener documentos con estudiantes:', error);
     res.status(500).json({ error: 'Error al obtener documentos' });
   }
 });

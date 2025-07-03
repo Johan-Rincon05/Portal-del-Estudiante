@@ -152,7 +152,7 @@ export default function PaymentsPage() {
   if (isLoadingPayments || isLoadingInstallments || isLoadingSummary) {
     return (
       <StudentLayout>
-        <div className="container mx-auto p-6">
+        <div className="container w-full mx-auto p-4 sm:p-6">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -165,7 +165,7 @@ export default function PaymentsPage() {
   if (hasAuthError(paymentsError) || hasAuthError(installmentsError)) {
     return (
       <StudentLayout>
-        <div className="container mx-auto p-6">
+        <div className="container w-full mx-auto p-4 sm:p-6">
           <Card>
             <CardContent className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -186,7 +186,7 @@ export default function PaymentsPage() {
   if (paymentsError || installmentsError) {
     return (
       <StudentLayout>
-        <div className="container mx-auto p-6">
+        <div className="container w-full mx-auto p-4 sm:p-6">
           <Card>
             <CardContent className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -205,7 +205,7 @@ export default function PaymentsPage() {
 
   return (
     <StudentLayout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container w-full mx-auto p-4 sm:p-6 space-y-6">
         {/* Título de la página */}
         <div className="flex items-center gap-3">
           {React.createElement(CreditCard, { className: "h-8 w-8 text-primary" })}

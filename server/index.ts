@@ -18,7 +18,14 @@ const app = express();
 // Configuración de CORS
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? [process.env.FRONTEND_URL || 'https://tu-dominio.com'] 
-  : ['http://localhost:3000'];
+  : [
+      'http://localhost:3000',
+      'http://192.168.10.7:3000',
+      'http://192.168.10.7',
+      'http://localhost',
+      // Permitir cualquier origen en desarrollo para facilitar pruebas
+      /^http:\/\/192\.168\.\d+\.\d+:\d+$/
+    ];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -110,8 +117,10 @@ app.use((req, res, next) => {
   const port = 3000;
   server.listen({
     port,
-    host: "localhost",
+    host: "0.0.0.0", // Escuchar en todas las interfaces de red
   }, () => {
     log(`serving on port ${port}`);
+    log(`Local: http://localhost:${port}`);
+    log(`Network: http://192.168.10.7:${port}`);
   });
 })();

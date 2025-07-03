@@ -7,6 +7,9 @@ import HomePage from "@/pages/student/home-page";
 import AdminPage from "@/pages/admin/admin-page";
 import AdminRequestsPage from "@/pages/admin/RequestsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
+import DocumentValidationPage from "@/pages/admin/DocumentValidationPage";
+import PaymentValidationPage from "@/pages/admin/PaymentValidationPage";
+import ReportsPage from "@/pages/admin/ReportsPage";
 import SuperAdminPage from "@/pages/superuser/superadmin-page";
 import DocumentsPage from "@/pages/student/DocumentsPage";
 import RequestsPage from "@/pages/student/RequestsPage";
@@ -14,7 +17,34 @@ import ProfilePage from "@/pages/student/ProfilePage";
 import PaymentsPage from "@/pages/student/PaymentsPage";
 import { RoleBasedRoute } from "@/lib/role-based-route";
 import { AuthProvider } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import UsersPage from "@/pages/superuser/UsersPage";
+
+// Componente para redirigir según el rol del usuario
+function HomeRedirect() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      if (user.role === 'admin') {
+        setLocation('/admin/reports');
+      } else if (user.role === 'estudiante') {
+        setLocation('/home');
+      } else if (user.role === 'superuser') {
+        setLocation('/superadmin');
+      }
+    }
+  }, [user, isLoading, setLocation]);
+
+  if (isLoading) {
+    return <div className="text-center mt-10">Cargando...</div>;
+  }
+
+  return <div className="text-center mt-10">Redirigiendo...</div>;
+}
 
 function App() {
   return (
@@ -27,6 +57,10 @@ function App() {
           </Route>
           
           <Route path="/">
+            <HomeRedirect />
+          </Route>
+
+          <Route path="/home">
             <RoleBasedRoute 
               component={HomePage} 
               allowedRoles={['estudiante']} 
@@ -78,6 +112,27 @@ function App() {
           <Route path="/admin/students">
             <RoleBasedRoute 
               component={StudentsPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/documents/validation">
+            <RoleBasedRoute 
+              component={DocumentValidationPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/payments/validation">
+            <RoleBasedRoute 
+              component={PaymentValidationPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/reports">
+            <RoleBasedRoute 
+              component={ReportsPage} 
               allowedRoles={['admin']} 
             />
           </Route>

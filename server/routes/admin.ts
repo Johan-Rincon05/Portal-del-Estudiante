@@ -46,6 +46,70 @@ router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Obtener documentos pendientes de validación
+router.get('/documents/pending', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const pendingDocuments = await storage.getPendingDocumentsForValidation();
+    res.json(pendingDocuments);
+  } catch (error) {
+    console.error('Error al obtener documentos pendientes:', error);
+    res.status(500).json({ error: 'Error al obtener documentos pendientes' });
+  }
+});
+
+// Obtener historial de validaciones por estudiante
+router.get('/documents/validation-history/:studentId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const validationHistory = await storage.getDocumentValidationHistory(studentId);
+    res.json(validationHistory);
+  } catch (error) {
+    console.error('Error al obtener historial de validaciones:', error);
+    res.status(500).json({ error: 'Error al obtener historial de validaciones' });
+  }
+});
+
+// Obtener pagos pendientes de validación
+router.get('/payments/pending', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const pendingPayments = await storage.getPendingPaymentsForValidation();
+    res.json(pendingPayments);
+  } catch (error) {
+    console.error('Error al obtener pagos pendientes:', error);
+    res.status(500).json({ error: 'Error al obtener pagos pendientes' });
+  }
+});
+
+// Validar/rechazar pago
+router.put('/payments/:id/validate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const paymentId = parseInt(req.params.id);
+    const { status, rejectionReason } = req.body;
+    
+    const updatedPayment = await storage.validatePayment(paymentId, status, rejectionReason);
+    res.json(updatedPayment);
+  } catch (error) {
+    console.error('Error al validar pago:', error);
+    res.status(500).json({ error: 'Error al validar pago' });
+  }
+});
+
+// Obtener reportes y estadísticas
+router.get('/reports/overview', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { dateFrom, dateTo, career } = req.query;
+    const reportData = await storage.getReportData({
+      dateFrom: dateFrom as string,
+      dateTo: dateTo as string,
+      career: career as string
+    });
+    res.json(reportData);
+  } catch (error) {
+    console.error('Error al obtener reportes:', error);
+    res.status(500).json({ error: 'Error al obtener reportes' });
+  }
+});
+
 // Crear empleado
 router.post("/employees", async (req, res) => {
   try {

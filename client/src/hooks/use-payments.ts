@@ -28,6 +28,27 @@ export const usePayments = () => {
 };
 
 /**
+ * Hook para obtener todos los pagos (sin filtro de usuario) - Para páginas de administrador
+ */
+export const useAllPayments = () => {
+  return useQuery({
+    queryKey: ['payments', 'all'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/payments');
+      return response;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error) => {
+      // No reintentar en errores de autenticación
+      if (error instanceof Error && error.message.includes('401')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+  });
+};
+
+/**
  * Hook para obtener las cuotas del estudiante
  */
 export const useInstallments = () => {

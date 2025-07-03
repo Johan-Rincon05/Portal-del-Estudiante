@@ -345,12 +345,12 @@
 }
 
 /* Mejoras generales de legibilidad */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-semibold tracking-tight;
-}
-
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
 /* Estilos generales para texto */
-.text-muted-foreground {
+  .text-muted-foreground {
   font-weight: 500;
 }
 
@@ -432,13 +432,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 
-
-.card .card-description {
-  @apply text-foreground/80;
-}
-
-input, textarea, select {
-  @apply text-foreground placeholder:text-muted-foreground/70;
+  
+  .card .card-description {
+    @apply text-foreground/80;
+  }
+  
+  input, textarea, select {
+    @apply text-foreground placeholder:text-muted-foreground/70;
 }
 
 /* Estilos para el tema claro */
@@ -590,4 +590,228 @@ tr:hover {
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/50;
+}
+
+/* Scrollbars personalizados */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Ocultar scrollbar para timeline horizontal */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Clases de texto para diferentes niveles de importancia */
+.text-subtle {
+  @apply text-muted-foreground/60;
+}
+
+.text-muted {
+  @apply text-muted-foreground/80;
+}
+
+.text-dim {
+  @apply text-muted-foreground/70;
+}
+
+.description {
+  @apply text-muted-foreground/90;
+}
+
+.caption {
+  @apply text-muted-foreground/75;
+}
+
+.helper-text {
+  @apply text-muted-foreground/65;
+}
+
+/* Mejoras para componentes UI */
+.card {
+  @apply bg-card text-card-foreground;
+}
+
+.card-hover {
+  @apply hover:bg-card/80 transition-colors;
+}
+
+/* Notificaciones mejoradas */
+.notification {
+  @apply bg-background border border-border shadow-lg;
+}
+
+.notification-success {
+  @apply border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50;
+}
+
+.notification-error {
+  @apply border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50;
+}
+
+.notification-warning {
+  @apply border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/50;
+}
+
+/* Formularios mejorados */
+.form-input {
+  @apply bg-background border border-input text-foreground placeholder:text-muted-foreground;
+}
+
+.form-input:focus {
+  @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+/* Tablas mejoradas */
+.table {
+  @apply bg-background border border-border;
+}
+
+.table-header {
+  @apply bg-muted/50 border-b border-border;
+}
+
+.table-row {
+  @apply border-b border-border/50 hover:bg-muted/30;
+}
+
+/* Modales mejorados */
+.modal {
+  @apply bg-background border border-border shadow-xl;
+}
+
+.modal-overlay {
+  @apply bg-background/80 backdrop-blur-sm;
+}
+
+/* Dropdowns mejorados */
+.dropdown {
+  @apply bg-popover border border-border shadow-lg;
+}
+
+.dropdown-item {
+  @apply hover:bg-accent hover:text-accent-foreground;
+}
+
+/* Navegación mejorada */
+.nav-item {
+  @apply text-muted-foreground hover:text-foreground transition-colors;
+}
+
+.nav-item-active {
+  @apply text-primary font-semibold;
+}
+
+/* Botones mejorados */
+.btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.btn-outline {
+  @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+}
+
+/* Badges mejorados */
+.badge {
+  @apply bg-secondary text-secondary-foreground;
+}
+
+.badge-primary {
+  @apply bg-primary/10 text-primary border border-primary/20;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-800 border border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-800;
+}
+
+.badge-error {
+  @apply bg-red-100 text-red-800 border border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Transiciones suaves */
+.smooth-transition {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+/* Efectos hover mejorados */
+.hover-lift {
+  @apply hover:shadow-lg hover:-translate-y-1 transition-all duration-300;
+}
+
+.hover-glow {
+  @apply hover:shadow-lg hover:shadow-primary/25 transition-all duration-300;
+}
+
+/* Estados de carga */
+.loading {
+  @apply animate-pulse bg-muted;
+}
+
+.loading-text {
+  @apply animate-pulse bg-muted-foreground/20 rounded;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .mobile-full {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: block;
+  }
+  
+  .mobile-only {
+    display: none;
+  }
 }

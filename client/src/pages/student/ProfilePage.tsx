@@ -193,7 +193,7 @@ const ProfilePage = () => {
 
   return (
     <StudentLayout>
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
+      <div className="container w-full mx-auto px-2 sm:px-4 py-6 max-w-4xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-2">Mi Perfil</h1>
           <p className="text-muted-foreground">Actualiza tu información personal y académica</p>

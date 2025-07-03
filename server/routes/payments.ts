@@ -64,6 +64,23 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Obtiene todos los pagos del sistema (solo para administradores)
+ * GET /api/payments
+ * @requires Token JWT en el header de autorización y rol admin/superuser
+ * @returns Lista de todos los pagos del sistema
+ */
+router.get('/', authenticateToken, requireAdminRole, async (req, res) => {
+  try {
+    const payments = await storage.getAllPayments();
+    
+    res.json(payments);
+  } catch (error) {
+    console.error('Error al obtener todos los pagos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
  * Obtiene las cuotas pendientes del estudiante autenticado
  * GET /api/payments/installments/me
  * @requires Token JWT en el header de autorización

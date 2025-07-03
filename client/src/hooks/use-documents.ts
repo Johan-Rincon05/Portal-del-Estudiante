@@ -134,3 +134,20 @@ export function useDocuments(userId?: string) {
     refetch: documentsQuery.refetch,
   };
 }
+
+// Hook para obtener todos los documentos (sin filtro de usuario) - Para páginas de administrador
+export function useAllDocuments() {
+  return useQuery<Document[]>({
+    queryKey: ['documents', 'all'],
+    queryFn: () => apiRequest('/api/documents'),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+}
+
+export function useAdminDocuments() {
+  return useQuery<Document[]>({
+    queryKey: ['documents', 'admin'],
+    queryFn: () => apiRequest('/api/documents/admin'),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+}

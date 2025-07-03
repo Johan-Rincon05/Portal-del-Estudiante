@@ -30,6 +30,12 @@ const DocumentsPage = () => {
   const { documents, isLoading, uploadDocumentMutation, deleteDocumentMutation, refetch } = useDocuments(user?.id?.toString());
   const { toast } = useToast();
   
+  // Logs de depuración
+  console.log('[DEBUG] DocumentsPage - User:', user);
+  console.log('[DEBUG] DocumentsPage - User ID:', user?.id);
+  console.log('[DEBUG] DocumentsPage - Documents:', documents);
+  console.log('[DEBUG] DocumentsPage - IsLoading:', isLoading);
+  
   // Estados para modales
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
@@ -149,9 +155,11 @@ const DocumentsPage = () => {
     setShowViewerModal(true);
   };
 
+  console.log('[DEBUG] DocumentsPage - Renderizando componente');
+  
   return (
     <StudentLayout>
-      <div className="container max-w-7xl mx-auto px-4 py-6">
+      <div className="container w-full max-w-7xl mx-auto px-2 sm:px-4 py-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">

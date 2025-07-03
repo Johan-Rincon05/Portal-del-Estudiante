@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRequests } from '@/hooks/use-requests';
+import { useAllRequests } from '@/hooks/use-requests';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,9 +37,9 @@ const responseFormSchema = z.object({
 type ResponseFormValues = z.infer<typeof responseFormSchema>;
 
 const RequestsPage = () => {
-  const { allRequests, isLoading, respondToRequestMutation } = useRequests();
+  const { allRequests, isLoading, respondToRequestMutation } = useAllRequests();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
   const [sortBy, setSortBy] = useState('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequest, setSelectedRequest] = useState<{id: string, subject: string, message: string, status: string} | null>(null);
@@ -59,7 +59,7 @@ const RequestsPage = () => {
       request.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.message.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = !statusFilter || request.status === statusFilter;
+    const matchesStatus = !statusFilter || statusFilter === 'todos' || request.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -164,7 +164,7 @@ const RequestsPage = () => {
                     <SelectValue placeholder="Todos los estados" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los estados</SelectItem>
+                    <SelectItem value="todos">Todos los estados</SelectItem>
                     <SelectItem value="pendiente">Pendiente</SelectItem>
                     <SelectItem value="en_proceso">En proceso</SelectItem>
                     <SelectItem value="completada">Completada</SelectItem>
