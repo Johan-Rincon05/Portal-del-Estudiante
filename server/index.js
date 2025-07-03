@@ -456,7 +456,7 @@ var DEFAULT_ROLES = {
 };
 
 // server/storage.ts
-import { eq, and, or, desc, count } from "drizzle-orm";
+import { eq, and, or, sql, desc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 var connectionString = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/portal_estudiante";
@@ -624,14 +624,156 @@ var storage = {
     }
   },
   /**
+   * Operaciones de Validación de Documentos
+   */
+  /**
+   * Obtiene documentos pendientes de validación
+   * @returns Lista de documentos pendientes con información del estudiante
+   */
+  async getPendingDocumentsForValidation() {
+    const result = await db.select({
+      id: documents.id,
+      name: documents.name,
+      type: documents.type,
+      status: documents.status,
+      userId: documents.userId,
+      createdAt: documents.createdAt,
+      observations: documents.observations,
+      rejectionReason: documents.rejectionReason,
+      studentName: profiles.fullName,
+      studentEmail: profiles.email
+    }).from(documents).leftJoin(profiles, eq(documents.userId, profiles.userId)).where(eq(documents.status, "pendiente")).orderBy(desc(documents.createdAt));
+    return result;
+  },
+  /**
+   * Obtiene historial de validaciones de documentos por estudiante
+   * @param studentId - ID del estudiante
+   * @returns Historial de validaciones
+   */
+  async getDocumentValidationHistory(studentId) {
+    const result = await db.select({
+      id: documents.id,
+      name: documents.name,
+      type: documents.type,
+      status: documents.status,
+      createdAt: documents.createdAt,
+      reviewedAt: documents.reviewedAt,
+      observations: documents.observations,
+      rejectionReason: documents.rejectionReason,
+      reviewedBy: documents.reviewedBy
+    }).from(documents).where(eq(documents.userId, studentId)).orderBy(desc(documents.reviewedAt || documents.createdAt));
+    return result;
+  },
+  /**
+   * Operaciones de Validación de Pagos
+   */
+  /**
+   * Obtiene pagos pendientes de validación
+   * @returns Lista de pagos pendientes con información del estudiante
+   */
+  async getPendingPaymentsForValidation() {
+    const result = await db.select({
+      id: installments.id,
+      installmentNumber: installments.installmentNumber,
+      amount: installments.amount,
+      status: installments.status,
+      userId: installments.userId,
+      dueDate: installments.dueDate,
+      support: installments.support,
+      createdAt: installments.createdAt,
+      studentName: profiles.fullName,
+      studentEmail: profiles.email
+    }).from(installments).leftJoin(profiles, eq(installments.userId, profiles.userId)).where(eq(installments.status, "pendiente")).orderBy(desc(installments.createdAt));
+    return result;
+  },
+  /**
+   * Valida o rechaza un pago
+   * @param paymentId - ID del pago
+   * @param status - Nuevo estado
+   * @param rejectionReason - Motivo de rechazo (opcional)
+   * @returns Pago actualizado
+   */
+  async validatePayment(paymentId, status, rejectionReason) {
+    const [updatedPayment] = await db.update(installments).set({
+      status,
+      updatedAt: /* @__PURE__ */ new Date(),
+      ...rejectionReason && { observations: rejectionReason }
+    }).where(eq(installments.id, paymentId)).returning();
+    return updatedPayment;
+  },
+  /**
+   * Operaciones de Reportes
+   */
+  /**
+   * Obtiene datos para reportes
+   * @param filters - Filtros opcionales
+   * @returns Datos de reporte
+   */
+  async getReportData(filters) {
+    const totalStudents = await db.select({ count: sql`count(*)` }).from(users).where(eq(users.role, "estudiante"));
+    const activeStudents = await db.select({ count: sql`count(*)` }).from(users).where(and(eq(users.role, "estudiante"), eq(users.isActive, true)));
+    const documentStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      validated: sql`count(*) filter (where status = 'aprobado')`,
+      rejected: sql`count(*) filter (where status = 'rechazado')`
+    }).from(documents);
+    const paymentStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      validated: sql`count(*) filter (where status = 'pagada')`
+    }).from(installments);
+    const requestStats = await db.select({
+      pending: sql`count(*) filter (where status = 'pendiente')`,
+      completed: sql`count(*) filter (where status = 'completada')`
+    }).from(requests);
+    const enrollmentStages = await db.select({
+      stage: profiles.enrollmentStage,
+      count: sql`count(*)`
+    }).from(profiles).groupBy(profiles.enrollmentStage);
+    return {
+      totalStudents: totalStudents[0]?.count || 0,
+      activeStudents: activeStudents[0]?.count || 0,
+      documents: documentStats[0] || { pending: 0, validated: 0, rejected: 0 },
+      payments: paymentStats[0] || { pending: 0, validated: 0 },
+      requests: requestStats[0] || { pending: 0, completed: 0 },
+      enrollmentStages: enrollmentStages.reduce((acc, stage) => {
+        acc[stage.stage] = stage.count;
+        return acc;
+      }, {})
+    };
+  },
+  /**
    * Operaciones de Solicitudes
    */
   /**
-   * Obtiene todas las solicitudes
-   * @returns Lista de solicitudes
+   * Obtiene todas las solicitudes con información del usuario
+   * @returns Lista de solicitudes con información del usuario
    */
   async getAllRequests() {
-    return await db.select().from(requests).orderBy(requests.createdAt);
+    const result = await db.select({
+      id: requests.id,
+      userId: requests.userId,
+      requestType: requests.requestType,
+      subject: requests.subject,
+      message: requests.message,
+      status: requests.status,
+      response: requests.response,
+      createdAt: requests.createdAt,
+      updatedAt: requests.updatedAt,
+      respondedAt: requests.respondedAt,
+      respondedBy: requests.respondedBy,
+      user: {
+        id: users.id,
+        username: users.username,
+        email: users.email
+      }
+    }).from(requests).leftJoin(users, eq(requests.userId, users.id)).orderBy(desc(requests.createdAt));
+    return result.map((row) => ({
+      ...row,
+      userName: row.user?.username || "Usuario",
+      userEmail: row.user?.email || "usuario@ejemplo.com",
+      user: void 0
+      // Remover el objeto user anidado
+    }));
   },
   /**
    * Obtiene las solicitudes de un usuario
@@ -639,7 +781,7 @@ var storage = {
    * @returns Lista de solicitudes del usuario
    */
   async getRequestsByUserId(userId) {
-    return await db.select().from(requests).where(eq(requests.userId, userId));
+    return await db.select().from(requests).where(eq(requests.userId, userId)).orderBy(desc(requests.createdAt));
   },
   /**
    * Crea una nueva solicitud
@@ -718,6 +860,41 @@ var storage = {
    */
   async getDocuments(userId) {
     return await db.select().from(documents).where(eq(documents.userId, userId));
+  },
+  /**
+   * Obtiene todos los documentos del sistema
+   * @returns Lista de todos los documentos
+   */
+  async getAllDocuments() {
+    return await db.select().from(documents);
+  },
+  /**
+   * Obtiene documentos con información del estudiante
+   * @returns Lista de documentos con información del estudiante
+   */
+  async getDocumentsWithStudents() {
+    try {
+      const result = await db.select().from(documents).orderBy(desc(documents.uploadedAt));
+      const documentsWithProfiles = await Promise.all(
+        result.map(async (doc) => {
+          const profile = await db.select().from(profiles).where(eq(profiles.userId, doc.userId)).limit(1);
+          return {
+            ...doc,
+            student: profile[0] ? {
+              id: profile[0].id,
+              fullName: profile[0].fullName,
+              documentNumber: profile[0].documentNumber,
+              city: profile[0].city,
+              enrollmentStage: profile[0].enrollmentStage
+            } : null
+          };
+        })
+      );
+      return documentsWithProfiles;
+    } catch (error) {
+      console.error("Error en getDocumentsWithStudents:", error);
+      return [];
+    }
   },
   /**
    * Obtiene un documento específico
@@ -818,7 +995,28 @@ var storage = {
       role: users.role,
       isActive: users.isActive,
       createdAt: users.createdAt,
-      profile: profiles
+      profile: {
+        id: profiles.id,
+        userId: profiles.userId,
+        fullName: profiles.fullName,
+        documentType: profiles.documentType,
+        documentNumber: profiles.documentNumber,
+        birthDate: profiles.birthDate,
+        birthPlace: profiles.birthPlace,
+        personalEmail: profiles.personalEmail,
+        icfesAc: profiles.icfesAc,
+        phone: profiles.phone,
+        city: profiles.city,
+        address: profiles.address,
+        neighborhood: profiles.neighborhood,
+        locality: profiles.locality,
+        socialStratum: profiles.socialStratum,
+        bloodType: profiles.bloodType,
+        conflictVictim: profiles.conflictVictim,
+        maritalStatus: profiles.maritalStatus,
+        enrollmentStage: profiles.enrollmentStage,
+        createdAt: profiles.createdAt
+      }
     }).from(users).leftJoin(profiles, eq(users.id, profiles.userId)).orderBy(desc(users.createdAt));
     return result.map((row) => ({
       ...row,
@@ -837,7 +1035,28 @@ var storage = {
       role: users.role,
       isActive: users.isActive,
       createdAt: users.createdAt,
-      profile: profiles,
+      profile: {
+        id: profiles.id,
+        userId: profiles.userId,
+        fullName: profiles.fullName,
+        documentType: profiles.documentType,
+        documentNumber: profiles.documentNumber,
+        birthDate: profiles.birthDate,
+        birthPlace: profiles.birthPlace,
+        personalEmail: profiles.personalEmail,
+        icfesAc: profiles.icfesAc,
+        phone: profiles.phone,
+        city: profiles.city,
+        address: profiles.address,
+        neighborhood: profiles.neighborhood,
+        locality: profiles.locality,
+        socialStratum: profiles.socialStratum,
+        bloodType: profiles.bloodType,
+        conflictVictim: profiles.conflictVictim,
+        maritalStatus: profiles.maritalStatus,
+        enrollmentStage: profiles.enrollmentStage,
+        createdAt: profiles.createdAt
+      },
       documentsCount: count(documents.id)
     }).from(users).leftJoin(profiles, eq(users.id, profiles.userId)).leftJoin(documents, eq(users.id, documents.userId)).where(eq(users.role, "estudiante")).groupBy(users.id, profiles.id).orderBy(desc(users.createdAt));
     return result.map((row) => ({
@@ -850,12 +1069,19 @@ var storage = {
    * Operaciones de Pagos
    */
   /**
-   * Obtiene los pagos de un usuario
+   * Obtiene los pagos de un usuario específico
    * @param userId - ID del usuario
    * @returns Lista de pagos del usuario
    */
   async getPaymentsByUserId(userId) {
-    return await db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.paymentDate));
+    return await db.select().from(payments).where(eq(payments.userId, userId));
+  },
+  /**
+   * Obtiene todos los pagos del sistema
+   * @returns Lista de todos los pagos
+   */
+  async getAllPayments() {
+    return await db.select().from(payments);
   },
   /**
    * Obtiene un pago específico
@@ -1147,10 +1373,24 @@ router.get("/", authenticateToken, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
-    const documents2 = await storage.getDocuments(req.user.id);
-    res.json(documents2);
+    if (req.user.role === "admin" || req.user.role === "superuser") {
+      const allDocuments = await storage.getAllDocuments();
+      res.json(allDocuments);
+    } else {
+      const documents2 = await storage.getDocuments(req.user.id);
+      res.json(documents2);
+    }
   } catch (error) {
     console.error("Error al obtener documentos:", error);
+    res.status(500).json({ error: "Error al obtener documentos" });
+  }
+});
+router.get("/admin", authenticateToken, requireRole(["admin", "superuser"]), async (req, res) => {
+  try {
+    const documentsWithStudents = await storage.getDocumentsWithStudents();
+    res.json(documentsWithStudents);
+  } catch (error) {
+    console.error("Error al obtener documentos con estudiantes:", error);
     res.status(500).json({ error: "Error al obtener documentos" });
   }
 });
@@ -1884,6 +2124,15 @@ router5.get("/me", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+router5.get("/", authenticateToken, requireAdminRole, async (req, res) => {
+  try {
+    const payments2 = await storage.getAllPayments();
+    res.json(payments2);
+  } catch (error) {
+    console.error("Error al obtener todos los pagos:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
 router5.get("/installments/me", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2595,7 +2844,14 @@ var profiles_default = router7;
 
 // server/index.ts
 var app = express2();
-var allowedOrigins = process.env.NODE_ENV === "production" ? [process.env.FRONTEND_URL || "https://tu-dominio.com"] : ["http://localhost:3000"];
+var allowedOrigins = process.env.NODE_ENV === "production" ? [process.env.FRONTEND_URL || "https://tu-dominio.com"] : [
+  "http://localhost:3000",
+  "http://192.168.10.7:3000",
+  "http://192.168.10.7",
+  "http://localhost",
+  // Permitir cualquier origen en desarrollo para facilitar pruebas
+  /^http:\/\/192\.168\.\d+\.\d+:\d+$/
+];
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -2661,8 +2917,11 @@ app.use((req, res, next) => {
   const port = 3e3;
   server.listen({
     port,
-    host: "localhost"
+    host: "0.0.0.0"
+    // Escuchar en todas las interfaces de red
   }, () => {
     log(`serving on port ${port}`);
+    log(`Local: http://localhost:${port}`);
+    log(`Network: http://192.168.10.7:${port}`);
   });
 })();
