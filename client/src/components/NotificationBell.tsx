@@ -4,7 +4,6 @@
  * y un panel desplegable con la lista de notificaciones
  */
 
-import React from 'react';
 import { Bell, X, Check, CheckCheck } from 'lucide-react';
 import { useNotificationSystem } from '../hooks/use-notifications';
 import { Button } from './ui/button';

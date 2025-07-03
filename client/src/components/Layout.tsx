@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sidebar } from './Sidebar';
+import Sidebar from './Sidebar';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { Bell } from 'lucide-react';
@@ -9,7 +9,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const location = useLocation();
+  const [location] = useLocation();
   const { user } = useAuth();
   const pageTitles: Record<string, string> = {
     '/profile': 'Mi Perfil',
@@ -21,7 +21,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   // Handle dynamic routes with parameters
-  const currentPath = location.pathname;
+  const currentPath = location;
   let pageTitle = pageTitles[currentPath] || '';
   
   if (currentPath.startsWith('/admin/students/') && currentPath !== '/admin/students') {

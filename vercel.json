@@ -3,5 +3,10 @@
   "buildCommand": "cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "env": {
+    "VITE_API_URL": "https://tu-backend-url.vercel.app",
+    "VITE_APP_NAME": "Portal del Estudiante",
+    "VITE_APP_VERSION": "1.0.0"
+  }
 } 

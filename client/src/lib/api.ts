@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, AxiosError } from 'axios';
+import axios from 'axios';
 
 export const api = axios.create({
   baseURL: '',
@@ -11,7 +11,7 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -23,8 +23,8 @@ api.interceptors.request.use(
 
 // Interceptor para manejar errores
 api.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  (error: AxiosError) => {
+  (response) => response,
+  (error) => {
     if (error.response?.status === 401) {
       // Manejar error de autenticación
       localStorage.removeItem('token');

@@ -3,10 +3,22 @@
  * Proporciona funciones para obtener, marcar como leídas y gestionar notificaciones
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Notification } from '../../shared/schema';
+
+// Definir el tipo Notification localmente para evitar problemas de importación
+interface Notification {
+  id: number;
+  userId: number;
+  title: string;
+  body: string;
+  type: string;
+  isRead: boolean;
+  link?: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
 
 // Tipos para las respuestas de la API
 interface NotificationsResponse {

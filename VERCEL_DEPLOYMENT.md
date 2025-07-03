@@ -78,10 +78,15 @@ Portal-del-Estudiante/
 ### Error de construcción
 - Revisa los logs de construcción en Vercel
 - Asegúrate de que todas las dependencias estén en `client/package.json`
+- Los errores de TypeScript se han configurado para ser permisivos durante el build
 
 ### Problemas de CORS
 - Configura CORS en el backend para permitir tu dominio de Vercel
 - Verifica que la URL del backend esté configurada correctamente
+
+### Variables de Entorno
+- Configura `VITE_API_URL` en Vercel con la URL de tu backend
+- Las variables de entorno están configuradas en `vercel.json`
 
 ## Notas Importantes
 

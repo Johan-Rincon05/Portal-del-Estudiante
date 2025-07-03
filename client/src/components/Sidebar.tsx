@@ -1,8 +1,6 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { User, Group, Inbox, File, MessageCircleQuestion, LogOut, Settings, CreditCard } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { Button } from './ui/button';
 
 const Sidebar = () => {
   const [location] = useLocation();
