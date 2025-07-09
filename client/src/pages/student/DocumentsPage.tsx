@@ -20,7 +20,7 @@ import {
   Filter,
   Loader2
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner'; // Cambiar a Sonner
 import { StudentLayout } from '@/components/layouts/StudentLayout';
 import { DocumentViewerModal } from '@/components/DocumentViewerModal';
 import { UploadDocumentModal } from '@/components/UploadDocumentModal';
@@ -28,7 +28,6 @@ import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 const DocumentsPage = () => {
   const { user } = useAuth();
   const { documents, isLoading, uploadDocumentMutation, deleteDocumentMutation, refetch } = useDocuments(user?.id?.toString());
-  const { toast } = useToast();
   
   // Logs de depuración
   console.log('[DEBUG] DocumentsPage - User:', user);
@@ -131,11 +130,7 @@ const DocumentsPage = () => {
   // Manejar eliminación de documento
   const handleDeleteDocument = (documentId: string) => {
     if (!documentId) {
-      toast({
-        title: "Error",
-        description: "ID de documento no válido",
-        variant: "destructive",
-      });
+      toast.error("ID de documento no válido");
       return;
     }
     deleteDocumentMutation.mutate(documentId, {
@@ -151,11 +146,23 @@ const DocumentsPage = () => {
 
   // Manejar visualización de documento
   const handleViewDocument = (document: any) => {
+    if (!document) {
+      toast.error("No se pudo cargar la información del documento");
+      return;
+    }
     setSelectedDocument(document);
     setShowViewerModal(true);
   };
 
+  // Función para cerrar el modal del visor
+  const handleCloseViewerModal = () => {
+    setShowViewerModal(false);
+    setSelectedDocument(null);
+  };
+
   console.log('[DEBUG] DocumentsPage - Renderizando componente');
+  console.log('[DEBUG] DocumentsPage - SelectedDocument:', selectedDocument);
+  console.log('[DEBUG] DocumentsPage - ShowViewerModal:', showViewerModal);
   
   return (
     <StudentLayout>
@@ -389,14 +396,13 @@ const DocumentsPage = () => {
         isUploading={uploadDocumentMutation.isPending}
       />
 
-      <DocumentViewerModal
-        isOpen={showViewerModal}
-        onClose={() => {
-          setShowViewerModal(false);
-          setSelectedDocument(null);
-        }}
-        document={selectedDocument}
-      />
+      {selectedDocument && (
+        <DocumentViewerModal
+          isOpen={showViewerModal}
+          onClose={handleCloseViewerModal}
+          document={selectedDocument}
+        />
+      )}
     </StudentLayout>
   );
 };

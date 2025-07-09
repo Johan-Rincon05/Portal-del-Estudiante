@@ -156,7 +156,9 @@ export const documents = pgTable("documents", {
   userId: integer("user_id").notNull().references(() => users.id),
   type: documentTypeEnum("type").notNull(),  // Tipo de documento validado
   name: text("name").notNull(),  // Nombre del documento
-  path: text("path").notNull(),  // Storage path
+  path: text("path").notNull(),  // Storage path (local o Google Drive ID)
+  driveFileId: text("drive_file_id"), // ID del archivo en Google Drive
+  driveWebViewLink: text("drive_web_view_link"), // Enlace de visualización de Google Drive
   status: documentStatusEnum("status").notNull().default("pendiente"), // Estado del documento validado
   rejectionReason: text("rejection_reason"), // Motivo del rechazo (opcional)
   observations: text("observations"), // Observaciones del estudiante al subir (opcional)

@@ -12,7 +12,7 @@ import {
   Calendar,
   Loader2
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner'; // Cambiar a Sonner
 
 // Interfaz para las props del componente
 interface DocumentViewerModalProps {
@@ -25,7 +25,25 @@ interface DocumentViewerModalProps {
 export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewerModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [observations, setObservations] = useState('');
-  const { toast } = useToast();
+
+  // Validar que el documento existe antes de renderizar
+  if (!document) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Revisar Documento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No se encontró información del documento</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   // Función para obtener el tipo de documento en formato legible
   const getDocumentTypeLabel = (type: string) => {
@@ -70,16 +88,9 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
       link.click();
       document.body.removeChild(link);
       
-      toast({
-        title: "Descarga iniciada",
-        description: "El documento se está descargando",
-      });
+      toast.success("Descarga iniciada");
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo descargar el documento",
-        variant: "destructive",
-      });
+      toast.error("No se pudo descargar el documento");
     } finally {
       setIsLoading(false);
     }
@@ -93,18 +104,10 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
       // Por ahora solo simulamos la aprobación
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast({
-        title: "Documento aprobado",
-        description: "El documento ha sido aprobado exitosamente",
-      });
-      
+      toast.success("Documento aprobado exitosamente");
       onClose();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo aprobar el documento",
-        variant: "destructive",
-      });
+      toast.error("No se pudo aprobar el documento");
     } finally {
       setIsLoading(false);
     }
@@ -113,11 +116,7 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
   // Función para rechazar el documento
   const handleReject = async () => {
     if (!observations.trim()) {
-      toast({
-        title: "Observaciones requeridas",
-        description: "Debes agregar observaciones para rechazar el documento",
-        variant: "destructive",
-      });
+      toast.error("Debes agregar observaciones para rechazar el documento");
       return;
     }
 
@@ -127,18 +126,10 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
       // Por ahora solo simulamos el rechazo
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast({
-        title: "Documento rechazado",
-        description: "El documento ha sido rechazado",
-      });
-      
+      toast.success("Documento rechazado");
       onClose();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo rechazar el documento",
-        variant: "destructive",
-      });
+      toast.error("No se pudo rechazar el documento");
     } finally {
       setIsLoading(false);
     }
@@ -164,20 +155,20 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Nombre:</span>
-                    <span>{document.name}</span>
+                    <span>{document.name || 'No disponible'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">Tipo:</span>
-                    <span>{getDocumentTypeLabel(document.type)}</span>
+                    <span>{getDocumentTypeLabel(document.type || '')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">Estado:</span>
-                    {getStatusBadge(document.status)}
+                    {getStatusBadge(document.status || 'pendiente')}
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Fecha de subida:</span>
-                    <span>{new Date(document.uploadedAt).toLocaleDateString('es-ES')}</span>
+                    <span>{document.uploadedAt ? new Date(document.uploadedAt).toLocaleDateString('es-ES') : 'No disponible'}</span>
                   </div>
                 </div>
               </div>

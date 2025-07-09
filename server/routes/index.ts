@@ -6,6 +6,7 @@ import profilesRoutes from './profiles';
 import requestsRoutes from './requests';
 import notificationsRoutes from './notifications';
 import paymentsRoutes from './payments';
+import authGoogleRoutes from './auth-google';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = new Server(app);
@@ -27,6 +28,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Rutas de pagos
   app.use('/api/payments', paymentsRoutes);
+
+  // Rutas de autenticación de Google
+  app.use('/api/auth', authGoogleRoutes);
 
   return server;
 } 

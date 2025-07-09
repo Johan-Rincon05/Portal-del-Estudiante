@@ -41,6 +41,35 @@ Este proyecto está configurado para desplegar solo el frontend en Vercel. El ba
    - Haz clic en "Deploy"
    - Vercel construirá automáticamente el frontend
 
+## Desarrollo Local
+
+Para desarrollo local, sigue estos pasos:
+
+1. **Configurar variables de entorno:**
+   ```bash
+   cd client
+   cp env.example .env.local
+   ```
+
+2. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
+
+3. **Ejecutar el backend:**
+   ```bash
+   # Desde la raíz del proyecto
+   npm run dev
+   ```
+
+4. **Ejecutar el frontend:**
+   ```bash
+   cd client
+   npm run dev
+   ```
+
+El frontend estará disponible en `http://localhost:3000` y se conectará automáticamente al backend en `http://localhost:5000`.
+
 ## Configuración del Backend
 
 Para que el frontend funcione correctamente, necesitas desplegar el backend por separado:

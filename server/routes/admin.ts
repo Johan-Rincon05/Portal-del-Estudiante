@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { eq } from 'drizzle-orm';
-import { users, profiles, documents } from '@shared/schema';
+import { users, profiles, documents } from '../../shared/schema.js';
 import { db } from "../db";
 import { authenticateToken } from '../middleware/auth.js';
 

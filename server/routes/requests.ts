@@ -8,7 +8,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
 import { eq, and } from 'drizzle-orm';
-import { requests, users } from '@shared/schema';
+import { requests, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { 
   createRequestSubmittedNotification,

@@ -48,9 +48,9 @@ function HomeRedirect() {
 
 function App() {
   return (
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
+    <TooltipProvider>
+      <Toaster />
+      <AuthProvider>
         <Switch>
           <Route path="/auth">
             <AuthPage />
@@ -155,8 +155,8 @@ function App() {
             <NotFound />
           </Route>
         </Switch>
-      </TooltipProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </TooltipProvider>
   );
 }
 

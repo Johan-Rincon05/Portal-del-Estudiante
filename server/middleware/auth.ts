@@ -6,7 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PERMISSIONS, DEFAULT_ROLES } from '@shared/schema';
+import { PERMISSIONS, DEFAULT_ROLES } from '../../shared/schema.js';
 
 /**
  * Extensión de la interfaz Request de Express para incluir el usuario autenticado

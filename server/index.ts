@@ -1,4 +1,6 @@
-import 'dotenv/config';
+// Load environment variables first
+import './config';
+
 import express, { type Request, Response, NextFunction } from "express";
 import cors from 'cors';
 import { registerRoutes } from "./routes";
@@ -16,27 +18,26 @@ import { setupAuth } from "./auth";
 const app = express();
 
 // Configuración de CORS
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL || 'https://tu-dominio.com'] 
-  : [
-      'http://localhost:3000',
-      'http://192.168.10.7:3000',
-      'http://192.168.10.7',
-      'http://localhost',
-      // Permitir cualquier origen en desarrollo para facilitar pruebas
-      /^http:\/\/192\.168\.\d+\.\d+:\d+$/
-    ];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+if (process.env.NODE_ENV === 'development') {
+  // Permitir cualquier origen en desarrollo
+  app.use(cors({ origin: true, credentials: true }));
+} else {
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'https://tu-dominio.com'
+  ];
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }));
+}
 
 // Middlewares
 app.use(express.json());
@@ -44,9 +45,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configurar autenticación ANTES de registrar las rutas
 setupAuth(app);
-
-// Rutas
-app.use('/api/auth', authRouter);
 app.use('/api/requests', requestsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);

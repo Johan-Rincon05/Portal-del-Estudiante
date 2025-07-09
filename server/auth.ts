@@ -7,7 +7,7 @@
 import { Express, Request, Response } from "express";
 import bcrypt from 'bcrypt';
 import { storage } from "./storage";
-import { User as SelectUser, PERMISSIONS, DEFAULT_ROLES } from "@shared/schema";
+import { User as SelectUser, PERMISSIONS, DEFAULT_ROLES } from "../shared/schema.js";
 import jwt from 'jsonwebtoken';
 import { z } from "zod";
 

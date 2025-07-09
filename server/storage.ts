@@ -25,7 +25,7 @@ import {
   payments,
   installments,
   installmentObservations
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { eq, and, or, sql, desc, count } from "drizzle-orm";
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -613,6 +613,21 @@ export const storage = {
   async createDocument(documentData: any): Promise<any> {
     const [document] = await db.insert(documents).values(documentData).returning();
     return document;
+  },
+
+  /**
+   * Actualiza un documento existente
+   * @param id - ID del documento
+   * @param updates - Datos a actualizar
+   * @returns Documento actualizado
+   */
+  async updateDocument(id: number, updates: any): Promise<any | null> {
+    const [document] = await db
+      .update(documents)
+      .set(updates)
+      .where(eq(documents.id, id))
+      .returning();
+    return document || null;
   },
 
   /**

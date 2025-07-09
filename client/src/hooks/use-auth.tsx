@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { User, InsertUser, loginSchema } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient, setToken, removeToken } from "../lib/query-client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner"; // Cambiar a Sonner
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
@@ -34,7 +34,6 @@ type RegisterData = {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
   
   // Estado local para el usuario autenticado
@@ -125,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       // Realiza la petición de login
-      const response = await apiRequest<User & { token: string }>("/api/auth/login", {
+      const response = await apiRequest<User & { token: string }>("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -168,24 +167,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
       
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: `Bienvenido, ${user.username}!`,
-      });
+      toast.success(`Bienvenido, ${user.username}!`); // Usar Sonner
     },
     onError: (error: Error) => {
       console.error("Login error:", error);
-      toast({
-        title: "Error de inicio de sesión",
-        description: error.message || "Credenciales inválidas",
-        variant: "destructive",
-      });
+      toast.error(error.message || "Credenciales inválidas"); // Usar Sonner
     },
   });
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      return await apiRequest<User>("/api/auth/register", {
+      return await apiRequest<User>("/api/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,143 +190,112 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onSuccess: (user: User) => {
-      queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Registro exitoso",
-        description: `Bienvenido, ${user.username}!`,
-      });
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
+      toast.success("Usuario registrado exitosamente"); // Usar Sonner
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error de registro",
-        description: error.message || "No se pudo completar el registro",
-        variant: "destructive",
-      });
+      console.error("Register error:", error);
+      toast.error(error.message || "Error al registrar usuario"); // Usar Sonner
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("/api/auth/logout", {
+      return await apiRequest<void>("/api/logout", {
         method: "POST",
       });
     },
     onSuccess: () => {
-      // Eliminar el token
+      // Eliminar el token del localStorage
       removeToken();
-      
-      // Limpiar el estado local inmediatamente
+      // Limpiar el usuario local
       setLocalUser(null);
-      
-      // Limpiar el estado del usuario en el query client
-      queryClient.setQueryData(["/api/user"], null);
-      
-      // Limpiar todas las queries relacionadas
-      queryClient.removeQueries({ queryKey: ["/api/profiles"] });
-      queryClient.removeQueries({ queryKey: ["/api/documents"] });
-      queryClient.removeQueries({ queryKey: ["/api/requests"] });
-      
-      toast({
-        title: "Sesión cerrada",
-        description: "Has cerrado sesión correctamente",
-      });
-      
-      // Redirigir a auth
+      // Limpiar el cache del query client
+      queryClient.clear();
+      // Redirigir a la página de autenticación
       setLocation('/auth');
+      toast.success("Sesión cerrada exitosamente"); // Usar Sonner
     },
     onError: (error: Error) => {
       console.error("Logout error:", error);
-      toast({
-        title: "Error al cerrar sesión",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Aún así, limpiar el estado local
+      removeToken();
+      setLocalUser(null);
+      queryClient.clear();
+      setLocation('/auth');
+      toast.error("Error al cerrar sesión"); // Usar Sonner
     },
   });
 
-  // Mutation para crear usuario
   const createUserMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string; role: string }) => {
-      try {
-        const response = await apiRequest("/api/admin/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: data.email,
-            password: data.password,
-            role: data.role,
-          }),
-        });
-
-        return response;
-      } catch (error) {
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error('Error al crear usuario');
-      }
+    mutationFn: async (userData: { email: string; password: string; role: string }) => {
+      return await apiRequest<any>("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
     },
     onSuccess: () => {
+      toast.success("Usuario creado exitosamente"); // Usar Sonner
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      
-      toast({
-        title: "Usuario creado",
-        description: "El usuario ha sido creado exitosamente",
-      });
     },
     onError: (error: Error) => {
-      console.error('Error al crear usuario:', error);
-      toast({
-        title: "Error al crear usuario",
-        description: error.message || "No se pudo crear el usuario",
-        variant: "destructive"
-      });
-    }
+      console.error("Create user error:", error);
+      toast.error(error.message || "Error al crear usuario"); // Usar Sonner
+    },
   });
 
-  // Mutation para actualizar el rol de un usuario
   const updateUserRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest(`/api/admin/users/${userId}/role`, {
+      return await apiRequest<any>(`/api/admin/users/${userId}/role`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ role }),
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast.success("Rol actualizado exitosamente"); // Usar Sonner
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: Error) => {
+      console.error("Update user role error:", error);
+      toast.error(error.message || "Error al actualizar rol"); // Usar Sonner
     },
   });
 
-  // Mutation para eliminar usuario
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return await apiRequest(`/api/admin/users/${userId}`, {
+      return await apiRequest<any>(`/api/admin/users/${userId}`, {
         method: "DELETE",
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast.success("Usuario eliminado exitosamente"); // Usar Sonner
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: Error) => {
+      console.error("Delete user error:", error);
+      toast.error(error.message || "Error al eliminar usuario"); // Usar Sonner
     },
   });
 
+  const contextValue: AuthContextType = {
+    user: localUser,
+    isLoading,
+    error,
+    loginMutation,
+    logoutMutation,
+    registerMutation,
+    createUserMutation,
+    updateUserRoleMutation,
+    deleteUserMutation,
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user: localUser || null,
-        isLoading,
-        error,
-        loginMutation,
-        logoutMutation,
-        registerMutation,
-        createUserMutation,
-        updateUserRoleMutation,
-        deleteUserMutation,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

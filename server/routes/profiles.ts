@@ -6,8 +6,8 @@
 
 import { Router } from 'express';
 import { eq, sql } from 'drizzle-orm';
-import { profiles, documents, requests, enrollmentStageHistory, users } from '@shared/schema';
-import { updateEnrollmentStageSchema, validateStageChangeSchema } from '@shared/schema';
+import { profiles, documents, requests, enrollmentStageHistory, users } from '../../shared/schema.js';
+import { updateEnrollmentStageSchema, validateStageChangeSchema } from '../../shared/schema.js';
 import db from '../db';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { z } from 'zod';
@@ -65,17 +65,17 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/profiles/:id - Obtener un perfil específico
+// GET /api/profiles/:id - Obtener un perfil específico por userId
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const userId = parseInt(req.params.id);
     
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'ID de perfil inválido' });
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
     }
 
-    // Obtener el perfil
-    const [profile] = await db.select().from(profiles).where(eq(profiles.id, id));
+    // Obtener el perfil por userId
+    const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
 
     if (!profile) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
@@ -87,7 +87,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         count: sql`count(*)::int`
       })
       .from(documents)
-      .where(eq(documents.userId, id));
+      .where(eq(documents.userId, userId));
 
     // Obtener conteo de solicitudes pendientes
     const [{ count: pendingRequestCount }] = await db
@@ -95,7 +95,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         count: sql`count(*)::int`
       })
       .from(requests)
-      .where(sql`${requests.userId} = ${id} AND status IN ('pendiente', 'en_proceso')`);
+      .where(sql`${requests.userId} = ${userId} AND status IN ('pendiente', 'en_proceso')`);
 
     res.json({
       ...profile,
@@ -108,19 +108,19 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// PUT /api/profiles/:id - Actualizar un perfil
+// PUT /api/profiles/:id - Actualizar un perfil por userId
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const userId = parseInt(req.params.id);
     
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'ID de perfil inválido' });
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
     }
     
     const updates = req.body;
 
     // Verificar que el perfil existe
-    const [existingProfile] = await db.select().from(profiles).where(eq(profiles.id, id));
+    const [existingProfile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
     if (!existingProfile) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
@@ -129,7 +129,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const [updatedProfile] = await db
       .update(profiles)
       .set(updates)
-      .where(eq(profiles.id, id))
+      .where(eq(profiles.userId, userId))
       .returning();
 
     res.json(updatedProfile);
@@ -237,15 +237,20 @@ router.put('/:userId/stage', authenticateToken, requireRole(['admin', 'superuser
 /**
  * Obtener el historial de cambios de etapa de un estudiante
  * GET /:userId/stage-history
- * @requires Autenticación y rol admin o superuser
- * @returns Historial de cambios de etapa
+ * @requires Autenticación
+ * @returns Historial de cambios de etapa (estudiantes solo pueden ver su propio historial)
  */
-router.get('/:userId/stage-history', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+router.get('/:userId/stage-history', authenticateToken, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     
     if (isNaN(userId)) {
       return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    // Verificar permisos: estudiantes solo pueden ver su propio historial
+    if (req.user!.role === 'estudiante' && req.user!.id !== userId) {
+      return res.status(403).json({ error: 'Acceso denegado: solo puedes ver tu propio historial' });
     }
 
     // Obtener el historial con información del administrador que hizo el cambio
