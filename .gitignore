@@ -43,6 +43,10 @@ test-*.ts
 server/public
 vite.config.ts.*
 
-# Credenciales de Google Drive (Cuenta de Servicio)
-server/config/credentials.json
+# Archivos subidos por usuarios
+uploads/
+uploads/documentos/
+uploads/soportes/
+
+# Credenciales y configuraciones
 .vercel

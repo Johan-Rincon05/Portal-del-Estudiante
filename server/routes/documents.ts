@@ -23,13 +23,34 @@ import {
   createAdminDocumentUploadNotification 
 } from '../utils/notifications.js';
 import { fileURLToPath } from 'url';
-import { uploadFileToDrive, getFileFromDrive, deleteFileFromDrive } from '../services/googleDrive';
+import { dirname } from 'path';
 
 const router = Router();
 
-// Configurar multer para documentos (almacenamiento en memoria para Google Drive)
+// Obtener la ruta del directorio actual para ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Configurar multer para documentos (almacenamiento local)
+const storageMulter = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = path.join(__dirname, '../../uploads/documentos');
+    // Crear el directorio si no existe
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    // Nombre: userId-timestamp-nombreOriginal
+    const ext = path.extname(file.originalname);
+    const timestamp = Date.now();
+    cb(null, `${req.user?.id || 'unknown'}_${timestamp}${ext}`);
+  }
+});
+
 const upload = multer({ 
-  storage: multer.memoryStorage(), // Almacenar en memoria para subir directamente a Google Drive
+  storage: storageMulter,
   fileFilter: (req, file, cb) => {
     // Permitir solo ciertos tipos de archivo
     const allowedTypes = [
@@ -64,15 +85,26 @@ router.get('/', authenticateToken, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
-    
+    // Construir la base de la URL
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
     // Si es admin o superuser, obtener todos los documentos
     if (req.user.role === 'admin' || req.user.role === 'superuser') {
       const allDocuments = await storage.getAllDocuments();
-      res.json(allDocuments);
+      // Agregar la URL de archivo a cada documento
+      const docsWithUrl = allDocuments.map(doc => ({
+        ...doc,
+        url: `${baseUrl}/api/documents/${doc.id}/file`
+      }));
+      res.json(docsWithUrl);
     } else {
       // Si es estudiante, obtener solo sus documentos
       const documents = await storage.getDocuments(req.user.id);
-      res.json(documents);
+      // Agregar la URL de archivo a cada documento
+      const docsWithUrl = documents.map(doc => ({
+        ...doc,
+        url: `${baseUrl}/api/documents/${doc.id}/file`
+      }));
+      res.json(docsWithUrl);
     }
   } catch (error) {
     console.error('Error al obtener documentos:', error);
@@ -88,8 +120,14 @@ router.get('/', authenticateToken, async (req, res) => {
  */
 router.get('/admin', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
   try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
     const documentsWithStudents = await storage.getDocumentsWithStudents();
-    res.json(documentsWithStudents);
+    // Agregar la URL de archivo a cada documento
+    const docsWithUrl = documentsWithStudents.map(doc => ({
+      ...doc,
+      url: `${baseUrl}/api/documents/${doc.id}/file`
+    }));
+    res.json(docsWithUrl);
   } catch (error) {
     console.error('Error al obtener documentos con estudiantes:', error);
     res.status(500).json({ error: 'Error al obtener documentos' });
@@ -129,19 +167,11 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Archivo no proporcionado' });
     }
 
-    // Subir archivo a Google Drive usando el servicio encapsulado
-    console.log('[DEBUG] Subiendo archivo a Google Drive...');
-    const fileId = await uploadFileToDrive(file);
-
-    console.log('[DEBUG] Archivo subido a Google Drive con ID:', fileId);
-
-    // Guardar la información en la base de datos con datos de Google Drive
+    // Guardar la información en la base de datos con ruta local
     const createdDocument = await storage.createDocument({
       name: file.originalname,
       type,
-      path: fileId, // Usar el ID de Google Drive como path
-      driveFileId: fileId,
-      driveWebViewLink: `https://drive.google.com/file/d/${fileId}/view`, // Generar enlace de visualización
+      path: file.filename, // Usar el nombre del archivo guardado localmente
       userId: req.user.id,
       status: 'pendiente',
       observations: observations || null
@@ -204,14 +234,16 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes permisos para eliminar este documento' });
     }
     
-    // Eliminar archivo de Google Drive si existe
-    if (document.driveFileId) {
+    // Eliminar archivo local si existe
+    if (document.path) {
       try {
-        console.log('[DEBUG] Eliminando archivo de Google Drive:', document.driveFileId);
-        await deleteFileFromDrive(document.driveFileId);
-        console.log('[DEBUG] Archivo eliminado de Google Drive exitosamente');
-      } catch (driveError) {
-        console.error('[DEBUG] Error al eliminar archivo de Google Drive:', driveError);
+        const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log('[DEBUG] Archivo local eliminado exitosamente:', document.path);
+        }
+      } catch (fileError) {
+        console.error('[DEBUG] Error al eliminar archivo local:', fileError);
         // Continuar con la eliminación del registro aunque falle la eliminación del archivo
       }
     }
@@ -297,54 +329,16 @@ router.get('/:id/file', authenticateToken, async (req, res) => {
       }
     }
 
-    // Verificar si el documento tiene ID de Google Drive
-    if (!document.driveFileId) {
-      console.log(`[DEBUG] Documento no tiene ID de Google Drive, intentando archivo local`);
-      
-      // Fallback a archivo local si no tiene Google Drive
-      const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
-      console.log(`[DEBUG] Ruta absoluta buscada:`, filePath);
+    // Obtener archivo local
+    const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
+    console.log(`[DEBUG] Ruta absoluta buscada:`, filePath);
 
-      if (!fs.existsSync(filePath)) {
-        console.log(`[DEBUG] Archivo local NO encontrado en:`, filePath);
-        return res.status(404).json({ error: 'Archivo no encontrado' });
-      }
-
-      const stats = fs.statSync(filePath);
-      const ext = path.extname(document.name).toLowerCase();
-
-      // Configurar headers según el tipo de archivo
-      let contentType = 'application/octet-stream';
-      let disposition = 'attachment';
-
-      if (ext === '.pdf') {
-        contentType = 'application/pdf';
-        disposition = 'inline';
-      } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-        contentType = `image/${ext.slice(1)}`;
-        disposition = 'inline';
-      } else if (ext === '.txt') {
-        contentType = 'text/plain';
-        disposition = 'inline';
-      }
-
-      // Configurar headers de respuesta
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', stats.size);
-      res.setHeader('Content-Disposition', `${disposition}; filename="${document.name}"`);
-      res.setHeader('Cache-Control', 'private, max-age=3600');
-
-      // Enviar el archivo local
-      const fileStream = fs.createReadStream(filePath);
-      fileStream.pipe(res);
-      return;
+    if (!fs.existsSync(filePath)) {
+      console.log(`[DEBUG] Archivo local NO encontrado en:`, filePath);
+      return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
-    // Obtener archivo de Google Drive
-    console.log(`[DEBUG] Obteniendo archivo de Google Drive:`, document.driveFileId);
-    const driveFileStream = await getFileFromDrive(document.driveFileId);
-
-    // Obtener extensión del archivo para configurar headers
+    const stats = fs.statSync(filePath);
     const ext = path.extname(document.name).toLowerCase();
 
     // Configurar headers según el tipo de archivo
@@ -364,14 +358,16 @@ router.get('/:id/file', authenticateToken, async (req, res) => {
 
     // Configurar headers de respuesta
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stats.size);
     res.setHeader('Content-Disposition', `${disposition}; filename="${document.name}"`);
     res.setHeader('Cache-Control', 'private, max-age=3600');
 
     // Log de acceso para auditoría
-    console.log(`Acceso a documento de Google Drive: ${document.name} por usuario ${userId} (${userRole})`);
+    console.log(`Acceso a documento local: ${document.name} por usuario ${userId} (${userRole})`);
 
-    // Enviar el archivo de Google Drive
-    driveFileStream.pipe(res);
+    // Enviar el archivo local
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
 
   } catch (error) {
     console.error('Error al servir documento:', error);
@@ -524,55 +520,16 @@ router.get('/:id/iframe', async (req, res) => {
       }
     }
 
-    // Verificar si el documento tiene ID de Google Drive
-    if (!document.driveFileId) {
-      console.log(`[DEBUG] Documento no tiene ID de Google Drive, intentando archivo local`);
-      
-      // Fallback a archivo local si no tiene Google Drive
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
+    // Obtener archivo local
+    const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
 
-      // Verificar que el archivo existe
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Archivo no encontrado' });
-      }
-
-      // Obtener información del archivo
-      const stats = fs.statSync(filePath);
-      const ext = path.extname(document.name).toLowerCase();
-
-      // Configurar headers según el tipo de archivo
-      let contentType = 'application/octet-stream';
-      let disposition = 'inline';
-
-      if (ext === '.pdf') {
-        contentType = 'application/pdf';
-        disposition = 'inline';
-      } else if ([ '.jpg', '.jpeg', '.png', '.gif', '.webp' ].includes(ext)) {
-        contentType = `image/${ext.slice(1)}`;
-        disposition = 'inline';
-      } else if (ext === '.txt') {
-        contentType = 'text/plain';
-        disposition = 'inline';
-      }
-
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', stats.size);
-      res.setHeader('Content-Disposition', `${disposition}; filename="${document.name}"`);
-      res.setHeader('Cache-Control', 'private, max-age=3600');
-
-      // Enviar el archivo local
-      const fileStream = fs.createReadStream(filePath);
-      fileStream.pipe(res);
-      return;
+    // Verificar que el archivo existe
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
-    // Obtener archivo de Google Drive
-    console.log(`[DEBUG] Obteniendo archivo de Google Drive para iframe:`, document.driveFileId);
-    const driveFileStream = await getFileFromDrive(document.driveFileId);
-
-    // Obtener extensión del archivo para configurar headers
+    // Obtener información del archivo
+    const stats = fs.statSync(filePath);
     const ext = path.extname(document.name).toLowerCase();
 
     // Configurar headers según el tipo de archivo
@@ -591,11 +548,13 @@ router.get('/:id/iframe', async (req, res) => {
     }
 
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stats.size);
     res.setHeader('Content-Disposition', `${disposition}; filename="${document.name}"`);
     res.setHeader('Cache-Control', 'private, max-age=3600');
 
-    // Enviar el archivo de Google Drive
-    driveFileStream.pipe(res);
+    // Enviar el archivo local
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   } catch (error) {
     console.error('Error al servir documento en iframe:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -603,12 +562,12 @@ router.get('/:id/iframe', async (req, res) => {
 });
 
 /**
- * Obtener el enlace directo de Google Drive de un documento
- * GET /:id/drive-link
+ * Obtener la URL de descarga directa de un documento
+ * GET /:id/download-url
  * @requires Autenticación
- * @returns Enlace directo de Google Drive
+ * @returns URL de descarga directa
  */
-router.get('/:id/drive-link', authenticateToken, async (req, res) => {
+router.get('/:id/download-url', authenticateToken, async (req, res) => {
   try {
     const documentId = parseInt(req.params.id);
     const userId = req.user!.id;
@@ -628,18 +587,17 @@ router.get('/:id/drive-link', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
     }
 
-    // Verificar si el documento tiene enlace de Google Drive
-    if (!document.driveWebViewLink) {
-      return res.status(404).json({ error: 'Este documento no tiene enlace de Google Drive disponible' });
-    }
+    // Construir URL de descarga
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const downloadUrl = `${baseUrl}/api/documents/${documentId}/file`;
 
     res.json({ 
-      driveLink: document.driveWebViewLink,
+      downloadUrl: downloadUrl,
       fileName: document.name,
-      fileId: document.driveFileId
+      filePath: document.path
     });
   } catch (error) {
-    console.error('Error al obtener enlace de Google Drive:', error);
+    console.error('Error al obtener URL de descarga:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

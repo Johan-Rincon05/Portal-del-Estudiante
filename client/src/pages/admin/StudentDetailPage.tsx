@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useRoute } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -43,7 +43,8 @@ type ResponseFormValues = z.infer<typeof responseFormSchema>;
 type EnrollmentStageFormValues = z.infer<typeof enrollmentStageSchema>;
 
 const StudentDetailPage = () => {
-  const { id } = useParams<{ id: string }>();
+  const [, params] = useRoute('/admin/students/:id');
+  const id = params?.id;
   const { toast } = useToast();
   const { profile, isLoading: isProfileLoading, updateProfileMutation, updateEnrollmentStageMutation, stageHistory } = useProfiles(id);
   const { documents, isLoading: isDocumentsLoading, deleteDocumentMutation, getDocumentUrl } = useDocuments(id ? parseInt(id) : undefined);
@@ -150,7 +151,7 @@ const StudentDetailPage = () => {
       <div className="mb-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <Link to="/admin/students" className="text-primary-600 hover:text-primary-900 mr-2">
+            <Link href="/admin/students" className="text-primary-600 hover:text-primary-900 mr-2">
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <h2 className="text-lg font-semibold text-gray-900">Detalle de Estudiante</h2>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -111,7 +111,7 @@ const ResetPasswordPage = () => {
               </Button>
 
               <div className="text-center">
-                <Link to="/login" className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                <Link href="/login" className="text-sm font-medium text-primary-600 hover:text-primary-500">
                   Volver a iniciar sesión
                 </Link>
               </div>

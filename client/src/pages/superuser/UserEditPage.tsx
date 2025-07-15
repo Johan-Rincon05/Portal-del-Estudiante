@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useRoute } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -14,7 +14,8 @@ import SuperAdminLayout from "@/layouts/SuperAdminLayout";
 type EditUserFormValues = z.infer<typeof createUserSchema>;
 
 const UserEditPage = () => {
-  const { userId } = useParams();
+  const [, params] = useRoute('/admin/users/:userId/edit');
+  const userId = params?.userId;
   const { user } = useAuth();
 
   // Mock user data - this would be replaced with actual data from Supabase

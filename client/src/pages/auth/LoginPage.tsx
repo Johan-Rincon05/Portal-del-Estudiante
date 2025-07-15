@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import { useLocation } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -130,9 +130,9 @@ const LoginPage = () => {
               </div>
 
               <div className="text-sm">
-                <Link to="/reset-password" className="font-medium text-primary-600 hover:text-primary-500">
-                  ¿Olvidaste tu contraseña?
-                </Link>
+                              <Link href="/reset-password" className="font-medium text-primary-600 hover:text-primary-500">
+                ¿Olvidaste tu contraseña?
+              </Link>
               </div>
             </div>
 
@@ -156,9 +156,9 @@ const LoginPage = () => {
         <div className="text-center mt-4">
           <p className="text-sm text-gray-600">
             ¿No tienes cuenta? 
-            <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500 ml-1">
-              Regístrate aquí
-            </Link>
+                          <Link href="/register" className="font-medium text-primary-600 hover:text-primary-500 ml-1">
+                Regístrate aquí
+              </Link>
           </p>
         </div>
       </div>

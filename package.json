@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "dev:client": "vite",
-    "dev:server": "cross-env NODE_ENV=development DATABASE_URL=postgresql://postgres:postgres@localhost:5432/portal_estudiante AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_BUCKET_NAME=test tsx server/index.ts",
+    "dev:server": "cross-env NODE_ENV=development DATABASE_URL=postgresql://postgres:postgres@localhost:5432/portal_estudiante tsx server/index.ts",
     "dev:full": "concurrently --kill-others-on-fail \"npm run dev:server\" \"wait-on http://localhost:3000 && npm run dev:client\"",
     "build": "npm run build:client && npm run build:server",
     "build:client": "cd client && vite build",
@@ -16,14 +16,10 @@
     "db:push": "drizzle-kit push",
     "preview": "vite preview",
     "postinstall": "npm run build",
-    "test:google-drive": "tsx server/test-google-drive-service.js",
-    "setup:google-drive": "tsx server/setup-google-drive-api.js",
-    "verify:google-drive": "tsx server/verify-google-drive-setup.js",
     "test:document-upload": "tsx server/test-document-upload.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.787.0",
-    "@aws-sdk/s3-request-presigner": "^3.787.0",
+
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@hookform/resolvers": "^5.1.1",

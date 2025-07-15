@@ -15,7 +15,4 @@ if (result.error) {
   process.exit(1);
 }
 
-console.log('[DEBUG] Environment variables loaded:');
-console.log('GOOGLE_CREDENTIALS exists:', !!process.env.GOOGLE_CREDENTIALS);
-console.log('DRIVE_FOLDER_ID exists:', !!process.env.DRIVE_FOLDER_ID);
-console.log('DRIVE_FOLDER_ID value:', process.env.DRIVE_FOLDER_ID);
+console.log('[DEBUG] Environment variables loaded successfully');

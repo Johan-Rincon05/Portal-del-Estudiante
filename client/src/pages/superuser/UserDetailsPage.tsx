@@ -1,11 +1,12 @@
-import { useParams } from 'react-router-dom';
+import { useRoute } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import SuperAdminLayout from "@/layouts/SuperAdminLayout";
 
 const UserDetailsPage = () => {
-  const { userId } = useParams();
+  const [, params] = useRoute('/admin/users/:userId');
+  const userId = params?.userId;
   const { user } = useAuth();
 
   // Mock user data - this would be replaced with actual data from Supabase

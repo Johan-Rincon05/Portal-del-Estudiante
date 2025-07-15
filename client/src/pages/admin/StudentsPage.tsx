@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 import { useProfiles } from '@/hooks/use-profiles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -212,7 +212,7 @@ const StudentsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link 
-                        to={`/admin/students/${profile.id}`} 
+                        href={`/admin/students/${profile.id}`} 
                         className="text-primary-600 hover:text-primary-900"
                       >
                         Ver detalles

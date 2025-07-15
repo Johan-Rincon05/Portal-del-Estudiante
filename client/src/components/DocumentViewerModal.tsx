@@ -13,6 +13,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner'; // Cambiar a Sonner
+import { useAuth } from '@/hooks/use-auth';
 
 // Interfaz para las props del componente
 interface DocumentViewerModalProps {
@@ -25,6 +26,8 @@ interface DocumentViewerModalProps {
 export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewerModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [observations, setObservations] = useState('');
+  // Obtener el usuario autenticado
+  const { user } = useAuth();
 
   // Validar que el documento existe antes de renderizar
   if (!document) {
@@ -197,16 +200,50 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
             <div>
               <h3 className="font-semibold text-lg mb-2">Vista Previa</h3>
               <div className="border rounded-lg p-4 bg-gray-50 min-h-[200px] flex items-center justify-center">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Vista previa del documento
-                  </p>
+                <div className="text-center w-full">
+                  {/* Detectar el tipo de archivo para mostrar la vista previa adecuada */}
+                  {(() => {
+                    const ext = document.name?.split('.').pop()?.toLowerCase();
+                    const url = document.url;
+                    // Si es PDF, mostrar en un iframe
+                    if (ext === 'pdf' && url) {
+                      return (
+                        <iframe
+                          src={url}
+                          title="Vista previa PDF"
+                          className="w-full h-72 border rounded"
+                          style={{ minHeight: 300 }}
+                        />
+                      );
+                    }
+                    // Si es imagen, mostrar con <img>
+                    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext) && url) {
+                      return (
+                        <img
+                          src={url}
+                          alt="Vista previa del documento"
+                          className="max-h-72 mx-auto rounded shadow"
+                          style={{ maxWidth: '100%', minHeight: 100 }}
+                        />
+                      );
+                    }
+                    // Si no es compatible, mostrar el ícono y mensaje
+                    return (
+                      <>
+                        <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Vista previa no disponible para este tipo de archivo
+                        </p>
+                      </>
+                    );
+                  })()}
+                  {/* Botón de descarga siempre disponible */}
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={handleDownload}
                     disabled={isLoading}
+                    className="mt-2"
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -220,30 +257,27 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
             </div>
           </div>
 
-          {/* Observaciones */}
-          {document.status === 'pendiente' && (
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Observaciones (Opcional)</h3>
-              <Textarea
-                placeholder="Agrega observaciones sobre el documento..."
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                rows={3}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Las observaciones son obligatorias al rechazar un documento
-              </p>
-            </div>
-          )}
-
-          {/* Acciones */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} disabled={isLoading}>
-              Cancelar
-            </Button>
-            
-            {document.status === 'pendiente' && (
-              <>
+          {/* Observaciones y acciones solo para admin/superuser y si el documento está pendiente */}
+          {(user?.role === 'admin' || user?.role === 'superuser') && document.status === 'pendiente' && (
+            <>
+              {/* Observaciones */}
+              <div>
+                <h3 className="font-semibold text-lg mb-2">Observaciones (Opcional)</h3>
+                <Textarea
+                  placeholder="Agrega observaciones sobre el documento..."
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Las observaciones son obligatorias al rechazar un documento
+                </p>
+              </div>
+              {/* Acciones */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={onClose} disabled={isLoading}>
+                  Cancelar
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleReject}
@@ -269,9 +303,18 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
                   )}
                   Aprobar
                 </Button>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
+
+          {/* Para estudiantes o documentos no pendientes, solo mostrar botón cancelar y descargar */}
+          {(!(user?.role === 'admin' || user?.role === 'superuser') || document.status !== 'pendiente') && (
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={onClose} disabled={isLoading}>
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

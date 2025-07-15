@@ -1,4 +1,4 @@
-import { Link, Navigate } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react';
 
 const RegisterPage = () => {
   const { user, isLoading, registerMutation } = useAuth();
+  const [, setLocation] = useLocation();
 
   const form = useForm<z.infer<typeof registerUserSchema>>({
     resolver: zodResolver(registerUserSchema),
@@ -39,11 +40,14 @@ const RegisterPage = () => {
     const userRole = user.user_metadata?.role || 'estudiante';
     
     if (userRole === 'superuser') {
-      return <Navigate to="/admin/users" replace />;
+      setLocation('/admin/users');
+      return null;
     } else if (userRole === 'admin') {
-      return <Navigate to="/admin/students" replace />;
+      setLocation('/admin/students');
+      return null;
     } else {
-      return <Navigate to="/profile" replace />;
+      setLocation('/profile');
+      return null;
     }
   }
 
@@ -288,7 +292,7 @@ const RegisterPage = () => {
         <div className="text-center mt-2">
           <p className="text-sm text-gray-600">
             ¿Ya tienes cuenta? 
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500 ml-1">
+            <Link href="/login" className="font-medium text-primary-600 hover:text-primary-500 ml-1">
               Inicia sesión
             </Link>
           </p>

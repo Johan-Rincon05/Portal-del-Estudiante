@@ -7,10 +7,13 @@ import HomePage from "@/pages/student/home-page";
 import AdminPage from "@/pages/admin/admin-page";
 import AdminRequestsPage from "@/pages/admin/RequestsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
+import StudentDetailPage from "@/pages/admin/StudentDetailPage";
 import DocumentValidationPage from "@/pages/admin/DocumentValidationPage";
 import PaymentValidationPage from "@/pages/admin/PaymentValidationPage";
 import ReportsPage from "@/pages/admin/ReportsPage";
 import SuperAdminPage from "@/pages/superuser/superadmin-page";
+import UserDetailsPage from "@/pages/superuser/UserDetailsPage";
+import UserEditPage from "@/pages/superuser/UserEditPage";
 import DocumentsPage from "@/pages/student/DocumentsPage";
 import RequestsPage from "@/pages/student/RequestsPage";
 import ProfilePage from "@/pages/student/ProfilePage";
@@ -116,6 +119,13 @@ function App() {
             />
           </Route>
 
+          <Route path="/admin/students/:id">
+            <RoleBasedRoute 
+              component={StudentDetailPage} 
+              allowedRoles={['admin']} 
+            />
+          </Route>
+
           <Route path="/admin/documents/validation">
             <RoleBasedRoute 
               component={DocumentValidationPage} 
@@ -140,6 +150,20 @@ function App() {
           <Route path="/admin/users">
             <RoleBasedRoute 
               component={UsersPage} 
+              allowedRoles={['superuser', 'admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/users/:userId">
+            <RoleBasedRoute 
+              component={UserDetailsPage} 
+              allowedRoles={['superuser', 'admin']} 
+            />
+          </Route>
+
+          <Route path="/admin/users/:userId/edit">
+            <RoleBasedRoute 
+              component={UserEditPage} 
               allowedRoles={['superuser', 'admin']} 
             />
           </Route>
