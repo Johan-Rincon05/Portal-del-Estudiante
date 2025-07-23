@@ -32,9 +32,9 @@ const JWT_EXPIRES_IN = '24h';
  * @param user - Datos del usuario para incluir en el token
  * @returns Token JWT firmado
  */
-export const generateToken = (user: { id: number; username: string; role: string }) => {
+export const generateToken = (user: { id: number; username: string; role: string; allyId?: number; universityId?: number }) => {
   return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, role: user.role, allyId: user.allyId, universityId: user.universityId },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -68,7 +68,7 @@ const registerSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(['estudiante', 'admin', 'superuser']).optional()
+  role: z.enum(['estudiante', 'SuperAdministrativos', 'superuser']).optional()
 });
 
 /**

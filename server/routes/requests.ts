@@ -42,8 +42,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const user = req.user;
     let userRequests;
 
-    if (user.role === 'admin') {
-      // Los administradores pueden ver todas las solicitudes
+    if (user.role === 'SuperAdministrativos' || user.role === 'institucion_educativa') {
+      // Los SuperAdministrativos e instituciones educativas pueden ver todas las solicitudes
       userRequests = await storage.getAllRequests();
     } else {
       // Los estudiantes solo ven sus propias solicitudes
@@ -76,12 +76,12 @@ router.post('/', authenticateToken, async (req, res) => {
       req.body.subject
     );
 
-    // Obtener administradores para notificarles
+    // Obtener SuperAdministrativos para notificarles
     const adminUsers = await db
       .select({ id: users.id })
       .from(users)
       .where(and(
-        eq(users.role, 'admin'),
+        eq(users.role, 'SuperAdministrativos'),
         eq(users.isActive, true)
       ));
 
@@ -110,7 +110,7 @@ router.put('/:id/respond', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'SuperAdministrativos') {
       return res.status(403).json({ error: 'No autorizado' });
     }
 

@@ -14,6 +14,7 @@ import { db } from './db';
 import authRouter from './routes/auth';
 import profilesRouter from './routes/profiles';
 import { setupAuth } from "./auth";
+import { fileStorage } from './fileStorage.js';
 
 const app = express();
 
@@ -91,6 +92,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Inicializar sistema de almacenamiento
+  await fileStorage.initialize();
+  console.log('✅ Sistema de almacenamiento inicializado correctamente');
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

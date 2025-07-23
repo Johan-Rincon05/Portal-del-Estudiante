@@ -19,6 +19,18 @@ declare global {
         username: string;
         role: string;
         permissions: Record<string, boolean>;
+        allyId?: number; // ID del aliado asociado al usuario
+        universityId?: number; // ID de la universidad asociada al usuario
+      };
+      allyFilter?: {
+        allyId: number;
+      };
+      universityFilter?: {
+        universityId: number;
+      };
+      dataFilter?: {
+        allyId?: number;
+        universityId?: number;
       };
     }
   }
@@ -58,6 +70,8 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       username: string;
       role: string;
       permissions: Record<string, boolean>;
+      allyId?: number;
+      universityId?: number;
     };
     
     console.log('✅ Token válido, usuario decodificado:', decoded);
@@ -139,26 +153,241 @@ export const requireActiveUser = (req: Request, res: Response, next: NextFunctio
 };
 
 /**
- * Middleware para verificar propiedad de recursos
- * Verifica si el usuario es el propietario del recurso o tiene permisos de administrador
- * @param resourceType - Tipo de recurso a verificar
- * @returns Middleware que verifica la propiedad del recurso
+ * Middleware para filtrar datos según el rol del usuario
+ * Aplica filtros automáticos basados en el rol del usuario:
+ * - Aliado Administrativo: solo ve estudiantes de su aliado
+ * - Institución Educativa: solo ve estudiantes de su universidad
+ * - Admin/Superuser: ven todos los datos
+ * @param req - Request de Express
+ * @param res - Response de Express
+ * @param next - Función next de Express
  */
-export const requireOwnership = (resourceType: string) => {
+export const filterDataByRole = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  // Si es superuser o SuperAdministrativos, no aplicar filtro (ven todo)
+  if (req.user.role === 'superuser' || req.user.role === 'SuperAdministrativos') {
+    return next();
+  }
+
+  // Inicializar filtro de datos
+  req.dataFilter = {};
+
+  // Aplicar filtros según el rol
+  switch (req.user.role) {
+    case 'aliado_comercial':
+      if (req.user.allyId) {
+        req.dataFilter.allyId = req.user.allyId;
+        console.log(`🔒 Filtro aplicado: Aliado ID ${req.user.allyId}`);
+      }
+      break;
+
+    case 'institucion_educativa':
+      if (req.user.universityId) {
+        req.dataFilter.universityId = req.user.universityId;
+        console.log(`🔒 Filtro aplicado: Universidad ID ${req.user.universityId}`);
+      }
+      break;
+
+    case 'administrativo':
+    case 'cartera':
+      // Estos roles pueden ver todos los datos (como admin pero con menos permisos)
+      break;
+
+    default:
+      // Para otros roles (estudiante), no aplicar filtros especiales
+      break;
+  }
+
+  next();
+};
+
+/**
+ * Middleware para verificar acceso a recursos específicos
+ * Verifica si el usuario puede acceder a un recurso específico basado en su rol
+ * @param resourceType - Tipo de recurso (user, document, payment, etc.)
+ * @returns Middleware que verifica el acceso al recurso
+ */
+export const requireResourceAccess = (resourceType: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
-    // Si el usuario es superuser o admin, tiene acceso a todos los recursos
-    if (req.user.role === 'superuser' || req.user.role === 'admin') {
+    // Si es superuser o SuperAdministrativos, tiene acceso a todos los recursos
+    if (req.user.role === 'superuser' || req.user.role === 'SuperAdministrativos') {
       return next();
     }
 
     const resourceId = req.params.id;
-    // Aquí deberías implementar la lógica para verificar si el usuario es el propietario del recurso
-    // Por ejemplo, verificar en la base de datos si el recurso pertenece al usuario
+    if (!resourceId) {
+      return res.status(400).json({ error: 'ID de recurso no proporcionado' });
+    }
 
-    next();
+    try {
+      // Importar storage dinámicamente para evitar dependencias circulares
+      const { storage } = await import('../storage.js');
+
+      let hasAccess = false;
+
+      switch (resourceType) {
+        case 'user':
+          // Verificar acceso a usuario
+          const user = await storage.getUser(parseInt(resourceId));
+          if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+          }
+
+          hasAccess = await checkUserAccess(req.user, user);
+          break;
+
+        case 'document':
+          // Verificar acceso a documento
+          const document = await storage.getDocument(parseInt(resourceId));
+          if (!document) {
+            return res.status(404).json({ error: 'Documento no encontrado' });
+          }
+
+          hasAccess = await checkDocumentAccess(req.user, document);
+          break;
+
+        case 'payment':
+          // Verificar acceso a pago
+          const payment = await storage.getPayment(parseInt(resourceId));
+          if (!payment) {
+            return res.status(404).json({ error: 'Pago no encontrado' });
+          }
+
+          hasAccess = await checkPaymentAccess(req.user, payment);
+          break;
+
+        default:
+          return res.status(400).json({ error: 'Tipo de recurso no soportado' });
+      }
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Acceso denegado al recurso' });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Error al verificar acceso al recurso:', error);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
   };
-}; 
+};
+
+/**
+ * Verifica si un usuario puede acceder a otro usuario
+ * @param currentUser - Usuario actual
+ * @param targetUser - Usuario objetivo
+ * @returns true si tiene acceso
+ */
+async function checkUserAccess(currentUser: any, targetUser: any): Promise<boolean> {
+  // Si es el mismo usuario, tiene acceso
+  if (currentUser.id === targetUser.id) {
+    return true;
+  }
+
+  // Si es estudiante, solo puede acceder a su propia información
+  if (currentUser.role === 'estudiante') {
+    return false;
+  }
+
+  // Para aliados comerciales, verificar que el usuario pertenezca a su aliado
+  if (currentUser.role === 'aliado_comercial' && currentUser.allyId) {
+    return targetUser.allyId === currentUser.allyId;
+  }
+
+  // Para instituciones educativas, verificar que el usuario pertenezca a su universidad
+  if (currentUser.role === 'institucion_educativa' && currentUser.universityId) {
+    return targetUser.universityId === currentUser.universityId;
+  }
+
+  // Para administrativo y cartera, tienen acceso a todos los usuarios
+  if (['administrativo', 'cartera'].includes(currentUser.role)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Verifica si un usuario puede acceder a un documento
+ * @param currentUser - Usuario actual
+ * @param document - Documento objetivo
+ * @returns true si tiene acceso
+ */
+async function checkDocumentAccess(currentUser: any, document: any): Promise<boolean> {
+  // Si es el propietario del documento, tiene acceso
+  if (currentUser.id === document.userId) {
+    return true;
+  }
+
+  // Si es estudiante, solo puede acceder a sus propios documentos
+  if (currentUser.role === 'estudiante') {
+    return false;
+  }
+
+  // Para aliados comerciales, verificar que el documento pertenezca a un usuario de su aliado
+  if (currentUser.role === 'aliado_comercial' && currentUser.allyId) {
+    const { storage } = await import('../storage.js');
+    const documentOwner = await storage.getUser(document.userId);
+    return documentOwner?.allyId === currentUser.allyId;
+  }
+
+  // Para instituciones educativas, verificar que el documento pertenezca a un usuario de su universidad
+  if (currentUser.role === 'institucion_educativa' && currentUser.universityId) {
+    const { storage } = await import('../storage.js');
+    const documentOwner = await storage.getUser(document.userId);
+    return documentOwner?.universityId === currentUser.universityId;
+  }
+
+  // Para administrativo y cartera, tienen acceso a todos los documentos
+  if (['administrativo', 'cartera'].includes(currentUser.role)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Verifica si un usuario puede acceder a un pago
+ * @param currentUser - Usuario actual
+ * @param payment - Pago objetivo
+ * @returns true si tiene acceso
+ */
+async function checkPaymentAccess(currentUser: any, payment: any): Promise<boolean> {
+  // Si es el propietario del pago, tiene acceso
+  if (currentUser.id === payment.userId) {
+    return true;
+  }
+
+  // Si es estudiante, solo puede acceder a sus propios pagos
+  if (currentUser.role === 'estudiante') {
+    return false;
+  }
+
+  // Para aliados comerciales, verificar que el pago pertenezca a un usuario de su aliado
+  if (currentUser.role === 'aliado_comercial' && currentUser.allyId) {
+    const { storage } = await import('../storage.js');
+    const paymentOwner = await storage.getUser(payment.userId);
+    return paymentOwner?.allyId === currentUser.allyId;
+  }
+
+  // Para instituciones educativas, verificar que el pago pertenezca a un usuario de su universidad
+  if (currentUser.role === 'institucion_educativa' && currentUser.universityId) {
+    const { storage } = await import('../storage.js');
+    const paymentOwner = await storage.getUser(payment.userId);
+    return paymentOwner?.universityId === currentUser.universityId;
+  }
+
+  // Para administrativo y cartera, tienen acceso a todos los pagos
+  if (['administrativo', 'cartera'].includes(currentUser.role)) {
+    return true;
+  }
+
+  return false;
+} 

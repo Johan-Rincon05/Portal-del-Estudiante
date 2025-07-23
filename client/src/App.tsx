@@ -32,7 +32,7 @@ function HomeRedirect() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      if (user.role === 'admin') {
+      if (user.role === 'SuperAdministrativos') {
         setLocation('/admin/reports');
       } else if (user.role === 'estudiante') {
         setLocation('/home');
@@ -101,70 +101,70 @@ function App() {
           <Route path="/admin">
             <RoleBasedRoute 
               component={AdminPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/requests">
             <RoleBasedRoute 
               component={AdminRequestsPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/students">
             <RoleBasedRoute 
               component={StudentsPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/students/:id">
             <RoleBasedRoute 
               component={StudentDetailPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/documents/validation">
             <RoleBasedRoute 
               component={DocumentValidationPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/payments/validation">
             <RoleBasedRoute 
               component={PaymentValidationPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/reports">
             <RoleBasedRoute 
               component={ReportsPage} 
-              allowedRoles={['admin']} 
+              allowedRoles={['SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/users">
             <RoleBasedRoute 
               component={UsersPage} 
-              allowedRoles={['superuser', 'admin']} 
+              allowedRoles={['superuser', 'SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/users/:userId">
             <RoleBasedRoute 
               component={UserDetailsPage} 
-              allowedRoles={['superuser', 'admin']} 
+              allowedRoles={['superuser', 'SuperAdministrativos']} 
             />
           </Route>
 
           <Route path="/admin/users/:userId/edit">
             <RoleBasedRoute 
               component={UserEditPage} 
-              allowedRoles={['superuser', 'admin']} 
+              allowedRoles={['superuser', 'SuperAdministrativos']} 
             />
           </Route>
 

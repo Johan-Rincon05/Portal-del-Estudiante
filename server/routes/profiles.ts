@@ -5,11 +5,11 @@
  */
 
 import { Router } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, ne } from 'drizzle-orm';
 import { profiles, documents, requests, enrollmentStageHistory, users } from '../../shared/schema.js';
 import { updateEnrollmentStageSchema, validateStageChangeSchema } from '../../shared/schema.js';
-import db from '../db';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { db } from '../db.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { z } from 'zod';
 import { createEnrollmentStageNotification } from '../utils/notifications.js';
 import { desc } from 'drizzle-orm';
@@ -119,22 +119,227 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     const updates = req.body;
 
-    // Verificar que el perfil existe
-    const [existingProfile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
-    if (!existingProfile) {
-      return res.status(404).json({ error: 'Perfil no encontrado' });
+    console.log('=== ACTUALIZACIÓN DE PERFIL ===');
+    console.log('ID de usuario:', userId);
+    console.log('Datos recibidos para actualización:', updates);
+
+    // Verificar que el usuario existe
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      console.log('❌ Usuario no encontrado:', userId);
+      return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    console.log('✅ Usuario encontrado:', user.username);
+
+    // Función para validar duplicados de documento y nombre dentro del mismo rol
+    const validateDuplicates = async (updates: any) => {
+      const errors: string[] = [];
+      
+      // Validar duplicado de número de documento
+      if (updates.documentNumber && updates.documentType) {
+        console.log('🔍 Validando duplicado de documento:', updates.documentNumber, 'tipo:', updates.documentType);
+        
+        const existingDocument = await db
+          .select({
+            userId: profiles.userId,
+            fullName: profiles.fullName,
+            documentNumber: profiles.documentNumber,
+            documentType: profiles.documentType
+          })
+          .from(profiles)
+          .innerJoin(users, eq(profiles.userId, users.id))
+          .where(
+            and(
+              eq(profiles.documentNumber, updates.documentNumber),
+              eq(profiles.documentType, updates.documentType),
+              eq(users.role, user.role),
+              ne(profiles.userId, userId) // Excluir el usuario actual
+            )
+          )
+          .limit(1);
+        
+        if (existingDocument.length > 0) {
+          const duplicate = existingDocument[0];
+          errors.push(`Ya existe un usuario con rol '${user.role}' que tiene el documento ${updates.documentType} número ${updates.documentNumber} (usuario: ${duplicate.fullName})`);
+          console.log('❌ Duplicado de documento encontrado:', duplicate);
+        } else {
+          console.log('✅ No se encontraron duplicados de documento');
+        }
+      }
+      
+      // Validar duplicado de nombre completo
+      if (updates.fullName) {
+        console.log('🔍 Validando duplicado de nombre:', updates.fullName);
+        
+        const existingName = await db
+          .select({
+            userId: profiles.userId,
+            fullName: profiles.fullName,
+            documentNumber: profiles.documentNumber
+          })
+          .from(profiles)
+          .innerJoin(users, eq(profiles.userId, users.id))
+          .where(
+            and(
+              eq(profiles.fullName, updates.fullName),
+              eq(users.role, user.role),
+              ne(profiles.userId, userId) // Excluir el usuario actual
+            )
+          )
+          .limit(1);
+        
+        if (existingName.length > 0) {
+          const duplicate = existingName[0];
+          errors.push(`Ya existe un usuario con rol '${user.role}' que tiene el nombre '${updates.fullName}' (documento: ${duplicate.documentNumber})`);
+          console.log('❌ Duplicado de nombre encontrado:', duplicate);
+        } else {
+          console.log('✅ No se encontraron duplicados de nombre');
+        }
+      }
+      
+      return errors;
+    };
+
+    // Verificar que el perfil existe, si no, crearlo
+    let [existingProfile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
+    if (!existingProfile) {
+      console.log('⚠️ Perfil no encontrado, creando uno nuevo...');
+      const [newProfile] = await db
+        .insert(profiles)
+        .values({
+          userId: userId,
+          fullName: '',
+          email: user.email,
+          documentType: null,
+          documentNumber: null,
+          birthDate: null,
+          birthPlace: null,
+          personalEmail: null,
+          icfesAc: null,
+          phone: null,
+          city: null,
+          address: null,
+          neighborhood: null,
+          locality: null,
+          socialStratum: null,
+          bloodType: null,
+          conflictVictim: false,
+          maritalStatus: null,
+          enrollmentStage: 'suscrito'
+        })
+        .returning();
+      
+      existingProfile = newProfile;
+      console.log('✅ Perfil creado:', existingProfile);
+    } else {
+      console.log('✅ Perfil existente encontrado:', existingProfile);
+    }
+
+    // Limpieza y validación de datos
+    const cleanUpdates: any = {};
+    
+    for (const [key, value] of Object.entries(updates)) {
+      console.log(`Procesando campo: ${key} = ${value} (tipo: ${typeof value})`);
+      
+      // Saltar campos que no existen en el esquema
+      if (!(key in existingProfile)) {
+        console.log(`⚠️ Campo ignorado (no existe en esquema): ${key}`);
+        continue;
+      }
+
+      // Manejar valores vacíos
+      if (value === '' || value === null || value === undefined) {
+        console.log(`⚠️ Campo vacío ignorado: ${key}`);
+        continue;
+      }
+
+      // Manejar fechas
+      if (key === 'birthDate' && typeof value === 'string') {
+        const dateValue = new Date(value);
+        if (!isNaN(dateValue.getTime())) {
+          cleanUpdates[key] = dateValue;
+          console.log(`✅ Fecha procesada: ${key} = ${dateValue}`);
+        } else {
+          console.log(`❌ Fecha inválida ignorada: ${key} = ${value}`);
+        }
+        continue;
+      }
+
+      // Manejar booleanos
+      if (key === 'conflictVictim') {
+        if (typeof value === 'string') {
+          const boolValue = value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'si' || value.toLowerCase() === 'yes';
+          cleanUpdates[key] = boolValue;
+          console.log(`✅ Booleano procesado: ${key} = ${boolValue} (de: ${value})`);
+        } else if (typeof value === 'boolean') {
+          cleanUpdates[key] = value;
+          console.log(`✅ Booleano directo: ${key} = ${value}`);
+        }
+        continue;
+      }
+
+      // Manejar números
+      if (['socialStratum'].includes(key) && typeof value === 'string') {
+        const numValue = parseInt(value);
+        if (!isNaN(numValue)) {
+          cleanUpdates[key] = numValue;
+          console.log(`✅ Número procesado: ${key} = ${numValue}`);
+        } else {
+          console.log(`❌ Número inválido ignorado: ${key} = ${value}`);
+        }
+        continue;
+      }
+
+      // Para el resto, mantener como string
+      if (typeof value === 'string') {
+        cleanUpdates[key] = value.trim();
+        console.log(`✅ String procesado: ${key} = "${value.trim()}"`);
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        cleanUpdates[key] = value;
+        console.log(`✅ Tipo directo: ${key} = ${value} (${typeof value})`);
+      } else {
+        console.log(`❌ Tipo de dato no soportado ignorado: ${key} = ${value} (${typeof value})`);
+      }
+    }
+
+    console.log('📋 Datos limpios para actualización:', cleanUpdates);
+
+    // Si no hay datos válidos para actualizar, retornar el perfil actual
+    if (Object.keys(cleanUpdates).length === 0) {
+      console.log('⚠️ No hay datos válidos para actualizar');
+      return res.json(existingProfile);
+    }
+
+    // Validar duplicados antes de actualizar
+    console.log('🔍 Iniciando validación de duplicados...');
+    const duplicateErrors = await validateDuplicates(cleanUpdates);
+    
+    if (duplicateErrors.length > 0) {
+      console.log('❌ Errores de validación encontrados:', duplicateErrors);
+      return res.status(400).json({ 
+        error: 'Datos duplicados encontrados', 
+        details: duplicateErrors 
+      });
+    }
+    
+    console.log('✅ Validación de duplicados exitosa');
+
+    console.log('🔄 Ejecutando actualización en base de datos...');
+    
     // Actualizar el perfil
     const [updatedProfile] = await db
       .update(profiles)
-      .set(updates)
+      .set(cleanUpdates)
       .where(eq(profiles.userId, userId))
       .returning();
 
+    console.log('✅ Perfil actualizado exitosamente:', updatedProfile);
+    console.log('=== FIN ACTUALIZACIÓN DE PERFIL ===');
+    
     res.json(updatedProfile);
   } catch (error) {
-    console.error('Error al actualizar perfil:', error);
+    console.error('❌ Error al actualizar perfil:', error);
     res.status(500).json({ error: 'Error al actualizar perfil' });
   }
 });
@@ -146,7 +351,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
  * @body {enrollmentStage, comments, validationNotes} - Nueva etapa, comentarios y notas de validación
  * @returns Perfil actualizado con la nueva etapa
  */
-router.put('/:userId/stage', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+router.put('/:userId/stage', authenticateToken, requireRole(['SuperAdministrativos', 'superuser']), async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     

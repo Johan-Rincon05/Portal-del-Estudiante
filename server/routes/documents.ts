@@ -14,43 +14,19 @@ import { db } from '../db';
 import { documents, users } from '../../shared/schema.js';
 import { eq, and } from 'drizzle-orm';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { 
   createDocumentUploadNotification, 
   createDocumentApprovedNotification, 
   createDocumentRejectedNotification,
   createAdminDocumentUploadNotification 
 } from '../utils/notifications.js';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { fileStorage, type FileInfo } from '../fileStorage.js';
 
 const router = Router();
 
-// Obtener la ruta del directorio actual para ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Configurar multer para documentos (almacenamiento local)
-const storageMulter = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = path.join(__dirname, '../../uploads/documentos');
-    // Crear el directorio si no existe
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    // Nombre: userId-timestamp-nombreOriginal
-    const ext = path.extname(file.originalname);
-    const timestamp = Date.now();
-    cb(null, `${req.user?.id || 'unknown'}_${timestamp}${ext}`);
-  }
-});
-
+// Configurar multer para usar memoria (buffer) en lugar de disco
 const upload = multer({ 
-  storage: storageMulter,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     // Permitir solo ciertos tipos de archivo
     const allowedTypes = [
@@ -85,24 +61,23 @@ router.get('/', authenticateToken, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
-    // Construir la base de la URL
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    
     // Si es admin o superuser, obtener todos los documentos
-    if (req.user.role === 'admin' || req.user.role === 'superuser') {
+    if (req.user.role === 'SuperAdministrativos' || req.user.role === 'superuser') {
       const allDocuments = await storage.getAllDocuments();
-      // Agregar la URL de archivo a cada documento
+      // Agregar la URL de archivo a cada documento usando el sistema centralizado
       const docsWithUrl = allDocuments.map(doc => ({
         ...doc,
-        url: `${baseUrl}/api/documents/${doc.id}/file`
+        url: fileStorage.getFileUrl(doc.path, 'documentos')
       }));
       res.json(docsWithUrl);
     } else {
       // Si es estudiante, obtener solo sus documentos
       const documents = await storage.getDocuments(req.user.id);
-      // Agregar la URL de archivo a cada documento
+      // Agregar la URL de archivo a cada documento usando el sistema centralizado
       const docsWithUrl = documents.map(doc => ({
         ...doc,
-        url: `${baseUrl}/api/documents/${doc.id}/file`
+        url: fileStorage.getFileUrl(doc.path, 'documentos')
       }));
       res.json(docsWithUrl);
     }
@@ -118,14 +93,13 @@ router.get('/', authenticateToken, async (req, res) => {
  * @requires Autenticación y rol admin o superuser
  * @returns Lista de documentos con información del estudiante
  */
-router.get('/admin', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+router.get('/admin', authenticateToken, requireRole(['SuperAdministrativos', 'superuser']), async (req, res) => {
   try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
     const documentsWithStudents = await storage.getDocumentsWithStudents();
-    // Agregar la URL de archivo a cada documento
+    // Agregar la URL de archivo a cada documento usando el sistema centralizado
     const docsWithUrl = documentsWithStudents.map(doc => ({
       ...doc,
-      url: `${baseUrl}/api/documents/${doc.id}/file`
+      url: fileStorage.getFileUrl(doc.path, 'documentos')
     }));
     res.json(docsWithUrl);
   } catch (error) {
@@ -167,11 +141,23 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Archivo no proporcionado' });
     }
 
-    // Guardar la información en la base de datos con ruta local
+    // Preparar información del archivo para el sistema centralizado
+    const fileInfo: FileInfo = {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      buffer: file.buffer
+    };
+
+    // Guardar archivo usando el sistema centralizado
+    const fileReference = await fileStorage.saveFile(fileInfo, req.user.id, 'documentos');
+
+    // Guardar la información en la base de datos con la referencia del archivo
     const createdDocument = await storage.createDocument({
       name: file.originalname,
       type,
-      path: file.filename, // Usar el nombre del archivo guardado localmente
+      path: fileReference.path, // Usar la ruta generada por el sistema centralizado
+      size: file.size,
       userId: req.user.id,
       status: 'pendiente',
       observations: observations || null
@@ -189,7 +175,7 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       .select({ id: users.id })
       .from(users)
       .where(and(
-        eq(users.role, 'admin'),
+        eq(users.role, 'SuperAdministrativos'),
         eq(users.isActive, true)
       ));
 
@@ -223,27 +209,24 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'ID de documento inválido' });
     }
     
-    // Obtener el documento antes de eliminarlo para acceder a los datos de Google Drive
+    // Obtener el documento antes de eliminarlo
     const document = await storage.getDocument(documentId);
     if (!document) {
       return res.status(404).json({ error: 'Documento no encontrado' });
     }
     
     // Verificar permisos
-    if (req.user.role !== 'admin' && req.user.role !== 'superuser' && document.userId !== req.user.id) {
+    if (req.user.role !== 'SuperAdministrativos' && req.user.role !== 'superuser' && document.userId !== req.user.id) {
       return res.status(403).json({ error: 'No tienes permisos para eliminar este documento' });
     }
     
-    // Eliminar archivo local si existe
+    // Eliminar archivo usando el sistema centralizado
     if (document.path) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log('[DEBUG] Archivo local eliminado exitosamente:', document.path);
-        }
+        await fileStorage.deleteFile(document.path, 'documentos');
+        console.log('[DEBUG] Archivo eliminado exitosamente:', document.path);
       } catch (fileError) {
-        console.error('[DEBUG] Error al eliminar archivo local:', fileError);
+        console.error('[DEBUG] Error al eliminar archivo:', fileError);
         // Continuar con la eliminación del registro aunque falle la eliminación del archivo
       }
     }
@@ -275,7 +258,7 @@ router.get('/:id/url', authenticateToken, async (req, res) => {
     }
 
     // Verificar permisos - solo el propietario o admin puede acceder
-    if (req.user!.role !== 'admin' && req.user!.role !== 'superuser' && doc.userId !== req.user!.id) {
+    if (req.user!.role !== 'SuperAdministrativos' && req.user!.role !== 'superuser' && doc.userId !== req.user!.id) {
       return res.status(403).send({ error: 'No tienes permisos para acceder a este documento' });
     }
 
@@ -319,7 +302,7 @@ router.get('/:id/file', authenticateToken, async (req, res) => {
     console.log(`[DEBUG] Documento encontrado:`, document);
 
     // Para admin/superadmin, permitir acceso a cualquier documento
-    if (userRole === 'admin' || userRole === 'superuser') {
+    if (userRole === 'SuperAdministrativos' || userRole === 'superuser') {
       // Continuar sin validación adicional
     } else {
       // Para estudiantes, verificar que el documento pertenezca al usuario
@@ -329,16 +312,14 @@ router.get('/:id/file', authenticateToken, async (req, res) => {
       }
     }
 
-    // Obtener archivo local
-    const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
-    console.log(`[DEBUG] Ruta absoluta buscada:`, filePath);
-
-    if (!fs.existsSync(filePath)) {
-      console.log(`[DEBUG] Archivo local NO encontrado en:`, filePath);
+    // Leer archivo usando el sistema centralizado
+    const fileBuffer = await fileStorage.readFile(document.path, 'documentos');
+    
+    if (!fileBuffer) {
+      console.log(`[DEBUG] Archivo no encontrado:`, document.path);
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
-    const stats = fs.statSync(filePath);
     const ext = path.extname(document.name).toLowerCase();
 
     // Configurar headers según el tipo de archivo
@@ -358,16 +339,15 @@ router.get('/:id/file', authenticateToken, async (req, res) => {
 
     // Configurar headers de respuesta
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', stats.size);
+    res.setHeader('Content-Length', fileBuffer.length);
     res.setHeader('Content-Disposition', `${disposition}; filename="${document.name}"`);
     res.setHeader('Cache-Control', 'private, max-age=3600');
 
     // Log de acceso para auditoría
-    console.log(`Acceso a documento local: ${document.name} por usuario ${userId} (${userRole})`);
+    console.log(`Acceso a documento: ${document.name} por usuario ${userId} (${userRole})`);
 
-    // Enviar el archivo local
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    // Enviar el archivo
+    res.send(fileBuffer);
 
   } catch (error) {
     console.error('Error al servir documento:', error);
@@ -413,7 +393,7 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
  * @body {status, rejectionReason} - Nuevo estado y motivo de rechazo (opcional)
  * @returns Documento actualizado
  */
-router.put('/:id/status', authenticateToken, requireRole(['admin', 'superuser']), async (req, res) => {
+router.put('/:id/status', authenticateToken, requireRole(['SuperAdministrativos', 'superuser']), async (req, res) => {
   try {
     const documentId = parseInt(req.params.id);
     
@@ -511,7 +491,7 @@ router.get('/:id/iframe', async (req, res) => {
     }
 
     // Para admin/superadmin, permitir acceso a cualquier documento
-    if (user.role === 'admin' || user.role === 'superuser') {
+    if (user.role === 'SuperAdministrativos' || user.role === 'superuser') {
       // OK
     } else {
       // Para estudiantes, verificar que el documento pertenezca al usuario
@@ -521,7 +501,7 @@ router.get('/:id/iframe', async (req, res) => {
     }
 
     // Obtener archivo local
-    const filePath = path.join(__dirname, '../../uploads/documentos', document.path);
+    const filePath = fileStorage.getFilePath(document.path, 'documentos');
 
     // Verificar que el archivo existe
     if (!fs.existsSync(filePath)) {
@@ -583,7 +563,7 @@ router.get('/:id/download-url', authenticateToken, async (req, res) => {
     }
 
     // Verificar permisos
-    if (userRole !== 'admin' && userRole !== 'superuser' && document.userId !== userId) {
+    if (userRole !== 'SuperAdministrativos' && userRole !== 'superuser' && document.userId !== userId) {
       return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
     }
 

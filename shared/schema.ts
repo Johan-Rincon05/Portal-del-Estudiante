@@ -54,11 +54,20 @@ export const documentStatusEnum = pgEnum("document_status", [
  * Define las categorías de solicitudes que pueden crear los estudiantes
  */
 export const requestTypeEnum = pgEnum("request_type", [
-  "financiera",
-  "academica", 
-  "documental_administrativa",
-  "datos_estudiante_administrativa"
+  "documental",
+  "financiera"
 ]);
+
+/**
+ * Tabla de aliados
+ * Almacena la información de los aliados del sistema
+ */
+export const allies = pgTable("allies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
 
 /**
  * Tabla de usuarios
@@ -66,14 +75,16 @@ export const requestTypeEnum = pgEnum("request_type", [
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: varchar("username", { length: 255 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  password: varchar("password", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull().default("estudiante"),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("estudiante"),
   isActive: boolean("is_active").notNull().default(true),
-  permissions: jsonb("permissions").$type<Record<string, boolean>>().default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  permissions: jsonb("permissions").notNull().default({}),
+  allyId: integer("ally_id").references(() => allies.id), // Referencia al aliado
+  universityId: integer("university_id").references(() => universities.id), // Referencia a la universidad
+  createdAt: timestamp("created_at", { mode: 'date' }).defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: 'date' })
 });
 
 // Profiles table - stores user profile information
@@ -150,26 +161,27 @@ export const installmentObservations = pgTable("installment_observations", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
-// Documents table - stores uploaded documents
+// Documents table - for student documents
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  type: documentTypeEnum("type").notNull(),  // Tipo de documento validado
-  name: text("name").notNull(),  // Nombre del documento
-  path: text("path").notNull(),  // Ruta del archivo en almacenamiento local
-  status: documentStatusEnum("status").notNull().default("pendiente"), // Estado del documento validado
-  rejectionReason: text("rejection_reason"), // Motivo del rechazo (opcional)
-  observations: text("observations"), // Observaciones del estudiante al subir (opcional)
-  reviewedBy: integer("reviewed_by"), // ID del administrador que revisó
-  reviewedAt: timestamp("reviewed_at"), // Fecha de revisión
-  uploadedAt: timestamp("uploaded_at").defaultNow()
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  path: text("path").notNull(), // Ruta del archivo o URL completa (local/cloud)
+  size: integer("size"),
+  status: text("status").notNull().default("pendiente"),
+  observations: text("observations"),
+  uploadedAt: timestamp("uploaded_at", { mode: 'date' }).defaultNow(),
+  validatedAt: timestamp("validated_at", { mode: 'date' }),
+  validatedBy: integer("validated_by"),
+  rejectionReason: text("rejection_reason")
 });
 
 // Requests table - for student requests
 export const requests = pgTable("requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  requestType: requestTypeEnum("request_type").notNull().default("academica"),
+  requestType: requestTypeEnum("request_type").notNull().default("documental"),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
   status: text("status").notNull().default("pendiente"),
@@ -235,6 +247,7 @@ export const insertRequestSchema = createInsertSchema(requests).omit({ id: true,
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertUniversitySchema = createInsertSchema(universities).omit({ id: true });
 export const insertProgramSchema = createInsertSchema(programs).omit({ id: true });
+export const insertAllySchema = createInsertSchema(allies).omit({ id: true, createdAt: true });
 
 // Additional validation schemas
 export const registerUserSchema = z.object({
@@ -256,11 +269,11 @@ export const createUserSchema = z.object({
   username: z.string().min(3, "Nombre de usuario es requerido"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  role: z.enum(["estudiante", "admin", "superuser"])
+  role: z.enum(["estudiante", "administrativo", "cartera", "aliado_comercial", "institucion_educativa", "SuperAdministrativos", "superuser"])
 });
 
 export const createRequestSchema = z.object({
-  requestType: z.enum(["financiera", "academica", "documental_administrativa", "datos_estudiante_administrativa"], {
+  requestType: z.enum(["documental", "financiera"], {
     required_error: "El tipo de solicitud es requerido"
   }),
   subject: z.string().min(1, "El asunto es requerido"),
@@ -414,6 +427,9 @@ export type InsertNotification = typeof notifications.$inferInsert;
 export type EnrollmentStageHistory = typeof enrollmentStageHistory.$inferSelect;
 export type InsertEnrollmentStageHistory = typeof enrollmentStageHistory.$inferInsert;
 
+export type Ally = typeof allies.$inferSelect;
+export type InsertAlly = typeof allies.$inferInsert;
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -468,6 +484,11 @@ export const PERMISSIONS = {
   DOCUMENT_UPDATE: 'document:update',
   DOCUMENT_DELETE: 'document:delete',
   
+  // Permisos de solicitudes
+  REQUEST_READ: 'request:read',
+  REQUEST_CREATE: 'request:create',
+  REQUEST_UPDATE: 'request:update',
+  
   // Permisos de administración
   ADMIN_ACCESS: 'admin:access',
   ADMIN_MANAGE_USERS: 'admin:manage_users',
@@ -487,8 +508,44 @@ export const DEFAULT_ROLES = {
       [PERMISSIONS.DOCUMENT_READ]: true
     }
   },
-  admin: {
-    description: 'Administrador del sistema',
+  administrativo: {
+    description: 'Personal administrativo del sistema',
+    permissions: {
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.DOCUMENT_UPDATE]: true,
+      [PERMISSIONS.ADMIN_ACCESS]: true
+    }
+  },
+  cartera: {
+    description: 'Personal de cartera y finanzas',
+    permissions: {
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.ADMIN_ACCESS]: true
+    }
+  },
+  aliado_comercial: {
+    description: 'Aliado comercial del sistema',
+    permissions: {
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.USER_UPDATE]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.DOCUMENT_UPDATE]: true,
+      [PERMISSIONS.ADMIN_ACCESS]: true,
+      [PERMISSIONS.ADMIN_MANAGE_USERS]: true
+    }
+  },
+  institucion_educativa: {
+    description: 'Institución educativa asociada',
+    permissions: {
+      [PERMISSIONS.USER_READ]: true,
+      [PERMISSIONS.DOCUMENT_READ]: true,
+      [PERMISSIONS.REQUEST_READ]: true // Nuevo permiso para ver solicitudes
+    }
+  },
+  SuperAdministrativos: {
+    description: 'Super Administrador del sistema',
     permissions: {
       [PERMISSIONS.USER_READ]: true,
       [PERMISSIONS.USER_UPDATE]: true,

@@ -42,7 +42,7 @@ const RegisterPage = () => {
     if (userRole === 'superuser') {
       setLocation('/admin/users');
       return null;
-    } else if (userRole === 'admin') {
+    } else if (userRole === 'SuperAdministrativos') {
       setLocation('/admin/students');
       return null;
     } else {

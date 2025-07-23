@@ -8,6 +8,13 @@
       "when": 1752065926888,
       "tag": "0000_lucky_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1752807781791,
+      "tag": "0001_perpetual_hairball",
+      "breakpoints": true
     }
   ]
 }

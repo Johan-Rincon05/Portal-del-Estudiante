@@ -99,7 +99,7 @@ const Sidebar = () => {
           </div>
           
           {/* Admin Links - visible to admin and superuser */}
-          {(userRole === 'admin' || userRole === 'superuser') && (
+          {(userRole === 'SuperAdministrativos' || userRole === 'superuser') && (
             <div className="px-2 pt-5 pb-2">
               <h3 className="px-2 text-xs font-semibold text-white uppercase tracking-wider">
                 Administración

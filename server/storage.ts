@@ -24,9 +24,13 @@ import {
   programs,
   payments,
   installments,
-  installmentObservations
+  installmentObservations,
+  allies,
+  type Ally,
+  type InsertAlly,
+  enrollmentStageHistory
 } from "../shared/schema.js";
-import { eq, and, or, sql, desc, count } from "drizzle-orm";
+import { eq, and, or, sql, desc, count, inArray } from "drizzle-orm";
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { hashPassword, comparePasswords } from './auth';
@@ -109,8 +113,54 @@ export const storage = {
    * @param id - ID del usuario
    */
   async deleteUser(id: number): Promise<boolean> {
-    const result = await db.delete(users).where(eq(users.id, id));
-    return result.length > 0;
+    console.log('🔄 Iniciando eliminación de usuario:', id);
+    
+    try {
+      // Eliminar en orden para respetar las restricciones de clave foránea
+      
+      // 1. Eliminar observaciones de cuotas
+      console.log('🗑️ Eliminando observaciones de cuotas...');
+      await db.delete(installmentObservations).where(eq(installmentObservations.userId, id));
+      
+      // 2. Eliminar cuotas
+      console.log('🗑️ Eliminando cuotas...');
+      await db.delete(installments).where(eq(installments.userId, id));
+      
+      // 3. Eliminar pagos
+      console.log('🗑️ Eliminando pagos...');
+      await db.delete(payments).where(eq(payments.userId, id));
+      
+      // 4. Eliminar datos universitarios
+      console.log('🗑️ Eliminando datos universitarios...');
+      await db.delete(universityData).where(eq(universityData.userId, id));
+      
+      // 5. Eliminar documentos
+      console.log('🗑️ Eliminando documentos...');
+      await db.delete(documents).where(eq(documents.userId, id));
+      
+      // 6. Eliminar solicitudes
+      console.log('🗑️ Eliminando solicitudes...');
+      await db.delete(requests).where(eq(requests.userId, id));
+      
+      // 7. Eliminar historial de etapas de matrícula
+      console.log('🗑️ Eliminando historial de etapas...');
+      await db.delete(enrollmentStageHistory).where(eq(enrollmentStageHistory.userId, id));
+      
+      // 8. Eliminar perfil
+      console.log('🗑️ Eliminando perfil...');
+      await db.delete(profiles).where(eq(profiles.userId, id));
+      
+      // 9. Finalmente eliminar el usuario
+      console.log('🗑️ Eliminando usuario...');
+      const result = await db.delete(users).where(eq(users.id, id));
+      
+      console.log('✅ Usuario y todos sus datos eliminados exitosamente');
+      return result.length > 0;
+      
+    } catch (error) {
+      console.error('❌ Error al eliminar usuario:', error);
+      throw error;
+    }
   },
 
   /**
@@ -118,13 +168,15 @@ export const storage = {
    * @param filters - Filtros para la búsqueda
    * @returns Lista de usuarios
    */
-  async listUsers(filters?: { role?: string; isActive?: boolean }): Promise<User[]> {
+  async listUsers(filters?: { role?: string; isActive?: boolean; allyId?: number; universityId?: number }): Promise<User[]> {
     let query = db.select().from(users);
     
     if (filters) {
       const conditions = [];
       if (filters.role) conditions.push(eq(users.role, filters.role));
       if (filters.isActive !== undefined) conditions.push(eq(users.isActive, filters.isActive));
+      if (filters.allyId) conditions.push(eq(users.allyId, filters.allyId));
+      if (filters.universityId) conditions.push(eq(users.universityId, filters.universityId));
       
       if (conditions.length > 0) {
         query = query.where(and(...conditions));
@@ -555,16 +607,34 @@ export const storage = {
   },
 
   /**
-   * Obtiene documentos con información del estudiante
-   * @returns Lista de documentos con información del estudiante
+   * Obtiene documentos con información de estudiantes
+   * @param allyId - ID del aliado para filtrar (opcional)
+   * @returns Lista de documentos con información de estudiantes
    */
-  async getDocumentsWithStudents(): Promise<any[]> {
+  async getDocumentsWithStudents(allyId?: number): Promise<any[]> {
     try {
-      // Consulta simple para evitar errores de Drizzle
-      const result = await db
-        .select()
-        .from(documents)
-        .orderBy(desc(documents.uploadedAt));
+      // Consulta base para documentos
+      let documentsQuery = db.select().from(documents);
+      
+      // Si se proporciona allyId, filtrar documentos por aliado
+      if (allyId) {
+        // Primero obtener los IDs de usuarios que pertenecen al aliado
+        const allyUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.role, 'estudiante'), eq(users.allyId, allyId)));
+        
+        const allyUserIds = allyUsers.map(user => user.id);
+        
+        if (allyUserIds.length === 0) {
+          return []; // No hay usuarios para este aliado
+        }
+        
+        // Filtrar documentos por los IDs de usuarios del aliado
+        documentsQuery = documentsQuery.where(inArray(documents.userId, allyUserIds));
+      }
+      
+      const result = await documentsQuery.orderBy(desc(documents.uploadedAt));
       
       // Obtener información de perfiles por separado
       const documentsWithProfiles = await Promise.all(
@@ -717,8 +787,11 @@ export const storage = {
    * Obtiene la lista de todos los usuarios con perfiles
    * @returns Lista de usuarios con perfiles
    */
-  async getAllUsersWithProfiles() {
-    const result = await db
+  async getAllUsersWithProfiles(filters?: { role?: string; isActive?: boolean; allyId?: number; universityId?: number }) {
+    console.log('=== getAllUsersWithProfiles ===');
+    console.log('Filtros recibidos:', filters);
+    
+    let query = db
       .select({
         id: users.id,
         username: users.username,
@@ -726,6 +799,8 @@ export const storage = {
         role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
+        allyId: users.allyId,
+        universityId: users.universityId,
         profile: {
           id: profiles.id,
           userId: profiles.userId,
@@ -752,19 +827,56 @@ export const storage = {
       .from(users)
       .leftJoin(profiles, eq(users.id, profiles.userId))
       .orderBy(desc(users.createdAt));
+
+    // Aplicar filtros si se proporcionan
+    if (filters) {
+      const conditions = [];
+      if (filters.role) conditions.push(eq(users.role, filters.role));
+      if (filters.isActive !== undefined) conditions.push(eq(users.isActive, filters.isActive));
+      if (filters.allyId) conditions.push(eq(users.allyId, filters.allyId));
+      if (filters.universityId) conditions.push(eq(users.universityId, filters.universityId));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+        console.log('Filtros aplicados:', conditions.length);
+      }
+    }
+    
+    const result = await query;
+    
+    console.log(`Usuarios obtenidos: ${result.length}`);
+    console.log('=== FIN getAllUsersWithProfiles ===');
     
     return result.map(row => ({
       ...row,
-      profile: row.profile || null
+      profile: row.profile || null,
+      // Aplanar los datos del perfil para facilitar el acceso
+      fullName: row.profile?.fullName || null,
+      personalEmail: row.profile?.personalEmail || null,
+      documentType: row.profile?.documentType || null,
+      documentNumber: row.profile?.documentNumber || null,
+      birthDate: row.profile?.birthDate || null,
+      birthPlace: row.profile?.birthPlace || null,
+      phone: row.profile?.phone || null,
+      address: row.profile?.address || null,
+      city: row.profile?.city || null,
+      neighborhood: row.profile?.neighborhood || null,
+      locality: row.profile?.locality || null,
+      socialStratum: row.profile?.socialStratum || null,
+      bloodType: row.profile?.bloodType || null,
+      conflictVictim: row.profile?.conflictVictim || null,
+      maritalStatus: row.profile?.maritalStatus || null,
+      enrollmentStage: row.profile?.enrollmentStage || null
     }));
   },
 
   /**
    * Obtiene la lista de todos los estudiantes con documentos
+   * @param allyId - ID del aliado para filtrar (opcional)
    * @returns Lista de estudiantes con documentos
    */
-  async getAllStudentsWithDocuments() {
-    const result = await db
+  async getAllStudentsWithDocuments(allyId?: number) {
+    let query = db
       .select({
         id: users.id,
         username: users.username,
@@ -772,6 +884,7 @@ export const storage = {
         role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
+        allyId: users.allyId,
         profile: {
           id: profiles.id,
           userId: profiles.userId,
@@ -802,12 +915,130 @@ export const storage = {
       .where(eq(users.role, 'estudiante'))
       .groupBy(users.id, profiles.id)
       .orderBy(desc(users.createdAt));
+
+    // Aplicar filtro por aliado si se proporciona
+    if (allyId) {
+      query = query.where(and(eq(users.role, 'estudiante'), eq(users.allyId, allyId)));
+    }
+    
+    const result = await query;
     
     return result.map(row => ({
       ...row,
       profile: row.profile || null,
       documentsCount: Number(row.documentsCount)
     }));
+  },
+
+  /**
+   * Obtiene la lista de todos los estudiantes con documentos filtrados por universidad
+   * @param universityId - ID de la universidad para filtrar
+   * @returns Lista de estudiantes con documentos de la universidad específica
+   */
+  async getAllStudentsWithDocumentsByUniversity(universityId: number) {
+    let query = db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        allyId: users.allyId,
+        universityId: users.universityId,
+        profile: {
+          id: profiles.id,
+          userId: profiles.userId,
+          fullName: profiles.fullName,
+          documentType: profiles.documentType,
+          documentNumber: profiles.documentNumber,
+          birthDate: profiles.birthDate,
+          birthPlace: profiles.birthPlace,
+          personalEmail: profiles.personalEmail,
+          icfesAc: profiles.icfesAc,
+          phone: profiles.phone,
+          city: profiles.city,
+          address: profiles.address,
+          neighborhood: profiles.neighborhood,
+          locality: profiles.locality,
+          socialStratum: profiles.socialStratum,
+          bloodType: profiles.bloodType,
+          conflictVictim: profiles.conflictVictim,
+          maritalStatus: profiles.maritalStatus,
+          enrollmentStage: profiles.enrollmentStage,
+          createdAt: profiles.createdAt
+        },
+        documentsCount: count(documents.id)
+      })
+      .from(users)
+      .leftJoin(profiles, eq(users.id, profiles.userId))
+      .leftJoin(documents, eq(users.id, documents.userId))
+      .where(and(eq(users.role, 'estudiante'), eq(users.universityId, universityId)))
+      .groupBy(users.id, profiles.id)
+      .orderBy(desc(users.createdAt));
+    
+    const result = await query;
+    
+    return result.map(row => ({
+      ...row,
+      profile: row.profile || null,
+      documentsCount: Number(row.documentsCount)
+    }));
+  },
+
+  /**
+   * Obtiene documentos con información de estudiantes filtrados por universidad
+   * @param universityId - ID de la universidad para filtrar
+   * @returns Lista de documentos con información de estudiantes de la universidad específica
+   */
+  async getDocumentsWithStudentsByUniversity(universityId: number): Promise<any[]> {
+    try {
+      // Primero obtener los IDs de usuarios que pertenecen a la universidad
+      const universityUsers = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, 'estudiante'), eq(users.universityId, universityId)));
+      
+      const universityUserIds = universityUsers.map(user => user.id);
+      
+      if (universityUserIds.length === 0) {
+        return []; // No hay usuarios para esta universidad
+      }
+      
+      // Filtrar documentos por los IDs de usuarios de la universidad
+      const result = await db
+        .select()
+        .from(documents)
+        .where(inArray(documents.userId, universityUserIds))
+        .orderBy(desc(documents.uploadedAt));
+      
+      // Obtener información de perfiles por separado
+      const documentsWithProfiles = await Promise.all(
+        result.map(async (doc) => {
+          const profile = await db
+            .select()
+            .from(profiles)
+            .where(eq(profiles.userId, doc.userId))
+            .limit(1);
+          
+          return {
+            ...doc,
+            student: profile[0] ? {
+              id: profile[0].id,
+              fullName: profile[0].fullName,
+              documentNumber: profile[0].documentNumber,
+              city: profile[0].city,
+              enrollmentStage: profile[0].enrollmentStage
+            } : null
+          };
+        })
+      );
+      
+      return documentsWithProfiles;
+    } catch (error) {
+      console.error('Error en getDocumentsWithStudentsByUniversity:', error);
+      return [];
+    }
   },
 
   /**
@@ -929,5 +1160,59 @@ export const storage = {
   async createInstallmentObservation(observationData: any): Promise<any> {
     const [observation] = await db.insert(installmentObservations).values(observationData).returning();
     return observation;
+  },
+
+  /**
+   * Operaciones de Aliados
+   */
+
+  /**
+   * Obtiene la lista de aliados
+   * @returns Lista de aliados
+   */
+  async getAllAllies(): Promise<Ally[]> {
+    return await db.select().from(allies);
+  },
+
+  /**
+   * Obtiene un aliado por su ID
+   * @param id - ID del aliado
+   * @returns Aliado encontrado o null
+   */
+  async getAlly(id: number): Promise<Ally | null> {
+    const [ally] = await db.select().from(allies).where(eq(allies.id, id));
+    return ally || null;
+  },
+
+  /**
+   * Crea un nuevo aliado
+   * @param allyData - Datos del aliado
+   * @returns Aliado creado
+   */
+  async createAlly(allyData: InsertAlly): Promise<Ally> {
+    const [ally] = await db.insert(allies).values(allyData).returning();
+    return ally;
+  },
+
+  /**
+   * Actualiza un aliado
+   * @param id - ID del aliado
+   * @param updates - Datos a actualizar
+   * @returns Aliado actualizado
+   */
+  async updateAlly(id: number, updates: Partial<Ally>): Promise<Ally | null> {
+    const [ally] = await db.update(allies)
+      .set(updates)
+      .where(eq(allies.id, id))
+      .returning();
+    return ally || null;
+  },
+
+  /**
+   * Elimina un aliado
+   * @param id - ID del aliado
+   */
+  async deleteAlly(id: number): Promise<void> {
+    await db.delete(allies).where(eq(allies.id, id));
   }
 };

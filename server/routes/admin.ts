@@ -1,324 +1,292 @@
-import { Router, Request, Response, NextFunction } from 'express';
+/**
+ * Rutas administrativas con filtro por aliado
+ * Este archivo maneja las operaciones administrativas que respetan
+ * la separación de datos por aliado para aliados administrativos
+ */
+
+import { Router } from 'express';
+import { authenticateToken, requireRole, filterDataByRole } from '../middleware/auth';
 import { storage } from '../storage';
-import { eq } from 'drizzle-orm';
-import { users, profiles, documents } from '../../shared/schema.js';
-import { db } from "../db";
-import { authenticateToken } from '../middleware/auth.js';
+import { eq, and } from 'drizzle-orm';
+import { users } from '../../shared/schema.js';
+import { hashPassword } from '../auth.js';
+import { sendPasswordResetEmail } from '../utils/email.js';
+import { z } from 'zod';
 
 const router = Router();
 
-// Middleware para verificar rol de administrador
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'No autenticado' });
-  }
-
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'No autorizado' });
-  }
-
-  next();
-};
-
-// Ejemplo de uso:
-// router.get('/ruta-protegida', authenticateToken, requireAdmin, (req, res) => { ... });
-
-// Obtener todos los estudiantes con sus documentos
-router.get('/students', authenticateToken, requireAdmin, async (req, res) => {
+/**
+ * Obtener usuarios con filtro por rol
+ * GET /api/admin/users
+ * @requires Autenticación y rol SuperAdministrativos, superuser, aliado_comercial o institucion_educativa
+ * @returns Lista de usuarios filtrada por rol
+ */
+router.get('/users', authenticateToken, requireRole(['SuperAdministrativos', 'superuser', 'aliado_comercial', 'institucion_educativa']), filterDataByRole, async (req, res) => {
   try {
-    // Obtener estudiantes (usuarios con rol 'estudiante' y sus perfiles)
-    const students = await storage.getAllStudentsWithDocuments();
-    res.json(students);
+    console.log('=== OBTENIENDO USUARIOS ===');
+    console.log('Filtros aplicados:', req.dataFilter);
+    
+    let usersList;
+
+    if (req.dataFilter && (req.dataFilter.allyId || req.dataFilter.universityId)) {
+      // Aplicar filtros según el rol del usuario
+      const filters: any = {};
+      if (req.dataFilter.allyId) filters.allyId = req.dataFilter.allyId;
+      if (req.dataFilter.universityId) filters.universityId = req.dataFilter.universityId;
+      
+      console.log('Aplicando filtros:', filters);
+      usersList = await storage.getAllUsersWithProfiles(filters);
+    } else {
+      // Para admin y superuser, obtener todos los usuarios con perfiles
+      console.log('Obteniendo todos los usuarios con perfiles...');
+      usersList = await storage.getAllUsersWithProfiles();
+    }
+
+    console.log(`✅ Usuarios obtenidos: ${usersList.length}`);
+    console.log('=== FIN OBTENCIÓN DE USUARIOS ===');
+    
+    res.json(usersList);
+  } catch (error) {
+    console.error('❌ Error al obtener usuarios:', error);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+});
+
+/**
+ * Crear nuevo usuario
+ * POST /api/admin/users
+ * @requires Autenticación y rol superuser
+ * @body { username: string, email: string, password: string, role: string }
+ * @returns Usuario creado
+ */
+router.post('/users', authenticateToken, requireRole(['superuser']), async (req, res) => {
+  try {
+    console.log('=== CREACIÓN DE USUARIO ===');
+    console.log('Datos recibidos:', req.body);
+
+    const { username, email, password, role } = req.body;
+
+    // Validaciones básicas
+    if (!username || !email || !password || !role) {
+      return res.status(400).json({ 
+        error: 'Datos incompletos', 
+        details: 'Se requieren username, email, password y role' 
+      });
+    }
+
+    // Verificar si el usuario ya existe
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) {
+      console.log('❌ Usuario ya existe:', username);
+      return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
+    }
+
+    // Verificar si el email ya está en uso
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) {
+      console.log('❌ Email ya existe:', email);
+      return res.status(400).json({ error: 'El email ya está en uso' });
+    }
+
+    // Crear el usuario
+    const hashedPassword = await hashPassword(password);
+    const newUser = await storage.createUser({
+      username,
+      email,
+      password: hashedPassword,
+      role,
+      isActive: true,
+      permissions: {}
+    });
+
+    console.log('✅ Usuario creado exitosamente:', newUser.username);
+    console.log('=== FIN CREACIÓN DE USUARIO ===');
+
+    res.status(201).json({
+      message: 'Usuario creado exitosamente',
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error al crear usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor al crear usuario' });
+  }
+});
+
+/**
+ * Resetear contraseña de usuario
+ * POST /api/admin/users/:userId/reset-password
+ * @requires Autenticación y rol superuser
+ * @body {} - No requiere body
+ * @returns Mensaje de confirmación
+ */
+router.post('/users/:userId/reset-password', authenticateToken, requireRole(['superuser']), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    // Obtener el usuario
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Generar contraseña temporal aleatoria
+    const generateTemporaryPassword = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+      let password = '';
+      for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return password;
+    };
+
+    const temporaryPassword = generateTemporaryPassword();
+    const hashedPassword = await hashPassword(temporaryPassword);
+
+    // Actualizar la contraseña del usuario
+    await storage.updateUser(userId, { password: hashedPassword });
+
+    // Enviar email con la nueva contraseña
+    const emailSent = await sendPasswordResetEmail(user.email, temporaryPassword, user.username);
+    
+    if (emailSent) {
+      console.log(`✅ Email de reseteo enviado exitosamente a ${user.email}`);
+      res.json({ 
+        message: 'Contraseña reseteada exitosamente',
+        details: `Se ha enviado un email a ${user.email} con la nueva contraseña temporal.`
+      });
+    } else {
+      console.log(`⚠️ Error al enviar email, pero contraseña actualizada para ${user.email}: ${temporaryPassword}`);
+      res.json({ 
+        message: 'Contraseña reseteada exitosamente',
+        details: `No se pudo enviar el email, pero la contraseña ha sido actualizada. Contacta al usuario directamente.`,
+        warning: 'Email no enviado'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error al resetear contraseña:', error);
+    res.status(500).json({ error: 'Error interno del servidor al resetear contraseña' });
+  }
+});
+
+/**
+ * Eliminar usuario
+ * DELETE /api/admin/users/:userId
+ * @requires Autenticación y rol superuser
+ * @returns Mensaje de confirmación
+ */
+router.delete('/users/:userId', authenticateToken, requireRole(['superuser']), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    console.log('=== ELIMINACIÓN DE USUARIO ===');
+    console.log('ID de usuario a eliminar:', userId);
+
+    // Verificar que el usuario existe
+    const user = await storage.getUser(userId);
+    if (!user) {
+      console.log('❌ Usuario no encontrado:', userId);
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    console.log('✅ Usuario encontrado:', user.username, 'rol:', user.role);
+
+    // Verificar que no se está intentando eliminar a sí mismo
+    if (user.id === req.user?.id) {
+      console.log('❌ Intento de auto-eliminación bloqueado');
+      return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+    }
+
+    // Eliminar el usuario (esto también eliminará el perfil por cascada si está configurado)
+    await storage.deleteUser(userId);
+    
+    console.log('✅ Usuario eliminado exitosamente:', user.username);
+    console.log('=== FIN ELIMINACIÓN DE USUARIO ===');
+    
+    res.json({ 
+      message: 'Usuario eliminado exitosamente',
+      details: `El usuario ${user.username} ha sido eliminado del sistema.`
+    });
+
+  } catch (error) {
+    console.error('❌ Error al eliminar usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor al eliminar usuario' });
+  }
+});
+
+/**
+ * Obtener estudiantes con filtro por rol
+ * GET /api/admin/students
+ * @requires Autenticación y rol SuperAdministrativos, superuser, aliado_comercial o institucion_educativa
+ * @returns Lista de estudiantes filtrada por rol
+ */
+router.get('/students', authenticateToken, requireRole(['SuperAdministrativos', 'superuser', 'aliado_comercial', 'institucion_educativa']), filterDataByRole, async (req, res) => {
+  try {
+    let studentsList;
+
+    if (req.dataFilter && (req.dataFilter.allyId || req.dataFilter.universityId)) {
+      // Aplicar filtros según el rol del usuario
+      if (req.dataFilter.allyId) {
+        studentsList = await storage.getAllStudentsWithDocuments(req.dataFilter.allyId);
+      } else if (req.dataFilter.universityId) {
+        studentsList = await storage.getAllStudentsWithDocumentsByUniversity(req.dataFilter.universityId);
+      } else {
+        studentsList = await storage.getAllStudentsWithDocuments();
+      }
+    } else {
+      // Para admin y superuser, obtener todos los estudiantes
+      studentsList = await storage.getAllStudentsWithDocuments();
+    }
+
+    res.json(studentsList);
   } catch (error) {
     console.error('Error al obtener estudiantes:', error);
-    res.status(500).json({ error: 'Error al obtener los estudiantes' });
+    res.status(500).json({ error: 'Error al obtener estudiantes' });
   }
 });
 
-// Obtener empleados (proteger si es necesario)
-router.get('/employees', authenticateToken, requireAdmin, async (req, res) => {
+/**
+ * Obtener documentos con filtro por rol
+ * GET /api/admin/documents
+ * @requires Autenticación y rol SuperAdministrativos, superuser, aliado_comercial o institucion_educativa
+ * @returns Lista de documentos filtrada por rol
+ */
+router.get('/documents', authenticateToken, requireRole(['SuperAdministrativos', 'superuser', 'aliado_comercial', 'institucion_educativa']), filterDataByRole, async (req, res) => {
   try {
-    const employees = await db.query("SELECT * FROM employees");
-    res.json(employees);
-  } catch (error) {
-    console.error('Error al obtener empleados:', error);
-    res.status(500).json({ error: 'Error al obtener empleados' });
-  }
-});
+    let documentsList;
 
-// Obtener documentos pendientes de validación
-router.get('/documents/pending', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const pendingDocuments = await storage.getPendingDocumentsForValidation();
-    res.json(pendingDocuments);
-  } catch (error) {
-    console.error('Error al obtener documentos pendientes:', error);
-    res.status(500).json({ error: 'Error al obtener documentos pendientes' });
-  }
-});
-
-// Obtener historial de validaciones por estudiante
-router.get('/documents/validation-history/:studentId', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const studentId = parseInt(req.params.studentId);
-    const validationHistory = await storage.getDocumentValidationHistory(studentId);
-    res.json(validationHistory);
-  } catch (error) {
-    console.error('Error al obtener historial de validaciones:', error);
-    res.status(500).json({ error: 'Error al obtener historial de validaciones' });
-  }
-});
-
-// Obtener pagos pendientes de validación
-router.get('/payments/pending', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const pendingPayments = await storage.getPendingPaymentsForValidation();
-    res.json(pendingPayments);
-  } catch (error) {
-    console.error('Error al obtener pagos pendientes:', error);
-    res.status(500).json({ error: 'Error al obtener pagos pendientes' });
-  }
-});
-
-// Validar/rechazar pago
-router.put('/payments/:id/validate', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const paymentId = parseInt(req.params.id);
-    const { status, rejectionReason } = req.body;
-    
-    const updatedPayment = await storage.validatePayment(paymentId, status, rejectionReason);
-    res.json(updatedPayment);
-  } catch (error) {
-    console.error('Error al validar pago:', error);
-    res.status(500).json({ error: 'Error al validar pago' });
-  }
-});
-
-// Obtener reportes y estadísticas
-router.get('/reports/overview', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { dateFrom, dateTo, career } = req.query;
-    const reportData = await storage.getReportData({
-      dateFrom: dateFrom as string,
-      dateTo: dateTo as string,
-      career: career as string
-    });
-    res.json(reportData);
-  } catch (error) {
-    console.error('Error al obtener reportes:', error);
-    res.status(500).json({ error: 'Error al obtener reportes' });
-  }
-});
-
-// Crear empleado
-router.post("/employees", async (req, res) => {
-  try {
-    const {
-      name,
-      document_number,
-      birth_date,
-      cell_phone,
-      phone,
-      address,
-      locality,
-      email,
-      blood_type,
-      eps,
-      pension_fund,
-      severance_fund,
-      arl,
-      compensation_fund,
-      position,
-      emergency_contact,
-      emergency_contact_relationship,
-      emergency_contact_phone,
-      children,
-      contract_start_date,
-      contract_end_date,
-      salary,
-      payment_entity,
-      account_number,
-      is_active,
-      arl_affiliation_date,
-      arl_disaffiliation_date,
-      eps_affiliation_date,
-      eps_disaffiliation_date,
-      compensation_fund_affiliation_date,
-      compensation_fund_disaffiliation_date,
-    } = req.body;
-
-    const result = await db.query(
-      `INSERT INTO employees (
-        name, document_number, birth_date, cell_phone, phone, address, locality, email, blood_type, eps, pension_fund, severance_fund, arl, compensation_fund, position, emergency_contact, emergency_contact_relationship, emergency_contact_phone, children, contract_start_date, contract_end_date, salary, payment_entity, account_number, is_active, arl_affiliation_date, arl_disaffiliation_date, eps_affiliation_date, eps_disaffiliation_date, compensation_fund_affiliation_date, compensation_fund_disaffiliation_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32) RETURNING *`,
-      [
-        name,
-        document_number,
-        birth_date,
-        cell_phone,
-        phone,
-        address,
-        locality,
-        email,
-        blood_type,
-        eps,
-        pension_fund,
-        severance_fund,
-        arl,
-        compensation_fund,
-        position,
-        emergency_contact,
-        emergency_contact_relationship,
-        emergency_contact_phone,
-        children,
-        contract_start_date,
-        contract_end_date,
-        salary,
-        payment_entity,
-        account_number,
-        is_active,
-        arl_affiliation_date,
-        arl_disaffiliation_date,
-        eps_affiliation_date,
-        eps_disaffiliation_date,
-        compensation_fund_affiliation_date,
-        compensation_fund_disaffiliation_date,
-      ]
-    );
-    res.status(201).json(result[0]);
-  } catch (error) {
-    res.status(500).json({ error: "Error al crear el empleado" });
-  }
-});
-
-// Editar empleado
-router.put("/employees/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      document_number,
-      birth_date,
-      cell_phone,
-      phone,
-      address,
-      locality,
-      email,
-      blood_type,
-      eps,
-      pension_fund,
-      severance_fund,
-      arl,
-      compensation_fund,
-      position,
-      emergency_contact,
-      emergency_contact_relationship,
-      emergency_contact_phone,
-      children,
-      contract_start_date,
-      contract_end_date,
-      salary,
-      payment_entity,
-      account_number,
-      is_active,
-      arl_affiliation_date,
-      arl_disaffiliation_date,
-      eps_affiliation_date,
-      eps_disaffiliation_date,
-      compensation_fund_affiliation_date,
-      compensation_fund_disaffiliation_date,
-    } = req.body;
-
-    const result = await db.query(
-      `UPDATE employees SET
-        name = $1,
-        document_number = $2,
-        birth_date = $3,
-        cell_phone = $4,
-        phone = $5,
-        address = $6,
-        locality = $7,
-        email = $8,
-        blood_type = $9,
-        eps = $10,
-        pension_fund = $11,
-        severance_fund = $12,
-        arl = $13,
-        compensation_fund = $14,
-        position = $15,
-        emergency_contact = $16,
-        emergency_contact_relationship = $17,
-        emergency_contact_phone = $18,
-        children = $19,
-        contract_start_date = $20,
-        contract_end_date = $21,
-        salary = $22,
-        payment_entity = $23,
-        account_number = $24,
-        is_active = $25,
-        arl_affiliation_date = $26,
-        arl_disaffiliation_date = $27,
-        eps_affiliation_date = $28,
-        eps_disaffiliation_date = $29,
-        compensation_fund_affiliation_date = $30,
-        compensation_fund_disaffiliation_date = $31,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $32 RETURNING *`,
-      [
-        name,
-        document_number,
-        birth_date,
-        cell_phone,
-        phone,
-        address,
-        locality,
-        email,
-        blood_type,
-        eps,
-        pension_fund,
-        severance_fund,
-        arl,
-        compensation_fund,
-        position,
-        emergency_contact,
-        emergency_contact_relationship,
-        emergency_contact_phone,
-        children,
-        contract_start_date,
-        contract_end_date,
-        salary,
-        payment_entity,
-        account_number,
-        is_active,
-        arl_affiliation_date,
-        arl_disaffiliation_date,
-        eps_affiliation_date,
-        eps_disaffiliation_date,
-        compensation_fund_affiliation_date,
-        compensation_fund_disaffiliation_date,
-        id,
-      ]
-    );
-    if (result.length === 0) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
+    if (req.dataFilter && (req.dataFilter.allyId || req.dataFilter.universityId)) {
+      // Aplicar filtros según el rol del usuario
+      if (req.dataFilter.allyId) {
+        documentsList = await storage.getDocumentsWithStudents(req.dataFilter.allyId);
+      } else if (req.dataFilter.universityId) {
+        documentsList = await storage.getDocumentsWithStudentsByUniversity(req.dataFilter.universityId);
+      } else {
+        documentsList = await storage.getDocumentsWithStudents();
+      }
+    } else {
+      // Para admin y superuser, obtener todos los documentos
+      documentsList = await storage.getDocumentsWithStudents();
     }
-    res.json(result[0]);
-  } catch (error) {
-    res.status(500).json({ error: "Error al actualizar el empleado" });
-  }
-});
 
-// Eliminar empleado
-router.delete("/employees/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await db.query("DELETE FROM employees WHERE id = $1 RETURNING *", [id]);
-    if (result.length === 0) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
-    }
-    res.json({ message: "Empleado eliminado correctamente" });
+    res.json(documentsList);
   } catch (error) {
-    res.status(500).json({ error: "Error al eliminar el empleado" });
+    console.error('Error al obtener documentos:', error);
+    res.status(500).json({ error: 'Error al obtener documentos' });
   }
 });
 

@@ -258,7 +258,7 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
           </div>
 
           {/* Observaciones y acciones solo para admin/superuser y si el documento está pendiente */}
-          {(user?.role === 'admin' || user?.role === 'superuser') && document.status === 'pendiente' && (
+          {(user?.role === 'SuperAdministrativos' || user?.role === 'superuser') && document.status === 'pendiente' && (
             <>
               {/* Observaciones */}
               <div>
@@ -308,7 +308,7 @@ export function DocumentViewerModal({ document, isOpen, onClose }: DocumentViewe
           )}
 
           {/* Para estudiantes o documentos no pendientes, solo mostrar botón cancelar y descargar */}
-          {(!(user?.role === 'admin' || user?.role === 'superuser') || document.status !== 'pendiente') && (
+                      {(!(user?.role === 'SuperAdministrativos' || user?.role === 'superuser') || document.status !== 'pendiente') && (
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button variant="outline" onClick={onClose} disabled={isLoading}>
                 Cancelar

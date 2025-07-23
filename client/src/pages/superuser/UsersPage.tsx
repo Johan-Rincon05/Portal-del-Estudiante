@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Search, UserPlus, UserCircle } from 'lucide-react';
+import { Loader2, Search, UserPlus, UserCircle, Key, Mail, Filter, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,12 +36,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { UniversityProgramSelect, universityProgramSchema } from '@/components/UniversityProgramSelect';
 import axios from 'axios';
+import { api } from '@/lib/api';
 
 // Esquema de validación para crear usuario
 const createUserSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  role: z.enum(['estudiante', 'admin', 'superuser'])
+  role: z.enum(['estudiante', 'SuperAdministrativos', 'superuser'])
 });
 
 // Definir los tipos para los formularios
@@ -66,13 +67,26 @@ type EditUserFormValues = {
   programId: number | undefined;
 };
 
+// Tipos para la búsqueda avanzada
+type SearchFilters = {
+  searchTerm: string;
+  roleFilter: string;
+  statusFilter: string;
+};
+
 const UsersPage = () => {
   const { createUserMutation, updateUserRoleMutation, deleteUserMutation } = useAuth();
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
+    searchTerm: '',
+    roleFilter: '',
+    statusFilter: ''
+  });
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [userToResetPassword, setUserToResetPassword] = useState<any>(null);
   const [editUser, setEditUser] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -115,22 +129,46 @@ const UsersPage = () => {
   const { data: users, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/users', { 
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Error al obtener usuarios');
-      }
-      const data = await res.json();
-      console.log('Respuesta de /api/admin/users:', data);
-      return data;
+      // Usar el helper api de axios para que el token se envíe automáticamente
+      const res = await api.get('/api/admin/users');
+      return res.data;
     },
     retry: 1,
     retryDelay: 1000
+  });
+
+  // Mutación para reseteo de contraseña
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al resetear contraseña');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Contraseña reseteada",
+        description: "Se ha enviado un email con la nueva contraseña temporal al usuario.",
+      });
+      setUserToResetPassword(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al resetear contraseña",
+        description: error.message || "Ha ocurrido un error al resetear la contraseña",
+        variant: "destructive"
+      });
+    }
   });
   
   // Actualizar los valores del formulario cuando cambia el usuario a editar
@@ -211,19 +249,31 @@ const UsersPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editUser]);
 
-  // Aplica filtro de búsqueda solo si users es un array
+  // Función de filtrado mejorada
   const filteredUsers = Array.isArray(users) ? users.filter(user => {
     const username = user.username || user.name || '';
     const email = user.email || '';
     const fullName = user.fullName || '';
     const documentNumber = user.documentNumber || '';
-    return (
-      !searchTerm ||
-      username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      documentNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const role = user.role || '';
+    const isActive = user.isActive !== false; // Por defecto true si no está definido
+
+    // Filtro por término de búsqueda
+    const matchesSearch = !searchFilters.searchTerm || 
+      username.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+      email.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+      fullName.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+      documentNumber.toLowerCase().includes(searchFilters.searchTerm.toLowerCase());
+
+    // Filtro por rol
+    const matchesRole = !searchFilters.roleFilter || role === searchFilters.roleFilter;
+
+    // Filtro por estado
+    const matchesStatus = !searchFilters.statusFilter || 
+      (searchFilters.statusFilter === 'activo' && isActive) ||
+      (searchFilters.statusFilter === 'inactivo' && !isActive);
+
+    return matchesSearch && matchesRole && matchesStatus;
   }) : [];
 
   // Paginación
@@ -235,6 +285,27 @@ const UsersPage = () => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  // Función para limpiar filtros
+  const clearFilters = () => {
+    setSearchFilters({
+      searchTerm: '',
+      roleFilter: '',
+      statusFilter: ''
+    });
+    setCurrentPage(1);
+  };
+
+  // Función para manejar reseteo de contraseña
+  const handleResetPassword = (user: any) => {
+    setUserToResetPassword(user);
+  };
+
+  const confirmResetPassword = () => {
+    if (userToResetPassword) {
+      resetPasswordMutation.mutate(userToResetPassword.id.toString());
+    }
   };
   
   const handleCreateUser = async (values: CreateUserFormValues) => {
@@ -311,43 +382,96 @@ const UsersPage = () => {
   // Mutación para actualizar usuario y datos académicos
   const editUserMutation = useMutation({
     mutationFn: async ({ profileData, universityData, id }: any) => {
-      // Actualizar perfil
-      const resProfile = await fetch(`/api/profiles/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileData),
-        credentials: 'include'
-      });
-      if (!resProfile.ok) {
-        const errorData = await resProfile.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Error al actualizar el perfil');
-      }
+      try {
+        // Validar datos antes del envío
+        if (!id) {
+          throw new Error('ID de usuario requerido');
+        }
 
-      // Actualizar datos académicos
-      const resUniversity = await fetch('/api/university-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(universityData),
-        credentials: 'include'
-      });
-      if (!resUniversity.ok) {
-        const errorData = await resUniversity.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Error al actualizar datos académicos');
+        console.log('=== INICIO ACTUALIZACIÓN ===');
+        console.log('ID de usuario:', id);
+        console.log('Datos originales del perfil:', profileData);
+        console.log('Datos originales universitarios:', universityData);
+
+        // Limpiar datos del perfil - eliminar campos vacíos
+        const cleanProfileData = Object.fromEntries(
+          Object.entries(profileData).filter(([_, value]) => 
+            value !== '' && value !== null && value !== undefined
+          )
+        );
+
+        // Limpiar datos universitarios - solo enviar si hay valores válidos
+        const cleanUniversityData = {
+          userId: id,
+          ...(universityData.universityId && { universityId: universityData.universityId }),
+          ...(universityData.programId && { programId: universityData.programId })
+        };
+
+        console.log('Datos de perfil limpios a enviar:', cleanProfileData);
+        console.log('Datos universitarios limpios a enviar:', cleanUniversityData);
+
+        // Verificar si hay datos para enviar
+        if (Object.keys(cleanProfileData).length === 0) {
+          console.log('⚠️ No hay datos de perfil para actualizar');
+        }
+
+        if (Object.keys(cleanUniversityData).length <= 1) {
+          console.log('⚠️ No hay datos universitarios para actualizar');
+        }
+
+        // Actualizar perfil primero
+        console.log(`🔄 Enviando petición PUT a /api/profiles/${id}`);
+        const profileResponse = await api.put(`/api/profiles/${id}`, cleanProfileData);
+        console.log('✅ Respuesta actualización perfil:', profileResponse.data);
+
+        // Actualizar datos académicos solo si hay datos válidos
+        if (Object.keys(cleanUniversityData).length > 1) { // Más de solo userId
+          console.log('🔄 Enviando petición POST a /api/university-data');
+          const universityResponse = await api.post('/api/university-data', cleanUniversityData);
+          console.log('✅ Respuesta actualización datos universitarios:', universityResponse.data);
+        }
+
+        console.log('=== FIN ACTUALIZACIÓN ===');
+        return { profile: profileResponse.data, university: universityData };
+      } catch (error: any) {
+        console.error('❌ Error en mutación de actualización:', error);
+        console.error('Detalles del error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        // Proporcionar mensajes de error más específicos
+        if (error.response?.status === 400) {
+          throw new Error(`Datos inválidos: ${error.response.data.error || 'Verifica los datos ingresados'}`);
+        } else if (error.response?.status === 404) {
+          throw new Error('Usuario no encontrado');
+        } else if (error.response?.status === 403) {
+          throw new Error('No tienes permisos para realizar esta acción');
+        } else if (error.response?.status === 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(error.message || 'Error al actualizar usuario');
+        }
       }
-      return true;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/university-data"] });
+      
       toast({
         title: "Usuario actualizado exitosamente",
         description: "Los datos del usuario han sido actualizados correctamente"
       });
       setIsEditModalOpen(false);
+      setEditUser(null);
     },
     onError: (error: Error) => {
+      console.error('Error en onError de mutación:', error);
       toast({
         title: "Error al actualizar usuario",
-        description: "No se pudo actualizar el usuario",
+        description: error.message || "No se pudo actualizar el usuario",
         variant: "destructive"
       });
     },
@@ -366,31 +490,70 @@ const UsersPage = () => {
       const formData = new FormData(e.target as HTMLFormElement);
       const values = Object.fromEntries(formData.entries());
 
-      // Actualizar datos personales (si tienes endpoint)
-      await updateUserRoleMutation.mutateAsync({
-        userId: editUser.id.toString(),
-        role: editUser.role
-      });
+      console.log('Valores del formulario:', values);
 
-      // Actualizar datos académicos
-      await axios.post('/api/university-data', {
+      // Construir los datos personales con validación
+      const profileData = {
+        fullName: values.fullName?.toString().trim() || '',
+        personalEmail: values.personalEmail?.toString().trim() || '',
+        documentType: values.documentType?.toString().trim() || '',
+        documentNumber: values.documentNumber?.toString().trim() || '',
+        birthDate: values.birthDate?.toString().trim() || '',
+        birthPlace: values.birthPlace?.toString().trim() || '',
+        phone: values.phone?.toString().trim() || '',
+        address: values.address?.toString().trim() || '',
+        city: values.city?.toString().trim() || '',
+        neighborhood: values.neighborhood?.toString().trim() || '',
+        locality: values.locality?.toString().trim() || '',
+        socialStratum: values.socialStratum?.toString().trim() || '',
+        bloodType: values.bloodType?.toString().trim() || '',
+        conflictVictim: values.conflictVictim?.toString().trim() || ''
+      };
+
+      // Construir los datos académicos con validación
+      const universityId = values.universityId ? Number(values.universityId) : undefined;
+      const programId = values.programId ? Number(values.programId) : undefined;
+
+      const universityData = {
         userId: editUser.id,
-        universityId: values.universityId ? Number(values.universityId) : undefined,
-        programId: values.programId ? Number(values.programId) : undefined
+        universityId: universityId && !isNaN(universityId) ? universityId : undefined,
+        programId: programId && !isNaN(programId) ? programId : undefined
+      };
+
+      console.log('Datos de perfil procesados:', profileData);
+      console.log('Datos universitarios procesados:', universityData);
+
+      // Validar que al menos hay datos para actualizar
+      const hasProfileData = Object.values(profileData).some(value => value !== '');
+      const hasUniversityData = universityData.universityId || universityData.programId;
+
+      if (!hasProfileData && !hasUniversityData) {
+        toast({
+          title: "Sin datos para actualizar",
+          description: "No hay datos válidos para actualizar",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Usar la mutación mejorada
+      await editUserMutation.mutateAsync({ 
+        profileData: hasProfileData ? profileData : {}, 
+        universityData, 
+        id: editUser.id 
       });
 
-      setIsEditModalOpen(false);
-      toast({
-        title: "Usuario actualizado exitosamente",
-        description: "Los datos del usuario han sido actualizados correctamente"
-      });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al actualizar usuario:', error);
-      toast({
-        title: "Error al actualizar usuario",
-        description: "No se pudo actualizar el usuario",
-        variant: "destructive"
-      });
+      
+      // El error ya se maneja en la mutación, solo mostrar si es un error local
+      if (!error.response) {
+        toast({
+          title: "Error al actualizar usuario",
+          description: error.message || "No se pudo actualizar el usuario",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -528,17 +691,101 @@ const UsersPage = () => {
           <CardTitle className="text-lg">Lista de usuarios</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative w-64 mb-4">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-muted-foreground" />
+          {/* Barra de búsqueda mejorada */}
+          <div className="mb-6 space-y-4">
+            {/* Búsqueda básica */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre, correo, documento o rol..."
+                  className="pl-10 pr-3 py-2"
+                  value={searchFilters.searchTerm}
+                  onChange={(e) => setSearchFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+              </Button>
+              {(searchFilters.roleFilter || searchFilters.statusFilter) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
             </div>
-            <Input
-              type="text"
-              placeholder="Buscar usuarios..."
-              className="pl-10 pr-3 py-2 border border-gray-300"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+
+            {/* Filtros avanzados */}
+            {showAdvancedSearch && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Filtrar por rol</label>
+                  <Select
+                    value={searchFilters.roleFilter}
+                    onValueChange={(value) => setSearchFilters(prev => ({ ...prev, roleFilter: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos los roles</SelectItem>
+                      <SelectItem value="estudiante">Estudiante</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="superuser">Superusuario</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Filtrar por estado</label>
+                  <Select
+                    value={searchFilters.statusFilter}
+                    onValueChange={(value) => setSearchFilters(prev => ({ ...prev, statusFilter: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los estados" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos los estados</SelectItem>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="inactivo">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    className="w-full"
+                  >
+                    Limpiar filtros
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Estadísticas de búsqueda */}
+          <div className="mb-4 text-sm text-muted-foreground">
+            {filteredUsers.length} de {Array.isArray(users) ? users.length : 0} usuarios encontrados
+            {(searchFilters.searchTerm || searchFilters.roleFilter || searchFilters.statusFilter) && (
+              <span className="ml-2">
+                (filtros aplicados)
+              </span>
+            )}
           </div>
 
           {isLoading && (
@@ -566,7 +813,20 @@ const UsersPage = () => {
             </div>
           )}
 
-          {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
+          {!isLoading && !isError && Array.isArray(users) && filteredUsers.length === 0 && (searchFilters.searchTerm || searchFilters.roleFilter || searchFilters.statusFilter) && (
+            <div className="text-center text-gray-500 mt-8">
+              No se encontraron usuarios con los filtros aplicados.
+              <Button
+                variant="link"
+                onClick={clearFilters}
+                className="ml-2"
+              >
+                Limpiar filtros
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !isError && Array.isArray(users) && filteredUsers.length > 0 && (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-border">
                 <thead className="bg-muted/50">
@@ -575,8 +835,8 @@ const UsersPage = () => {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nombre completo</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Rol</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Creado</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actualizado</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tipo Doc.</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">N° Documento</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
@@ -587,7 +847,7 @@ const UsersPage = () => {
                     <tr key={user.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className={`h-10 w-10 rounded-full ${user.role === 'admin' || user.role === 'superuser' ? 'bg-accent-500 text-white' : 'bg-primary-100 text-primary-600'} flex items-center justify-center`}>
+                          <div className={`h-10 w-10 rounded-full ${user.role === 'SuperAdministrativos' || user.role === 'superuser' ? 'bg-accent-500 text-white' : 'bg-primary-100 text-primary-600'} flex items-center justify-center`}>
                             <UserCircle className="h-5 w-5" />
                           </div>
                           <div className="ml-4">
@@ -602,23 +862,64 @@ const UsersPage = () => {
                           {user.role || 'N/A'}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={user.isActive !== false ? 'default' : 'destructive'}>
+                          {user.isActive !== false ? 'Activo' : 'Inactivo'}
+                        </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">{user.documentType || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{user.documentNumber || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-primary-600 hover:text-primary-900 mr-3" 
-                          onClick={() => handleOpenEditModal(user)}
-                        >
-                          Editar
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-primary-600 hover:text-primary-900" 
+                            onClick={() => handleOpenEditModal(user)}
+                          >
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-orange-600 hover:text-orange-900" 
+                            onClick={() => handleResetPassword(user)}
+                            disabled={resetPasswordMutation.isPending}
+                          >
+                            <Key className="h-4 w-4 mr-1" />
+                            Reset
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-900"
+                                onClick={() => setUserToDelete(user.id.toString())}
+                              >
+                                Eliminar
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción no se puede deshacer. Se eliminará permanentemente el usuario
+                                  <strong> {user.username || user.email}</strong> y todos sus datos asociados.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -627,7 +928,7 @@ const UsersPage = () => {
             </div>
           )}
 
-          {!isLoading && !isError && Array.isArray(users) && users.length > 0 && (
+          {!isLoading && !isError && Array.isArray(users) && filteredUsers.length > 0 && (
             <div className="mt-4 flex justify-between items-center">
               <div>
                 <p className="text-sm text-muted-foreground">
@@ -656,6 +957,41 @@ const UsersPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de confirmación para reseteo de contraseña */}
+      <AlertDialog open={!!userToResetPassword} onOpenChange={() => setUserToResetPassword(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resetear Contraseña</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que quieres resetear la contraseña de{' '}
+              <strong>{userToResetPassword?.username || userToResetPassword?.email}</strong>?
+              <br /><br />
+              Se generará una nueva contraseña temporal y se enviará por email al usuario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmResetPassword}
+              disabled={resetPasswordMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {resetPasswordMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Reseteando...
+                </>
+              ) : (
+                <>
+                  <Key className="mr-2 h-4 w-4" />
+                  Resetear Contraseña
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal de edición de usuario */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

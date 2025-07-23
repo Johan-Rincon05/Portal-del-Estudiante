@@ -39,7 +39,7 @@ const upload = multer({ storage: storageMulter });
  * Middleware para validar que el usuario tenga rol admin o superadmin
  */
 function requireAdminRole(req: any, res: any, next: any) {
-  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+  if (req.user && (req.user.role === 'SuperAdministrativos' || req.user.role === 'superuser')) {
     return next();
   }
   return res.status(403).json({ error: 'Acceso denegado: solo administradores' });
@@ -321,7 +321,7 @@ router.get('/support/:filename', async (req, res) => {
     }
 
     // Para admin/superadmin, permitir acceso a cualquier archivo
-    if (userRole === 'admin' || userRole === 'superadmin') {
+    if (userRole === 'SuperAdministrativos' || userRole === 'superuser') {
       // Continuar sin validación adicional
     } else {
       // Para estudiantes, buscar la cuota asociada al archivo para validar permisos
