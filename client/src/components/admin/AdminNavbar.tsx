@@ -55,6 +55,12 @@ export function AdminNavbar() {
       active: location === "/admin/payments/validation",
     },
     {
+      name: "Gestión Estudiantes",
+      href: "/admin/students/management",
+      icon: Users,
+      active: location === "/admin/students/management",
+    },
+    {
       name: "Estudiantes",
       href: "/admin/students",
       icon: Users,

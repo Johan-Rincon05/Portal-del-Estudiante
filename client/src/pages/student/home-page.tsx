@@ -9,6 +9,8 @@ import { FileText, MessageSquare, AlertCircle, CheckCircle, User, ArrowRight, Ed
 import { useLocation } from "wouter";
 import { StudentLayout } from "@/components/layouts/StudentLayout";
 import { Tooltip } from "@/components/ui/tooltip";
+import { DashboardProgressChart } from "@/components/DashboardProgressChart";
+import { DashboardAlerts } from "@/components/DashboardAlerts";
 
 // Definición de las etapas del proceso de matrícula con fechas estimadas
 const ENROLLMENT_STAGES = [
@@ -39,12 +41,16 @@ export default function HomePage() {
     const completedRequests = requests?.filter(r => r.status === "completada").length || 0;
     const uploadedDocuments = documents?.length || 0;
     const pendingDocuments = 5 - uploadedDocuments;
+    const approvedDocuments = documents?.filter(d => d.status === 'aprobado').length || 0;
+    const rejectedDocuments = documents?.filter(d => d.status === 'rechazado').length || 0;
 
     return {
       pendingRequests,
       completedRequests,
       uploadedDocuments,
-      pendingDocuments
+      pendingDocuments,
+      approvedDocuments,
+      rejectedDocuments
     };
   }, [requests, documents]);
 
@@ -323,7 +329,7 @@ export default function HomePage() {
 
   return (
     <StudentLayout>
-      <div className="container w-full max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <div className="container w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col gap-6">
           {/* Bienvenida con estilo de marca */}
           <div className="flex flex-col gap-2">
@@ -345,13 +351,10 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Alertas */}
-          {stats.pendingDocuments > 0 && (
-            <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-4 flex items-center gap-3 text-secondary">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p>Tienes {stats.pendingDocuments} documento(s) pendiente(s) por subir.</p>
-            </div>
-          )}
+          {/* Layout de dos columnas para dashboard mejorado */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Columna principal - Timeline y estadísticas */}
+            <div className="lg:col-span-2 space-y-6">
 
           {/* Selector de Vista de Timeline */}
           <div className="flex justify-between items-center">
@@ -509,6 +512,32 @@ export default function HomePage() {
               </div>
             </CardContent>
           </Card>
+            </div>
+
+            {/* Columna lateral - Alertas y progreso */}
+            <div className="space-y-6">
+              {/* Gráficos de progreso */}
+              <DashboardProgressChart
+                currentStage={currentStage}
+                documentsCount={stats.uploadedDocuments}
+                totalDocuments={5}
+                approvedDocuments={stats.approvedDocuments}
+                pendingDocuments={stats.pendingDocuments}
+                rejectedDocuments={stats.rejectedDocuments}
+                pendingRequests={stats.pendingRequests}
+                completedRequests={stats.completedRequests}
+              />
+
+              {/* Alertas del dashboard */}
+              <DashboardAlerts
+                alerts={[]} // TODO: Implementar sistema de alertas
+                pendingDocuments={stats.pendingDocuments}
+                rejectedDocuments={stats.rejectedDocuments}
+                pendingRequests={stats.pendingRequests}
+                upcomingDeadlines={[]} // TODO: Implementar sistema de vencimientos
+              />
+            </div>
+          </div>
         </div>
       </div>
     </StudentLayout>

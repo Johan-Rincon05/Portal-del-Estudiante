@@ -3,11 +3,13 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
+import EmailVerificationPage from "@/pages/auth/EmailVerificationPage";
 import HomePage from "@/pages/student/home-page";
 import AdminPage from "@/pages/admin/admin-page";
 import AdminRequestsPage from "@/pages/admin/RequestsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
 import StudentDetailPage from "@/pages/admin/StudentDetailPage";
+import StudentManagementPage from "@/pages/admin/StudentManagementPage";
 import DocumentValidationPage from "@/pages/admin/DocumentValidationPage";
 import PaymentValidationPage from "@/pages/admin/PaymentValidationPage";
 import ReportsPage from "@/pages/admin/ReportsPage";
@@ -57,6 +59,10 @@ function App() {
         <Switch>
           <Route path="/auth">
             <AuthPage />
+          </Route>
+
+          <Route path="/verify-email">
+            <EmailVerificationPage />
           </Route>
           
           <Route path="/">
@@ -122,6 +128,13 @@ function App() {
           <Route path="/admin/students/:id">
             <RoleBasedRoute 
               component={StudentDetailPage} 
+              allowedRoles={['SuperAdministrativos']} 
+            />
+          </Route>
+
+          <Route path="/admin/students/management">
+            <RoleBasedRoute 
+              component={StudentManagementPage} 
               allowedRoles={['SuperAdministrativos']} 
             />
           </Route>

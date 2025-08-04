@@ -1214,5 +1214,1084 @@ export const storage = {
    */
   async deleteAlly(id: number): Promise<void> {
     await db.delete(allies).where(eq(allies.id, id));
+  },
+
+  // Funciones de verificación de email
+  saveVerificationCode,
+  verifyEmailCode,
+  deleteVerificationCode,
+
+  // Funciones de historial de cambios de etapa
+  async getEnrollmentStageHistory(userId: number): Promise<any[]> {
+    try {
+      const history = await db.select()
+        .from(enrollmentStageHistory)
+        .where(eq(enrollmentStageHistory.userId, userId))
+        .orderBy(desc(enrollmentStageHistory.createdAt));
+
+      return history;
+    } catch (error) {
+      console.error('Error al obtener historial de cambios de etapa:', error);
+      return [];
+    }
+  },
+
+  async getEnrollmentStageHistoryWithFilters(filters: {
+    userId?: number;
+    stage?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit: number;
+    offset: number;
+  }): Promise<any[]> {
+    try {
+      let query = db.select().from(enrollmentStageHistory);
+
+      // Aplicar filtros
+      if (filters.userId) {
+        query = query.where(eq(enrollmentStageHistory.userId, filters.userId));
+      }
+      if (filters.stage) {
+        query = query.where(eq(enrollmentStageHistory.toStage, filters.stage));
+      }
+      if (filters.status) {
+        query = query.where(eq(enrollmentStageHistory.status, filters.status));
+      }
+      if (filters.dateFrom) {
+        query = query.where(gte(enrollmentStageHistory.createdAt, new Date(filters.dateFrom)));
+      }
+      if (filters.dateTo) {
+        query = query.where(lte(enrollmentStageHistory.createdAt, new Date(filters.dateTo)));
+      }
+
+      // Aplicar paginación
+      query = query.limit(filters.limit).offset(filters.offset);
+      query = query.orderBy(desc(enrollmentStageHistory.createdAt));
+
+      const history = await query;
+      return history;
+    } catch (error) {
+      console.error('Error al obtener historial de cambios de etapa con filtros:', error);
+      return [];
+    }
+  },
+
+  async createEnrollmentStageChange(data: any): Promise<any> {
+    try {
+      const [stageChange] = await db.insert(enrollmentStageHistory)
+        .values({
+          userId: data.userId,
+          fromStage: data.fromStage,
+          toStage: data.toStage,
+          reason: data.reason || null,
+          comments: data.comments || null,
+          validatedBy: data.validatedBy || null,
+          validationDate: data.validationDate ? new Date(data.validationDate) : null,
+          status: data.status || 'pending',
+          createdBy: data.createdBy,
+          createdAt: data.createdAt,
+          documents: data.documents || [],
+          requirements: data.requirements || []
+        })
+        .returning();
+
+      return stageChange;
+    } catch (error) {
+      console.error('Error al crear cambio de etapa:', error);
+      throw error;
+    }
+  },
+
+  async updateEnrollmentStageChange(id: number, updates: any): Promise<any> {
+    try {
+      const [stageChange] = await db.update(enrollmentStageHistory)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(enrollmentStageHistory.id, id))
+        .returning();
+
+      return stageChange;
+    } catch (error) {
+      console.error('Error al actualizar cambio de etapa:', error);
+      throw error;
+    }
+  },
+
+  async getEnrollmentStageChange(id: number): Promise<any | null> {
+    try {
+      const [stageChange] = await db.select()
+        .from(enrollmentStageHistory)
+        .where(eq(enrollmentStageHistory.id, id));
+
+      return stageChange || null;
+    } catch (error) {
+      console.error('Error al obtener cambio de etapa:', error);
+      return null;
+    }
+  },
+
+  async deleteEnrollmentStageChange(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(enrollmentStageHistory)
+        .where(eq(enrollmentStageHistory.id, id))
+        .returning();
+
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error al eliminar cambio de etapa:', error);
+      return false;
+    }
+  },
+
+  async getEnrollmentStageChangeStats(filters: {
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<any> {
+    try {
+      let query = db.select({
+        total: sql`count(*)`,
+        pending: sql`count(*) filter (where status = 'pending')`,
+        approved: sql`count(*) filter (where status = 'approved')`,
+        rejected: sql`count(*) filter (where status = 'rejected')`
+      }).from(enrollmentStageHistory);
+
+      if (filters.dateFrom) {
+        query = query.where(gte(enrollmentStageHistory.createdAt, new Date(filters.dateFrom)));
+      }
+      if (filters.dateTo) {
+        query = query.where(lte(enrollmentStageHistory.createdAt, new Date(filters.dateTo)));
+      }
+
+      const [stats] = await query;
+      return stats;
+    } catch (error) {
+      console.error('Error al obtener estadísticas de cambios de etapa:', error);
+      return {
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0
+      };
+    }
+  },
+
+  // Funciones para validación de documentos
+  async getDocumentsForValidation(filters: {
+    status?: string;
+    type?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    page: number;
+    limit: number;
+  }): Promise<any> {
+    const conditions = [];
+    const offset = (filters.page - 1) * filters.limit;
+
+    if (filters.status && filters.status !== 'todos') {
+      conditions.push(eq(documents.status, filters.status));
+    }
+
+    if (filters.type && filters.type !== 'todos') {
+      conditions.push(eq(documents.type, filters.type));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(documents.uploadedAt, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(documents.uploadedAt, filters.dateTo));
+    }
+
+    if (filters.search) {
+      conditions.push(
+        or(
+          sql`${users.username} ILIKE ${`%${filters.search}%`}`,
+          sql`${users.email} ILIKE ${`%${filters.search}%`}`,
+          sql`${documents.fileName} ILIKE ${`%${filters.search}%`}`
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const results = await db
+      .select({
+        id: documents.id,
+        userId: documents.userId,
+        userName: users.username,
+        userEmail: users.email,
+        type: documents.type,
+        fileName: documents.fileName,
+        fileUrl: documents.fileUrl,
+        status: documents.status,
+        uploadedAt: documents.uploadedAt,
+        reviewedAt: documents.reviewedAt,
+        reviewedBy: documents.reviewedBy,
+        rejectionReason: documents.rejectionReason,
+        observations: documents.observations
+      })
+      .from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(documents.uploadedAt))
+      .limit(filters.limit)
+      .offset(offset);
+
+    const [totalCount] = await db
+      .select({ count: count() })
+      .from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .where(whereClause);
+
+    return {
+      documents: results,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total: totalCount.count,
+        totalPages: Math.ceil(totalCount.count / filters.limit)
+      }
+    };
+  },
+
+  async getDocumentValidationStats(): Promise<any> {
+    const [totalDocs] = await db
+      .select({ count: count() })
+      .from(documents);
+
+    const statusDistribution = await db
+      .select({
+        status: documents.status,
+        count: count()
+      })
+      .from(documents)
+      .groupBy(documents.status);
+
+    const typeDistribution = await db
+      .select({
+        type: documents.type,
+        count: count()
+      })
+      .from(documents)
+      .groupBy(documents.type);
+
+    const recentValidations = await db
+      .select({
+        id: documents.id,
+        fileName: documents.fileName,
+        status: documents.status,
+        reviewedAt: documents.reviewedAt,
+        reviewedBy: documents.reviewedBy
+      })
+      .from(documents)
+      .where(sql`${documents.reviewedAt} IS NOT NULL`)
+      .orderBy(desc(documents.reviewedAt))
+      .limit(10);
+
+    return {
+      total: totalDocs.count,
+      statusDistribution,
+      typeDistribution,
+      recentValidations
+    };
+  },
+
+  async getDocumentById(id: number): Promise<any | null> {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, id));
+    
+    return document || null;
+  },
+
+  async getDocumentWithDetails(id: number): Promise<any | null> {
+    const [document] = await db
+      .select({
+        id: documents.id,
+        userId: documents.userId,
+        userName: users.username,
+        userEmail: users.email,
+        type: documents.type,
+        fileName: documents.fileName,
+        fileUrl: documents.fileUrl,
+        status: documents.status,
+        uploadedAt: documents.uploadedAt,
+        reviewedAt: documents.reviewedAt,
+        reviewedBy: documents.reviewedBy,
+        rejectionReason: documents.rejectionReason,
+        observations: documents.observations
+      })
+      .from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .where(eq(documents.id, id));
+    
+    return document || null;
+  },
+
+  async createDocumentValidationHistory(data: {
+    documentId: number;
+    status: string;
+    rejectionReason?: string;
+    observations?: string;
+    adminComments?: string;
+    validatedBy: number;
+    validatedAt: string;
+    isRevalidation?: boolean;
+  }): Promise<any> {
+    // Esta función simula la creación de historial de validación
+    console.log('Document validation history created:', data);
+    return data;
+  },
+
+  // Funciones para validación de pagos
+  async getPaymentsForValidation(filters: {
+    status?: string;
+    paymentMethod?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    amountMin?: number;
+    amountMax?: number;
+    search?: string;
+    page: number;
+    limit: number;
+  }): Promise<any> {
+    const conditions = [];
+    const offset = (filters.page - 1) * filters.limit;
+
+    if (filters.status && filters.status !== 'todos') {
+      conditions.push(eq(payments.status, filters.status));
+    }
+
+    if (filters.paymentMethod && filters.paymentMethod !== 'todos') {
+      conditions.push(eq(payments.paymentMethod, filters.paymentMethod));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(payments.paymentDate, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(payments.paymentDate, filters.dateTo));
+    }
+
+    if (filters.amountMin) {
+      conditions.push(gte(payments.amount, filters.amountMin));
+    }
+
+    if (filters.amountMax) {
+      conditions.push(lte(payments.amount, filters.amountMax));
+    }
+
+    if (filters.search) {
+      conditions.push(
+        or(
+          sql`${users.username} ILIKE ${`%${filters.search}%`}`,
+          sql`${users.email} ILIKE ${`%${filters.search}%`}`,
+          sql`${payments.reference} ILIKE ${`%${filters.search}%`}`
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const results = await db
+      .select({
+        id: payments.id,
+        userId: payments.userId,
+        userName: users.username,
+        userEmail: users.email,
+        amount: payments.amount,
+        currency: payments.currency,
+        paymentMethod: payments.paymentMethod,
+        reference: payments.reference,
+        status: payments.status,
+        paymentDate: payments.paymentDate,
+        validatedAt: payments.validatedAt,
+        validatedBy: payments.validatedBy,
+        rejectionReason: payments.rejectionReason,
+        observations: payments.observations
+      })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(payments.paymentDate))
+      .limit(filters.limit)
+      .offset(offset);
+
+    const [totalCount] = await db
+      .select({ count: count() })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(whereClause);
+
+    return {
+      payments: results,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total: totalCount.count,
+        totalPages: Math.ceil(totalCount.count / filters.limit)
+      }
+    };
+  },
+
+  async getPaymentValidationStats(): Promise<any> {
+    const [totalPayments] = await db
+      .select({ count: count() })
+      .from(payments);
+
+    const statusDistribution = await db
+      .select({
+        status: payments.status,
+        count: count()
+      })
+      .from(payments)
+      .groupBy(payments.status);
+
+    const methodDistribution = await db
+      .select({
+        paymentMethod: payments.paymentMethod,
+        count: count(),
+        totalAmount: sql`SUM(${payments.amount})`
+      })
+      .from(payments)
+      .groupBy(payments.paymentMethod);
+
+    const recentValidations = await db
+      .select({
+        id: payments.id,
+        reference: payments.reference,
+        status: payments.status,
+        validatedAt: payments.validatedAt,
+        validatedBy: payments.validatedBy
+      })
+      .from(payments)
+      .where(sql`${payments.validatedAt} IS NOT NULL`)
+      .orderBy(desc(payments.validatedAt))
+      .limit(10);
+
+    return {
+      total: totalPayments.count,
+      statusDistribution,
+      methodDistribution,
+      recentValidations
+    };
+  },
+
+  async getPaymentById(id: number): Promise<any | null> {
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.id, id));
+    
+    return payment || null;
+  },
+
+  async getPaymentWithDetails(id: number): Promise<any | null> {
+    const [payment] = await db
+      .select({
+        id: payments.id,
+        userId: payments.userId,
+        userName: users.username,
+        userEmail: users.email,
+        amount: payments.amount,
+        currency: payments.currency,
+        paymentMethod: payments.paymentMethod,
+        reference: payments.reference,
+        status: payments.status,
+        paymentDate: payments.paymentDate,
+        validatedAt: payments.validatedAt,
+        validatedBy: payments.validatedBy,
+        rejectionReason: payments.rejectionReason,
+        observations: payments.observations
+      })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(eq(payments.id, id));
+    
+    return payment || null;
+  },
+
+  async createPaymentValidationHistory(data: {
+    paymentId: number;
+    status: string;
+    rejectionReason?: string;
+    observations?: string;
+    adminComments?: string;
+    validatedBy: number;
+    validatedAt: string;
+    isRevalidation?: boolean;
+  }): Promise<any> {
+    // Esta función simula la creación de historial de validación
+    console.log('Payment validation history created:', data);
+    return data;
+  },
+
+  async getQuotasForManagement(filters: {
+    userId?: number;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<any[]> {
+    const conditions = [];
+
+    if (filters.userId) {
+      conditions.push(eq(installments.userId, filters.userId));
+    }
+
+    if (filters.status && filters.status !== 'todos') {
+      conditions.push(eq(installments.status, filters.status));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(installments.dueDate, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(installments.dueDate, filters.dateTo));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return await db
+      .select({
+        id: installments.id,
+        userId: installments.userId,
+        userName: users.username,
+        quotaNumber: installments.quotaNumber,
+        totalQuotas: installments.totalQuotas,
+        amount: installments.amount,
+        dueDate: installments.dueDate,
+        status: installments.status,
+        paymentId: installments.paymentId
+      })
+      .from(installments)
+      .leftJoin(users, eq(installments.userId, users.id))
+      .where(whereClause)
+      .orderBy(installments.dueDate);
+  },
+
+  async getQuotaById(id: number): Promise<any | null> {
+    const [quota] = await db
+      .select()
+      .from(installments)
+      .where(eq(installments.id, id));
+    
+    return quota || null;
+  },
+
+  async updateQuota(id: number, updates: any): Promise<any | null> {
+    const [quota] = await db
+      .update(installments)
+      .set(updates)
+      .where(eq(installments.id, id))
+      .returning();
+    
+    return quota || null;
+  },
+
+  async getUserQuotas(userId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(installments)
+      .where(eq(installments.userId, userId))
+      .orderBy(installments.quotaNumber);
+  },
+
+  async createPaymentSupportFile(data: {
+    paymentId: number;
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedBy: number;
+    uploadedAt: string;
+  }): Promise<any> {
+    // Esta función simula la creación de archivos de soporte
+    console.log('Payment support file created:', data);
+    return data;
+  },
+
+  async getPaymentSupportFiles(paymentId: number): Promise<any[]> {
+    // Esta función simula la obtención de archivos de soporte
+    return [];
+  },
+
+  // Funciones para reportes avanzados
+  async getAdvancedReportData(filters: {
+    reportType: string;
+    dateFrom?: string;
+    dateTo?: string;
+    status?: string;
+    type?: string;
+    filters?: Record<string, any>;
+  }): Promise<any> {
+    switch (filters.reportType) {
+      case 'students':
+        return await this.getStudentsReportData(filters);
+      case 'documents':
+        return await this.getDocumentsReportData(filters);
+      case 'payments':
+        return await this.getPaymentsReportData(filters);
+      case 'requests':
+        return await this.getRequestsReportData(filters);
+      case 'comprehensive':
+        return await this.getComprehensiveReportData(filters);
+      default:
+        return [];
+    }
+  },
+
+  async getStudentsReportData(filters: any): Promise<any[]> {
+    const conditions = [];
+
+    if (filters.dateFrom) {
+      conditions.push(gte(users.createdAt, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(users.createdAt, filters.dateTo));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(users.isActive, filters.status === 'activo'));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return await db
+      .select({
+        id: users.id,
+        firstName: users.username,
+        lastName: users.username,
+        email: users.email,
+        currentStage: users.currentStage,
+        isActive: users.isActive,
+        createdAt: users.createdAt
+      })
+      .from(users)
+      .where(and(eq(users.role, 'estudiante'), whereClause))
+      .orderBy(desc(users.createdAt));
+  },
+
+  async getDocumentsReportData(filters: any): Promise<any[]> {
+    const conditions = [];
+
+    if (filters.dateFrom) {
+      conditions.push(gte(documents.uploadedAt, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(documents.uploadedAt, filters.dateTo));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(documents.status, filters.status));
+    }
+
+    if (filters.type) {
+      conditions.push(eq(documents.type, filters.type));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return await db
+      .select({
+        id: documents.id,
+        userName: users.username,
+        type: documents.type,
+        status: documents.status,
+        uploadedAt: documents.uploadedAt,
+        reviewedBy: documents.reviewedBy
+      })
+      .from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(documents.uploadedAt));
+  },
+
+  async getPaymentsReportData(filters: any): Promise<any[]> {
+    const conditions = [];
+
+    if (filters.dateFrom) {
+      conditions.push(gte(payments.paymentDate, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(payments.paymentDate, filters.dateTo));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(payments.status, filters.status));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return await db
+      .select({
+        id: payments.id,
+        userName: users.username,
+        amount: payments.amount,
+        currency: payments.currency,
+        paymentMethod: payments.paymentMethod,
+        status: payments.status,
+        paymentDate: payments.paymentDate
+      })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(payments.paymentDate));
+  },
+
+  async getRequestsReportData(filters: any): Promise<any[]> {
+    const conditions = [];
+
+    if (filters.dateFrom) {
+      conditions.push(gte(requests.createdAt, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(requests.createdAt, filters.dateTo));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(requests.status, filters.status));
+    }
+
+    if (filters.type) {
+      conditions.push(eq(requests.type, filters.type));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return await db
+      .select({
+        id: requests.id,
+        userName: users.username,
+        type: requests.type,
+        status: requests.status,
+        createdAt: requests.createdAt,
+        completedBy: requests.completedBy
+      })
+      .from(requests)
+      .leftJoin(users, eq(requests.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(requests.createdAt));
+  },
+
+  async getComprehensiveReportData(filters: any): Promise<any> {
+    const studentsData = await this.getStudentsReportData(filters);
+    const documentsData = await this.getDocumentsReportData(filters);
+    const paymentsData = await this.getPaymentsReportData(filters);
+    const requestsData = await this.getRequestsReportData(filters);
+
+    return {
+      summary: {
+        totalStudents: studentsData.length,
+        totalDocuments: documentsData.length,
+        totalPayments: paymentsData.length,
+        totalRequests: requestsData.length
+      },
+      charts: {
+        studentsByStage: this.groupBy(studentsData, 'currentStage'),
+        documentsByStatus: this.groupBy(documentsData, 'status'),
+        paymentsByMethod: this.groupBy(paymentsData, 'paymentMethod'),
+        requestsByType: this.groupBy(requestsData, 'type')
+      },
+      data: {
+        students: studentsData,
+        documents: documentsData,
+        payments: paymentsData,
+        requests: requestsData
+      }
+    };
+  },
+
+  async getDashboardStats(): Promise<any> {
+    const [totalStudents] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.role, 'estudiante'));
+
+    const [totalDocuments] = await db
+      .select({ count: count() })
+      .from(documents);
+
+    const [totalPayments] = await db
+      .select({ count: count() })
+      .from(payments);
+
+    const [totalRequests] = await db
+      .select({ count: count() })
+      .from(requests);
+
+    return {
+      students: totalStudents.count,
+      documents: totalDocuments.count,
+      payments: totalPayments.count,
+      requests: totalRequests.count
+    };
+  },
+
+  async getAvailableFilters(reportType: string): Promise<any> {
+    // Esta función retorna filtros disponibles según el tipo de reporte
+    const filters: Record<string, any> = {
+      students: {
+        status: ['activo', 'inactivo'],
+        stage: ['Inscripción', 'Documentación', 'Pago', 'Matriculado', 'En Curso', 'Graduado', 'Retirado']
+      },
+      documents: {
+        status: ['pendiente', 'aprobado', 'rechazado'],
+        type: ['dni', 'certificado_estudios', 'comprobante_pago', 'foto_carnet', 'certificado_medico']
+      },
+      payments: {
+        status: ['pendiente', 'aprobado', 'rechazado'],
+        paymentMethod: ['Transferencia Bancaria', 'Tarjeta de Crédito', 'PayPal']
+      },
+      requests: {
+        status: ['pendiente', 'completado'],
+        type: ['Cambio de Carrera', 'Beca', 'Certificado']
+      }
+    };
+
+    return filters[reportType] || {};
+  },
+
+  // Funciones para gestión de etapas de matrícula
+  async getStudentsWithStages(filters: {
+    studentId?: number;
+    stage?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page: number;
+    limit: number;
+  }): Promise<any> {
+    const conditions = [eq(users.role, 'estudiante')];
+    const offset = (filters.page - 1) * filters.limit;
+
+    if (filters.studentId) {
+      conditions.push(eq(users.id, filters.studentId));
+    }
+
+    if (filters.stage) {
+      conditions.push(eq(users.currentStage, filters.stage));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(users.isActive, filters.status === 'activo'));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(users.createdAt, filters.dateFrom));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(users.createdAt, filters.dateTo));
+    }
+
+    const whereClause = and(...conditions);
+
+    const results = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        firstName: users.username,
+        lastName: users.username,
+        currentStage: users.currentStage,
+        isActive: users.isActive,
+        isVerified: users.isVerified,
+        createdAt: users.createdAt,
+        lastLogin: users.lastLogin
+      })
+      .from(users)
+      .where(whereClause)
+      .orderBy(desc(users.createdAt))
+      .limit(filters.limit)
+      .offset(offset);
+
+    const [totalCount] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(whereClause);
+
+    return {
+      students: results,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total: totalCount.count,
+        totalPages: Math.ceil(totalCount.count / filters.limit)
+      }
+    };
+  },
+
+  async getEnrollmentStageStats(): Promise<any> {
+    const stageDistribution = await db
+      .select({
+        stage: users.currentStage,
+        count: count()
+      })
+      .from(users)
+      .where(eq(users.role, 'estudiante'))
+      .groupBy(users.currentStage);
+
+    const [totalStudents] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.role, 'estudiante'));
+
+    const [activeStudents] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(and(eq(users.role, 'estudiante'), eq(users.isActive, true)));
+
+    return {
+      total: totalStudents.count,
+      active: activeStudents.count,
+      stageDistribution
+    };
+  },
+
+  async getStudentCompleteInfo(studentId: number): Promise<any | null> {
+    const [student] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        firstName: users.username,
+        lastName: users.username,
+        currentStage: users.currentStage,
+        isActive: users.isActive,
+        isVerified: users.isVerified,
+        createdAt: users.createdAt,
+        lastLogin: users.lastLogin
+      })
+      .from(users)
+      .where(eq(users.id, studentId));
+
+    if (!student) return null;
+
+    // Obtener documentos del estudiante
+    const documents = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.userId, studentId));
+
+    // Obtener pagos del estudiante
+    const payments = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.userId, studentId));
+
+    // Obtener solicitudes del estudiante
+    const requests = await db
+      .select()
+      .from(requests)
+      .where(eq(requests.userId, studentId));
+
+    return {
+      ...student,
+      documents,
+      payments,
+      requests
+    };
+  },
+
+  async createStudentComment(data: {
+    studentId: number;
+    author: string;
+    content: string;
+    type: string;
+    createdAt: string;
+  }): Promise<any> {
+    // Esta función simula la creación de comentarios
+    console.log('Student comment created:', data);
+    return data;
+  },
+
+  async getStudentComments(studentId: number): Promise<any[]> {
+    // Esta función simula la obtención de comentarios
+    return [];
+  },
+
+  // Función auxiliar para agrupar datos
+  groupBy(array: any[], key: string): any[] {
+    const groups = array.reduce((groups, item) => {
+      const group = item[key] || 'Sin especificar';
+      groups[group] = groups[group] || [];
+      groups[group].push(item);
+      return groups;
+    }, {});
+
+    return Object.keys(groups).map(key => ({
+      label: key,
+      value: groups[key].length
+    }));
   }
 };
+
+// Tabla temporal para códigos de verificación (en producción usar Redis)
+const verificationCodes = new Map<string, { code: string; userId: number; expiresAt: Date }>();
+
+// Función para guardar código de verificación
+export const saveVerificationCode = async (userId: number, email: string, code: string): Promise<void> => {
+  // El código expira en 10 minutos
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  
+  verificationCodes.set(email, {
+    code,
+    userId,
+    expiresAt
+  });
+
+  // Limpiar códigos expirados
+  cleanupExpiredCodes();
+};
+
+// Función para verificar código de verificación
+export const verifyEmailCode = async (email: string, code: string): Promise<boolean> => {
+  const verificationData = verificationCodes.get(email);
+  
+  if (!verificationData) {
+    return false;
+  }
+
+  // Verificar si el código ha expirado
+  if (new Date() > verificationData.expiresAt) {
+    verificationCodes.delete(email);
+    return false;
+  }
+
+  // Verificar si el código coincide
+  if (verificationData.code !== code) {
+    return false;
+  }
+
+  return true;
+};
+
+// Función para eliminar código de verificación
+export const deleteVerificationCode = async (email: string): Promise<void> => {
+  verificationCodes.delete(email);
+};
+
+// Función para limpiar códigos expirados
+const cleanupExpiredCodes = (): void => {
+  const now = new Date();
+  for (const [email, data] of verificationCodes.entries()) {
+    if (now > data.expiresAt) {
+      verificationCodes.delete(email);
+    }
+  }
+};
+
+// Ejecutar limpieza cada 5 minutos
+setInterval(cleanupExpiredCodes, 5 * 60 * 1000);

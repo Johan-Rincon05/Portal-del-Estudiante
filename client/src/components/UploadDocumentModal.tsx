@@ -22,23 +22,40 @@ type UploadDocumentFormValues = z.infer<typeof uploadDocumentSchema>;
 interface UploadDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (data: UploadDocumentFormValues) => Promise<void>;
-  isUploading: boolean;
+  onUpload: (data: UploadDocumentFormValues | File) => Promise<void>;
+  isUploading?: boolean;
+  documentType?: string;
+  isResubmit?: boolean;
+  isLoading?: boolean;
 }
 
-export function UploadDocumentModal({ isOpen, onClose, onUpload, isUploading }: UploadDocumentModalProps) {
+export function UploadDocumentModal({ 
+  isOpen, 
+  onClose, 
+  onUpload, 
+  isUploading = false,
+  documentType,
+  isResubmit = false,
+  isLoading = false
+}: UploadDocumentModalProps) {
   const [dragActive, setDragActive] = useState(false);
 
   const form = useForm<UploadDocumentFormValues>({
     resolver: zodResolver(uploadDocumentSchema),
     defaultValues: {
-      type: '',
+      type: documentType || '',
       observations: ''
     }
   });
 
   const handleSubmit = async (values: UploadDocumentFormValues) => {
-    await onUpload(values);
+    if (isResubmit) {
+      // Para reenvío, solo pasamos el archivo
+      await onUpload(values.file);
+    } else {
+      // Para subida normal, pasamos todos los datos
+      await onUpload(values);
+    }
     form.reset();
   };
 
@@ -93,7 +110,7 @@ export function UploadDocumentModal({ isOpen, onClose, onUpload, isUploading }: 
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Subir Nuevo Documento
+              {isResubmit ? 'Reenviar Documento' : 'Subir Nuevo Documento'}
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose} disabled={isUploading}>
               <X className="h-4 w-4" />
@@ -103,34 +120,36 @@ export function UploadDocumentModal({ isOpen, onClose, onUpload, isUploading }: 
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            {/* Tipo de documento */}
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de documento</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione un tipo de documento" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="cedula">Cédula de Identidad</SelectItem>
-                      <SelectItem value="diploma">Diploma</SelectItem>
-                      <SelectItem value="acta">Acta</SelectItem>
-                      <SelectItem value="foto">Foto</SelectItem>
-                      <SelectItem value="recibo">Recibo</SelectItem>
-                      <SelectItem value="formulario">Formulario</SelectItem>
-                      <SelectItem value="certificado">Certificado</SelectItem>
-                      <SelectItem value="constancia">Constancia</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Tipo de documento - solo mostrar si no es reenvío */}
+            {!isResubmit && (
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de documento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione un tipo de documento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cedula">Cédula de Identidad</SelectItem>
+                        <SelectItem value="diploma">Diploma</SelectItem>
+                        <SelectItem value="acta">Acta</SelectItem>
+                        <SelectItem value="foto">Foto</SelectItem>
+                        <SelectItem value="recibo">Recibo</SelectItem>
+                        <SelectItem value="formulario">Formulario</SelectItem>
+                        <SelectItem value="certificado">Certificado</SelectItem>
+                        <SelectItem value="constancia">Constancia</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Área de subida de archivo */}
             <FormField
@@ -211,35 +230,49 @@ export function UploadDocumentModal({ isOpen, onClose, onUpload, isUploading }: 
               )}
             />
 
-            {/* Observaciones */}
-            <FormField
-              control={form.control}
-              name="observations"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observaciones (opcional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Agrega cualquier comentario o información adicional sobre este documento..."
-                      className="resize-none"
-                      rows={3}
-                      disabled={isUploading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Observaciones - solo mostrar si no es reenvío */}
+            {!isResubmit && (
+              <FormField
+                control={form.control}
+                name="observations"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observaciones (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Agrega cualquier comentario o información adicional sobre este documento..."
+                        className="resize-none"
+                        rows={3}
+                        disabled={isUploading || isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Información del tipo seleccionado */}
-            {selectedType && (
+            {selectedType && !isResubmit && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm font-medium text-blue-800 mb-1">
                   {getDocumentTypeLabel(selectedType)}
                 </p>
                 <p className="text-xs text-blue-700">
                   Este documento será revisado por un administrador antes de ser aprobado.
+                </p>
+              </div>
+            )}
+
+            {/* Información para reenvío */}
+            {isResubmit && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <p className="text-sm font-medium text-orange-800 mb-1">
+                  Reenviando documento corregido
+                </p>
+                <p className="text-xs text-orange-700">
+                  Sube la versión corregida del documento. Será revisado nuevamente por un administrador.
                 </p>
               </div>
             )}
@@ -252,23 +285,23 @@ export function UploadDocumentModal({ isOpen, onClose, onUpload, isUploading }: 
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                disabled={isUploading}
+                disabled={isUploading || isLoading}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={isUploading || !selectedFile || !selectedType}
+                disabled={isUploading || isLoading || !selectedFile || (!selectedType && !isResubmit)}
               >
-                {isUploading ? (
+                {isUploading || isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Subiendo...
+                    {isResubmit ? 'Reenviando...' : 'Subiendo...'}
                   </>
                 ) : (
                   <>
                     <Upload className="mr-2 h-4 w-4" />
-                    Subir Documento
+                    {isResubmit ? 'Reenviar Documento' : 'Subir Documento'}
                   </>
                 )}
               </Button>

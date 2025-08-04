@@ -9,11 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
+import { EmailVerificationModal } from '@/components/EmailVerificationModal';
+import { useState } from 'react';
 
 const RegisterPage = () => {
   const { user, isLoading, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const form = useForm<z.infer<typeof registerUserSchema>>({
     resolver: zodResolver(registerUserSchema),
@@ -32,7 +36,19 @@ const RegisterPage = () => {
   });
 
   const handleRegister = (values: z.infer<typeof registerUserSchema>) => {
-    registerMutation.mutate(values);
+    // Guardar el email para mostrar en el modal de verificación
+    setRegisteredEmail(values.email);
+    
+    // Simular el registro exitoso y mostrar modal de verificación
+    // TODO: Implementar lógica real de registro
+    setShowVerificationModal(true);
+    
+    // registerMutation.mutate(values);
+  };
+
+  const handleVerificationSuccess = () => {
+    setShowVerificationModal(false);
+    setLocation('/home');
   };
 
   // Redirect if already logged in
@@ -298,6 +314,14 @@ const RegisterPage = () => {
           </p>
         </div>
       </div>
+
+      {/* Modal de verificación de email */}
+      <EmailVerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        email={registeredEmail}
+        onVerificationSuccess={handleVerificationSuccess}
+      />
     </div>
   );
 };

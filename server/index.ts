@@ -13,8 +13,15 @@ import paymentsRouter from './routes/payments';
 import { db } from './db';
 import authRouter from './routes/auth';
 import profilesRouter from './routes/profiles';
+import enrollmentHistoryRouter from './routes/enrollment-history';
+import documentValidationRouter from './routes/document-validation';
+import paymentValidationRouter from './routes/payment-validation';
+import advancedReportsRouter from './routes/advanced-reports';
+import enrollmentStagesRouter from './routes/enrollment-stages';
 import { setupAuth } from "./auth";
 import { fileStorage } from './fileStorage.js';
+import { initializeWebSocket } from './utils/websocket';
+import { config } from './config';
 
 const app = express();
 
@@ -49,8 +56,13 @@ setupAuth(app);
 app.use('/api/requests', requestsRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/university-data', universityDataRouter);
-app.use('/api/profiles', profilesRouter);
-app.use('/api/payments', paymentsRouter);
+  app.use('/api/profiles', profilesRouter);
+  app.use('/api/payments', paymentsRouter);
+  app.use('/api/enrollment-history', enrollmentHistoryRouter);
+  app.use('/api/document-validation', documentValidationRouter);
+  app.use('/api/payment-validation', paymentValidationRouter);
+  app.use('/api/advanced-reports', advancedReportsRouter);
+  app.use('/api/enrollment-stages', enrollmentStagesRouter);
 
 // Rutas de documentos (sin middleware de JSON para permitir multipart)
 app.use('/api/documents', (req, res, next) => {
@@ -115,6 +127,10 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // Inicializar WebSocket Manager
+  const wsManager = initializeWebSocket(server);
+  console.log('🚀 WebSocket Manager inicializado en el servidor');
+
   // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
   const port = 3000;
@@ -125,5 +141,6 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     log(`Local: http://localhost:${port}`);
     log(`Network: http://192.168.10.7:${port}`);
+    log(`WebSocket: ws://localhost:${port}`);
   });
 })();

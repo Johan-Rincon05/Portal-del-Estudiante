@@ -4,264 +4,448 @@
  */
 
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
 
-/**
- * Configuración del transportador de email
- * En desarrollo usa Ethereal Email, en producción usaría un servicio real
- */
-const createTransporter = () => {
-  if (process.env.NODE_ENV === 'production') {
-    // Configuración para producción (ejemplo con Gmail)
-    return nodemailer.createTransporter({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  } else {
-    // Configuración para desarrollo (Ethereal Email)
-    return nodemailer.createTransporter({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.ETHEREAL_USER || 'test@ethereal.email',
-        pass: process.env.ETHEREAL_PASS || 'test123'
-      }
-    });
+// Configuración del transportador de email
+const transporter = nodemailer.createTransporter({
+  host: config.email.host,
+  port: config.email.port,
+  secure: config.email.secure, // true para 465, false para otros puertos
+  auth: {
+    user: config.email.user,
+    pass: config.email.password,
+  },
+});
+
+// Tipos para los tokens de verificación
+interface VerificationTokenPayload {
+  email: string;
+  userId: string;
+  type: 'email_verification' | 'password_reset';
+  expiresIn: string;
+}
+
+// Generar token de verificación
+export const generateVerificationToken = (email: string, userId: string, type: 'email_verification' | 'password_reset' = 'email_verification'): string => {
+  const payload: VerificationTokenPayload = {
+    email,
+    userId,
+    type,
+    expiresIn: type === 'email_verification' ? '24h' : '1h'
+  };
+
+  return jwt.sign(payload, config.jwt.secret, { 
+    expiresIn: payload.expiresIn 
+  });
+};
+
+// Verificar token de verificación
+export const verifyToken = (token: string): VerificationTokenPayload | null => {
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as VerificationTokenPayload;
+    return decoded;
+  } catch (error) {
+    console.error('Error al verificar token:', error);
+    return null;
   }
 };
 
-/**
- * Envía un email de reseteo de contraseña
- * @param to - Email del destinatario
- * @param temporaryPassword - Contraseña temporal generada
- * @param username - Nombre de usuario
- * @returns Promise con el resultado del envío
- */
-export const sendPasswordResetEmail = async (
-  to: string, 
-  temporaryPassword: string, 
-  username: string
-): Promise<boolean> => {
-  try {
-    const transporter = createTransporter();
+// Generar código de verificación de 6 dígitos
+export const generateVerificationCode = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || '"Portal del Estudiante" <noreply@portalestudiante.com>',
-      to: to,
-      subject: '🔐 Nueva Contraseña Temporal - Portal del Estudiante',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 24px;">Portal del Estudiante</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Gestión Académica</p>
-            </div>
-            
-            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 25px; border-radius: 5px;">
-              <h2 style="color: #92400e; margin: 0 0 10px 0; font-size: 18px;">⚠️ Contraseña Temporal Generada</h2>
-              <p style="color: #92400e; margin: 0; font-size: 14px;">
-                Hola <strong>${username}</strong>, se ha generado una nueva contraseña temporal para tu cuenta.
-              </p>
-            </div>
-            
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-              <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px;">🔑 Tu Nueva Contraseña Temporal</h3>
-              <div style="background-color: #ffffff; padding: 15px; border: 2px dashed #d1d5db; border-radius: 5px; text-align: center;">
-                <code style="font-size: 18px; font-weight: bold; color: #059669; letter-spacing: 2px; font-family: 'Courier New', monospace;">
-                  ${temporaryPassword}
-                </code>
-              </div>
-            </div>
-            
-            <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 25px; border-radius: 5px;">
-              <h3 style="color: #1e40af; margin: 0 0 10px 0; font-size: 16px;">📋 Instrucciones Importantes</h3>
-              <ul style="color: #1e40af; margin: 0; padding-left: 20px;">
-                <li>Utiliza esta contraseña temporal para iniciar sesión</li>
-                <li>Cambia tu contraseña inmediatamente después del primer inicio de sesión</li>
-                <li>Esta contraseña es temporal y por seguridad debe ser cambiada</li>
-                <li>No compartas esta contraseña con nadie</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth" 
-                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                🔗 Ir al Portal del Estudiante
-              </a>
-            </div>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
-              <p style="color: #6b7280; font-size: 12px; margin: 0;">
-                Este email fue enviado automáticamente por el sistema.<br>
-                Si no solicitaste este cambio, contacta inmediatamente al administrador.
-              </p>
-            </div>
-          </div>
+// Plantilla de email de verificación
+const getVerificationEmailTemplate = (code: string, userName: string) => {
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Verificación de Email - Portal del Estudiante</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background-color: #ffffff;
+          border-radius: 10px;
+          padding: 30px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .logo {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2563eb;
+          margin-bottom: 10px;
+        }
+        .verification-code {
+          background-color: #f8fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 20px;
+          text-align: center;
+          margin: 20px 0;
+          font-family: 'Courier New', monospace;
+          font-size: 32px;
+          font-weight: bold;
+          letter-spacing: 4px;
+          color: #1e293b;
+        }
+        .instructions {
+          background-color: #fef3c7;
+          border-left: 4px solid #f59e0b;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 1px solid #e2e8f0;
+          color: #64748b;
+          font-size: 14px;
+        }
+        .button {
+          display: inline-block;
+          background-color: #2563eb;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          margin: 10px 0;
+        }
+        .warning {
+          background-color: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 6px;
+          padding: 15px;
+          margin: 20px 0;
+          color: #dc2626;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">🎓 Portal del Estudiante</div>
+          <h1>Verifica tu Email</h1>
         </div>
-      `
+        
+        <p>Hola <strong>${userName}</strong>,</p>
+        
+        <p>Gracias por registrarte en el Portal del Estudiante. Para completar tu registro, necesitamos verificar tu dirección de email.</p>
+        
+        <div class="verification-code">
+          ${code}
+        </div>
+        
+        <div class="instructions">
+          <strong>Instrucciones:</strong>
+          <ul>
+            <li>Ingresa este código en la página de verificación</li>
+            <li>El código expira en 10 minutos</li>
+            <li>Si no solicitaste este código, ignora este email</li>
+          </ul>
+        </div>
+        
+        <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+        <p style="word-break: break-all; color: #2563eb;">
+          ${config.frontendUrl}/verify-email?email=${encodeURIComponent(userName)}
+        </p>
+        
+        <div class="warning">
+          <strong>⚠️ Importante:</strong> Nunca compartas este código con nadie. El equipo del Portal del Estudiante nunca te pedirá este código por otros medios.
+        </div>
+        
+        <div class="footer">
+          <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+          <p>Si tienes problemas, contacta al soporte técnico.</p>
+          <p>&copy; 2024 Portal del Estudiante. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// Plantilla de email de bienvenida
+const getWelcomeEmailTemplate = (userName: string) => {
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>¡Bienvenido al Portal del Estudiante!</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background-color: #ffffff;
+          border-radius: 10px;
+          padding: 30px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .logo {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2563eb;
+          margin-bottom: 10px;
+        }
+        .success-icon {
+          font-size: 48px;
+          margin-bottom: 20px;
+        }
+        .next-steps {
+          background-color: #f0f9ff;
+          border-left: 4px solid #0ea5e9;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .button {
+          display: inline-block;
+          background-color: #2563eb;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          margin: 10px 0;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 1px solid #e2e8f0;
+          color: #64748b;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">🎓 Portal del Estudiante</div>
+          <div class="success-icon">✅</div>
+          <h1>¡Email Verificado Exitosamente!</h1>
+        </div>
+        
+        <p>¡Felicitaciones <strong>${userName}</strong>!</p>
+        
+        <p>Tu cuenta ha sido verificada exitosamente. Ya puedes acceder a todas las funcionalidades del Portal del Estudiante.</p>
+        
+        <div class="next-steps">
+          <h3>🎯 Próximos pasos:</h3>
+          <ol>
+            <li><strong>Completa tu perfil:</strong> Agrega información personal y académica</li>
+            <li><strong>Sube tus documentos:</strong> Carga los documentos requeridos para tu matrícula</li>
+            <li><strong>Revisa el dashboard:</strong> Consulta tu progreso en el proceso de matrícula</li>
+            <li><strong>Crea solicitudes:</strong> Si necesitas ayuda, crea una solicitud de soporte</li>
+          </ol>
+        </div>
+        
+        <p style="text-align: center;">
+          <a href="${config.frontendUrl}/home" class="button">
+            🚀 Ir al Dashboard
+          </a>
+        </p>
+        
+        <div class="footer">
+          <p>¡Bienvenido a tu nueva experiencia académica!</p>
+          <p>&copy; 2024 Portal del Estudiante. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// Enviar email de verificación
+export const sendVerificationEmail = async (email: string, userName: string, code: string): Promise<boolean> => {
+  try {
+    const mailOptions = {
+      from: `"Portal del Estudiante" <${config.email.user}>`,
+      to: email,
+      subject: '🎓 Verifica tu Email - Portal del Estudiante',
+      html: getVerificationEmailTemplate(code, userName),
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📧 Email de reseteo enviado (desarrollo):');
-      console.log('URL de preview:', nodemailer.getTestMessageUrl(info));
-    }
-    
+    console.log('Email de verificación enviado:', info.messageId);
     return true;
   } catch (error) {
-    console.error('❌ Error al enviar email de reseteo:', error);
+    console.error('Error al enviar email de verificación:', error);
     return false;
   }
 };
 
-/**
- * Envía un email de bienvenida a nuevos usuarios
- * @param to - Email del destinatario
- * @param username - Nombre de usuario
- * @param temporaryPassword - Contraseña temporal (si se proporciona)
- * @returns Promise con el resultado del envío
- */
-export const sendWelcomeEmail = async (
-  to: string, 
-  username: string, 
-  temporaryPassword?: string
-): Promise<boolean> => {
+// Enviar email de bienvenida
+export const sendWelcomeEmail = async (email: string, userName: string): Promise<boolean> => {
   try {
-    const transporter = createTransporter();
-
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"Portal del Estudiante" <noreply@portalestudiante.com>',
-      to: to,
+      from: `"Portal del Estudiante" <${config.email.user}>`,
+      to: email,
       subject: '🎉 ¡Bienvenido al Portal del Estudiante!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 24px;">Portal del Estudiante</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Gestión Académica</p>
-            </div>
-            
-            <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 25px; border-radius: 5px;">
-              <h2 style="color: #065f46; margin: 0 0 10px 0; font-size: 18px;">🎉 ¡Bienvenido!</h2>
-              <p style="color: #065f46; margin: 0; font-size: 14px;">
-                Hola <strong>${username}</strong>, tu cuenta ha sido creada exitosamente en el Portal del Estudiante.
-              </p>
-            </div>
-            
-            ${temporaryPassword ? `
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-              <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px;">🔑 Tu Contraseña Temporal</h3>
-              <div style="background-color: #ffffff; padding: 15px; border: 2px dashed #d1d5db; border-radius: 5px; text-align: center;">
-                <code style="font-size: 18px; font-weight: bold; color: #059669; letter-spacing: 2px; font-family: 'Courier New', monospace;">
-                  ${temporaryPassword}
-                </code>
-              </div>
-              <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0; text-align: center;">
-                Cambia esta contraseña después de tu primer inicio de sesión
-              </p>
-            </div>
-            ` : ''}
-            
-            <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 25px; border-radius: 5px;">
-              <h3 style="color: #1e40af; margin: 0 0 10px 0; font-size: 16px;">🚀 Comienza Ahora</h3>
-              <ul style="color: #1e40af; margin: 0; padding-left: 20px;">
-                <li>Inicia sesión con tus credenciales</li>
-                <li>Completa tu perfil personal</li>
-                <li>Sube los documentos requeridos</li>
-                <li>Explora todas las funcionalidades disponibles</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth" 
-                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                🔗 Iniciar Sesión
-              </a>
-            </div>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
-              <p style="color: #6b7280; font-size: 12px; margin: 0;">
-                Si tienes alguna pregunta, no dudes en contactar al soporte técnico.
-              </p>
-            </div>
-          </div>
-        </div>
-      `
+      html: getWelcomeEmailTemplate(userName),
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📧 Email de bienvenida enviado (desarrollo):');
-      console.log('URL de preview:', nodemailer.getTestMessageUrl(info));
-    }
-    
+    console.log('Email de bienvenida enviado:', info.messageId);
     return true;
   } catch (error) {
-    console.error('❌ Error al enviar email de bienvenida:', error);
+    console.error('Error al enviar email de bienvenida:', error);
     return false;
   }
 };
 
-/**
- * Envía una notificación general por email
- * @param to - Email del destinatario
- * @param subject - Asunto del email
- * @param message - Mensaje del email
- * @returns Promise con el resultado del envío
- */
-export const sendNotificationEmail = async (
-  to: string,
-  subject: string,
-  message: string
+// Enviar email de notificación de cambio de estado
+export const sendStatusChangeEmail = async (
+  email: string, 
+  userName: string, 
+  type: 'document' | 'request' | 'payment',
+  status: string,
+  details: string
 ): Promise<boolean> => {
   try {
-    const transporter = createTransporter();
+    const statusEmojis = {
+      'aprobado': '✅',
+      'rechazado': '❌',
+      'pendiente': '⏳',
+      'en_proceso': '🔄',
+      'completada': '🎉'
+    };
+
+    const typeLabels = {
+      'document': 'Documento',
+      'request': 'Solicitud',
+      'payment': 'Pago'
+    };
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"Portal del Estudiante" <noreply@portalestudiante.com>',
-      to: to,
-      subject: subject,
+      from: `"Portal del Estudiante" <${config.email.user}>`,
+      to: email,
+      subject: `${statusEmojis[status as keyof typeof statusEmojis] || '📢'} ${typeLabels[type]} ${status} - Portal del Estudiante`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 24px;">Portal del Estudiante</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Gestión Académica</p>
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Actualización de Estado</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background-color: #ffffff;
+              border-radius: 10px;
+              padding: 30px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 8px 16px;
+              border-radius: 20px;
+              font-weight: bold;
+              margin: 10px 0;
+            }
+            .status-approved { background-color: #dcfce7; color: #166534; }
+            .status-rejected { background-color: #fef2f2; color: #dc2626; }
+            .status-pending { background-color: #fef3c7; color: #d97706; }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #e2e8f0;
+              color: #64748b;
+              font-size: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📢 Actualización de Estado</h1>
             </div>
             
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-              <h2 style="color: #374151; margin: 0 0 15px 0; font-size: 18px;">📢 Notificación</h2>
-              <div style="color: #374151; line-height: 1.6;">
-                ${message}
-              </div>
+            <p>Hola <strong>${userName}</strong>,</p>
+            
+            <p>Tu ${typeLabels[type]} ha cambiado de estado:</p>
+            
+            <div class="status-badge status-${status}">
+              ${statusEmojis[status as keyof typeof statusEmojis] || '📢'} ${status.toUpperCase()}
             </div>
             
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" 
-                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                🔗 Ir al Portal
+            <p><strong>Detalles:</strong></p>
+            <p>${details}</p>
+            
+            <p style="text-align: center;">
+              <a href="${config.frontendUrl}/home" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                Ver en el Portal
               </a>
+            </p>
+            
+            <div class="footer">
+              <p>&copy; 2024 Portal del Estudiante. Todos los derechos reservados.</p>
             </div>
           </div>
-        </div>
-      `
+        </body>
+        </html>
+      `,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📧 Email de notificación enviado (desarrollo):');
-      console.log('URL de preview:', nodemailer.getTestMessageUrl(info));
-    }
-    
+    console.log('Email de notificación enviado:', info.messageId);
     return true;
   } catch (error) {
-    console.error('❌ Error al enviar email de notificación:', error);
+    console.error('Error al enviar email de notificación:', error);
+    return false;
+  }
+};
+
+// Verificar la conexión del email
+export const testEmailConnection = async (): Promise<boolean> => {
+  try {
+    await transporter.verify();
+    console.log('✅ Conexión de email verificada correctamente');
+    return true;
+  } catch (error) {
+    console.error('❌ Error en la conexión de email:', error);
     return false;
   }
 }; 

@@ -24,6 +24,7 @@ import { toast } from 'sonner'; // Cambiar a Sonner
 import { StudentLayout } from '@/components/layouts/StudentLayout';
 import { DocumentViewerModal } from '@/components/DocumentViewerModal';
 import { UploadDocumentModal } from '@/components/UploadDocumentModal';
+import { DocumentRejectionModal } from '@/components/DocumentRejectionModal';
 
 const DocumentsPage = () => {
   const { user } = useAuth();
@@ -39,6 +40,8 @@ const DocumentsPage = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showViewerModal, setShowViewerModal] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [rejectedDocument, setRejectedDocument] = useState<any>(null);
   
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -152,6 +155,35 @@ const DocumentsPage = () => {
     }
     setSelectedDocument(document);
     setShowViewerModal(true);
+  };
+
+  // Manejar visualización de documento rechazado
+  const handleViewRejectedDocument = (document: any) => {
+    if (!document) {
+      toast.error("No se pudo cargar la información del documento");
+      return;
+    }
+    setRejectedDocument(document);
+    setShowRejectionModal(true);
+  };
+
+  // Manejar reenvío de documento
+  const handleResubmitDocument = async (documentId: string, newFile: File) => {
+    if (!user?.id) return;
+    
+    uploadDocumentMutation.mutate({
+      userId: user.id.toString(),
+      type: rejectedDocument?.type || '',
+      file: newFile,
+      observations: `Reenvío del documento ${documentId}`
+    }, {
+      onSuccess: () => {
+        setShowRejectionModal(false);
+        setRejectedDocument(null);
+        refetch();
+        toast.success('Documento reenviado exitosamente');
+      }
+    });
   };
 
   // Función para cerrar el modal del visor
@@ -339,14 +371,26 @@ const DocumentsPage = () => {
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewDocument(document)}
-                          className="text-primary-600 hover:text-primary-500"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        {document.status === 'rechazado' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewRejectedDocument(document)}
+                            className="text-red-600 hover:text-red-500"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                            Ver Detalles
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDocument(document)}
+                            className="text-primary-600 hover:text-primary-500"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -401,6 +445,18 @@ const DocumentsPage = () => {
           isOpen={showViewerModal}
           onClose={handleCloseViewerModal}
           document={selectedDocument}
+        />
+      )}
+
+      {rejectedDocument && (
+        <DocumentRejectionModal
+          isOpen={showRejectionModal}
+          onClose={() => {
+            setShowRejectionModal(false);
+            setRejectedDocument(null);
+          }}
+          document={rejectedDocument}
+          onResubmit={handleResubmitDocument}
         />
       )}
     </StudentLayout>
