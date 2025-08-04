@@ -1216,11 +1216,6 @@ export const storage = {
     await db.delete(allies).where(eq(allies.id, id));
   },
 
-  // Funciones de verificación de email
-  saveVerificationCode,
-  verifyEmailCode,
-  deleteVerificationCode,
-
   // Funciones de historial de cambios de etapa
   async getEnrollmentStageHistory(userId: number): Promise<any[]> {
     try {

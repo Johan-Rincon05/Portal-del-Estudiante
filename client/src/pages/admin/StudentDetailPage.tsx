@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DocumentValidationModal } from '@/components/admin/DocumentValidationModal';
 import { Link, useRoute } from 'wouter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -56,6 +57,8 @@ const StudentDetailPage = () => {
   
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
+  const [selectedDocument, setSelectedDocument] = useState<{ id: string; type: string } | null>(null);
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 
   const responseForm = useForm<ResponseFormValues>({
     resolver: zodResolver(responseFormSchema),
@@ -91,6 +94,43 @@ const StudentDetailPage = () => {
 
   const handleDeleteDocument = (documentId: string) => {
     deleteDocumentMutation.mutate(documentId);
+  };
+
+  const handleValidateDocument = (documentId: string, type: string) => {
+    setSelectedDocument({ id: documentId, type });
+    setIsValidationModalOpen(true);
+  };
+
+  const handleValidationSubmit = async (status: 'aprobado' | 'rechazado', rejectionReason?: string) => {
+    if (!selectedDocument) return;
+
+    try {
+      await fetch(`/api/admin/documents/${selectedDocument.id}/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status,
+          rejectionReason,
+        }),
+      });
+
+      toast({
+        title: "Documento validado",
+        description: status === 'aprobado' ? "El documento ha sido aprobado" : "El documento ha sido rechazado",
+      });
+
+      // Cerrar el modal y refrescar los documentos
+      setIsValidationModalOpen(false);
+      setSelectedDocument(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo validar el documento",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDocument = async (documentPath: string) => {
@@ -424,7 +464,15 @@ const StudentDetailPage = () => {
                               <Download className="h-4 w-4" />
                               <span className="ml-1">Descargar</span>
                             </Button>
-                            <Button 
+                                                          <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-primary-600 hover:text-primary-900 mr-2"
+                              onClick={() => handleValidateDocument(document.id.toString(), document.type)}
+                            >
+                              <span className="ml-1">Validar</span>
+                            </Button>
+                              <Button 
                               variant="ghost" 
                               size="sm" 
                               className="text-red-600 hover:text-red-900"
@@ -629,6 +677,15 @@ const StudentDetailPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      <DocumentValidationModal
+        isOpen={isValidationModalOpen}
+        onClose={() => {
+          setIsValidationModalOpen(false);
+          setSelectedDocument(null);
+        }}
+        onValidate={handleValidationSubmit}
+        isLoading={false}
+      />
     </AdminLayout>
   );
 };

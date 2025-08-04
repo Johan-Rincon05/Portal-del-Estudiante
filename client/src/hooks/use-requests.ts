@@ -124,15 +124,16 @@ export function useRequests(userId?: string, options: UseRequestsOptions = {}) {
 }
 
 // Hook específico para obtener todas las solicitudes (para admin)
-export function useAllRequests(options: UseRequestsOptions = {}) {
+export function useAllRequests(options: UseRequestsOptions & { requestType?: 'documental' | 'financiera' } = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Obtener todas las solicitudes (sin userId para obtener todas)
   const allRequestsQuery = useQuery({
-    queryKey: ["/api/requests", "all"],
+    queryKey: ["/api/requests", "all", options.requestType],
     queryFn: async () => {
-      return apiRequest<Request[]>("/api/requests");
+      const url = options.requestType ? `/api/requests?type=${options.requestType}` : "/api/requests";
+      return apiRequest<Request[]>(url);
     },
     staleTime: 1000 * 60 * 2, // 2 minutos
     refetchOnWindowFocus: true,

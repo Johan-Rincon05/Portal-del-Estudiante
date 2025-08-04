@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { Link } from 'wouter';
 import { useProfiles } from '@/hooks/use-profiles';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, UserCircle } from 'lucide-react';
+import { FileText, Loader2, Search, UserCircle } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -24,6 +25,8 @@ const StudentsPage = () => {
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const itemsPerPage = 10;
 
   // Apply filters
@@ -56,17 +59,116 @@ const StudentsPage = () => {
     setCurrentPage(1);
   };
 
+  const handleExportToExcel = () => {
+    if (!filteredProfiles) return;
+
+    const data = filteredProfiles.map(profile => ({
+      'Nombre Completo': profile.fullName,
+      'Email': profile.email,
+      'Tipo Documento': profile.documentType === 'cedula' ? 'Cédula' : 
+                       profile.documentType === 'pasaporte' ? 'Pasaporte' : 
+                       'Tarjeta de identidad',
+      'Número Documento': profile.documentNumber,
+      'Ciudad': profile.city,
+      'Teléfono': profile.phone,
+      'Dirección': profile.address,
+      'Fecha Registro': new Date(profile.createdAt).toLocaleDateString(),
+      'Documentos': profile.documentCount || 0,
+      'Solicitudes Pendientes': profile.pendingRequestCount || 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
+    XLSX.writeFile(wb, `estudiantes_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleBulkStageChange = async (stage: string) => {
+    if (selectedStudents.length === 0) return;
+    
+    try {
+      // Aquí iría la llamada a la API para actualizar la etapa de los estudiantes seleccionados
+      console.log('Actualizando etapa a', stage, 'para estudiantes:', selectedStudents);
+      
+      // Limpiar selección después de la actualización
+      setSelectedStudents([]);
+      setShowBulkActions(false);
+    } catch (error) {
+      console.error('Error al actualizar etapas:', error);
+    }
+  };
+
+  const handleSelectAllInPage = (checked: boolean) => {
+    if (!paginatedProfiles) return;
+    
+    if (checked) {
+      const pageIds = paginatedProfiles.map(profile => profile.id);
+      setSelectedStudents(prev => [...new Set([...prev, ...pageIds])]);
+    } else {
+      const pageIds = new Set(paginatedProfiles.map(profile => profile.id));
+      setSelectedStudents(prev => prev.filter(id => !pageIds.has(id)));
+    }
+  };
+
   // Extract unique cities for filter dropdown
   const uniqueCities = [...new Set(allProfiles?.map(profile => profile.city) || [])];
 
   return (
     <AdminLayout>
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold text-gray-900">Lista de Estudiantes</h2>
-        <p className="text-sm text-gray-500">Gestiona los perfiles de estudiantes registrados</p>
-      </div>
-      
-      {/* Filters */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Lista de Estudiantes</h2>
+            <p className="text-sm text-gray-500">Gestiona los perfiles de estudiantes registrados</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportToExcel}
+              disabled={!filteredProfiles || filteredProfiles.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar a Excel
+            </Button>
+            {selectedStudents.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowBulkActions(!showBulkActions)}
+              >
+                Acciones en Lote ({selectedStudents.length})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {showBulkActions && selectedStudents.length > 0 && (
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm font-medium">Cambiar etapa para {selectedStudents.length} estudiantes:</p>
+                  <Select onValueChange={handleBulkStageChange}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Seleccionar etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="suscrito">Suscrito</SelectItem>
+                      <SelectItem value="documentos_completos">Documentos Completos</SelectItem>
+                      <SelectItem value="registro_validado">Registro Validado</SelectItem>
+                      <SelectItem value="proceso_universitario">Proceso Universitario</SelectItem>
+                      <SelectItem value="matriculado">Matriculado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="ghost" onClick={() => setSelectedStudents([])}>
+                  Limpiar selección
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Filters */}
       <Card className="p-4 mb-6">
         <CardContent className="p-0">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0 md:space-x-4">
@@ -148,6 +250,16 @@ const StudentsPage = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-primary border-gray-300 rounded"
+                        checked={paginatedProfiles.every(p => selectedStudents.includes(p.id))}
+                        onChange={(e) => handleSelectAllInPage(e.target.checked)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estudiante
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -173,6 +285,20 @@ const StudentsPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginatedProfiles.map((profile) => (
                   <tr key={profile.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-primary border-gray-300 rounded"
+                        checked={selectedStudents.includes(profile.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStudents(prev => [...prev, profile.id]);
+                          } else {
+                            setSelectedStudents(prev => prev.filter(id => id !== profile.id));
+                          }
+                        }}
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
@@ -278,6 +404,7 @@ const StudentsPage = () => {
           </div>
         )}
       </Card>
+      </div>
     </AdminLayout>
   );
 };

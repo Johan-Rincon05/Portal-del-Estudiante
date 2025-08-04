@@ -42,7 +42,7 @@ import { api } from '@/lib/api';
 const createUserSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  role: z.enum(['estudiante', 'SuperAdministrativos', 'superuser'])
+  role: z.enum(['estudiante', 'administrativo', 'cartera', 'aliado_comercial', 'institucion_educativa', 'SuperAdministrativos', 'superuser'])
 });
 
 // Definir los tipos para los formularios
@@ -637,7 +637,11 @@ const UsersPage = () => {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="estudiante">Estudiante</SelectItem>
-                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="administrativo">Administrativo</SelectItem>
+                            <SelectItem value="cartera">Cartera</SelectItem>
+                            <SelectItem value="aliado_comercial">Aliado Comercial</SelectItem>
+                            <SelectItem value="institucion_educativa">Institución Educativa</SelectItem>
+                            <SelectItem value="SuperAdministrativos">Super Administrativo</SelectItem>
                             <SelectItem value="superuser">Superusuario</SelectItem>
                           </SelectContent>
                         </Select>
@@ -741,10 +745,14 @@ const UsersPage = () => {
                     <SelectTrigger>
                       <SelectValue placeholder="Todos los roles" />
                     </SelectTrigger>
-                    <SelectContent>
+                                              <SelectContent>
                       <SelectItem value="">Todos los roles</SelectItem>
                       <SelectItem value="estudiante">Estudiante</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
+                      <SelectItem value="cartera">Cartera</SelectItem>
+                      <SelectItem value="aliado_comercial">Aliado Comercial</SelectItem>
+                      <SelectItem value="institucion_educativa">Institución Educativa</SelectItem>
+                      <SelectItem value="SuperAdministrativos">Super Administrativo</SelectItem>
                       <SelectItem value="superuser">Superusuario</SelectItem>
                     </SelectContent>
                   </Select>
@@ -858,8 +866,19 @@ const UsersPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap">{user.fullName || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{user.email || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={user.role === 'superuser' ? 'default' : 'secondary'}>
-                          {user.role || 'N/A'}
+                        <Badge variant={
+                          user.role === 'superuser' ? 'default' :
+                          user.role === 'SuperAdministrativos' ? 'destructive' :
+                          user.role === 'administrativo' ? 'secondary' :
+                          user.role === 'cartera' ? 'outline' :
+                          user.role === 'aliado_comercial' ? 'success' :
+                          user.role === 'institucion_educativa' ? 'warning' :
+                          'secondary'
+                        }>
+                          {user.role === 'SuperAdministrativos' ? 'Super Admin' :
+                           user.role === 'aliado_comercial' ? 'Aliado' :
+                           user.role === 'institucion_educativa' ? 'Institución' :
+                           user.role || 'N/A'}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -883,14 +902,14 @@ const UsersPage = () => {
                             Editar
                           </Button>
                           <Button 
-                            variant="ghost" 
+                            variant="outline" 
                             size="sm" 
-                            className="text-orange-600 hover:text-orange-900" 
+                            className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200" 
                             onClick={() => handleResetPassword(user)}
                             disabled={resetPasswordMutation.isPending}
                           >
                             <Key className="h-4 w-4 mr-1" />
-                            Reset
+                            Resetear Contraseña
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>

@@ -5,11 +5,8 @@ import { useLocation } from "wouter";
 import { NotificationBell } from "@/components/NotificationBell";
 import { cn } from "@/lib/utils";
 import { 
-  FileText, 
-  MessageSquare, 
-  Users, 
-  BarChart3, 
   CreditCard, 
+  MessageSquare, 
   LogOut, 
   Sun, 
   Moon, 
@@ -24,29 +21,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function AdminNavbar() {
+export function CarteraNavbar() {
   const [location, setLocation] = useLocation();
   const { user, logoutMutation } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const navigation = [
     {
-      name: "Estudiantes",
-      href: "/admin/students",
-      icon: Users,
-      active: location === "/admin/students",
+      name: "Validación de Pagos",
+      href: "/cartera/payments/validation",
+      icon: CreditCard,
+      active: location === "/cartera/payments/validation",
     },
     {
-      name: "Validar Documentos",
-      href: "/admin/documents/validation",
-      icon: FileText,
-      active: location === "/admin/documents/validation",
-    },
-    {
-      name: "Solicitudes Documentales",
-      href: "/admin/requests",
+      name: "Solicitudes Financieras",
+      href: "/cartera/requests",
       icon: MessageSquare,
-      active: location === "/admin/requests",
+      active: location === "/cartera/requests",
     },
   ];
 
@@ -57,7 +48,7 @@ export function AdminNavbar() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <Settings className="w-6 h-6 text-primary" />
-              <span className="font-bold text-lg text-foreground">Panel Administrativo</span>
+              <span className="font-bold text-lg text-foreground">Panel de Cartera</span>
             </div>
             
             <nav className="hidden md:flex items-center space-x-2">
@@ -122,7 +113,7 @@ export function AdminNavbar() {
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-medium">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
-                  <span className="hidden sm:inline">Admin: {user?.username}</span>
+                  <span className="hidden sm:inline">Cartera: {user?.username}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover border-border shadow-lg z-50">
@@ -146,4 +137,4 @@ export function AdminNavbar() {
       </div>
     </nav>
   );
-} 
+}

@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 
 // Configuración del transportador de email
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: config.email.host,
   port: config.email.port,
   secure: config.email.secure, // true para 465, false para otros puertos
@@ -439,6 +439,127 @@ export const sendStatusChangeEmail = async (
 };
 
 // Verificar la conexión del email
+// Enviar email de reseteo de contraseña
+export const sendPasswordResetEmail = async (email: string, temporaryPassword: string, userName: string): Promise<boolean> => {
+  try {
+    const mailOptions = {
+      from: `"Portal del Estudiante" <${config.email.user}>`,
+      to: email,
+      subject: '🔐 Contraseña Reseteada - Portal del Estudiante',
+      html: `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Contraseña Reseteada</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background-color: #ffffff;
+              border-radius: 10px;
+              padding: 30px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .password-box {
+              background-color: #f8fafc;
+              border: 2px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 20px;
+              text-align: center;
+              margin: 20px 0;
+              font-family: 'Courier New', monospace;
+              font-size: 24px;
+              font-weight: bold;
+              letter-spacing: 2px;
+              color: #1e293b;
+            }
+            .warning {
+              background-color: #fef2f2;
+              border: 1px solid #fecaca;
+              border-radius: 6px;
+              padding: 15px;
+              margin: 20px 0;
+              color: #dc2626;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #e2e8f0;
+              color: #64748b;
+              font-size: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🎓 Portal del Estudiante</div>
+              <h1>Tu Contraseña Ha Sido Reseteada</h1>
+            </div>
+            
+            <p>Hola <strong>${userName}</strong>,</p>
+            
+            <p>Tu contraseña ha sido reseteada por un administrador. Aquí está tu nueva contraseña temporal:</p>
+            
+            <div class="password-box">
+              ${temporaryPassword}
+            </div>
+            
+            <div class="warning">
+              <strong>⚠️ Importante:</strong>
+              <ul>
+                <li>Esta es una contraseña temporal. Por favor, cámbiala inmediatamente después de iniciar sesión.</li>
+                <li>Por seguridad, este email solo se enviará una vez.</li>
+                <li>Si no solicitaste este cambio, contacta inmediatamente al soporte técnico.</li>
+              </ul>
+            </div>
+            
+            <p style="text-align: center;">
+              <a href="${config.frontendUrl}/login" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                Iniciar Sesión
+              </a>
+            </p>
+            
+            <div class="footer">
+              <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+              <p>Si tienes problemas, contacta al soporte técnico.</p>
+              <p>&copy; 2024 Portal del Estudiante. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email de reseteo de contraseña enviado:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error al enviar email de reseteo de contraseña:', error);
+    return false;
+  }
+};
+
 export const testEmailConnection = async (): Promise<boolean> => {
   try {
     await transporter.verify();

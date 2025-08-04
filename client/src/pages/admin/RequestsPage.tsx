@@ -37,7 +37,7 @@ const responseFormSchema = z.object({
 type ResponseFormValues = z.infer<typeof responseFormSchema>;
 
 const RequestsPage = () => {
-  const { allRequests, isLoading, respondToRequestMutation } = useAllRequests();
+  const { allRequests, isLoading, respondToRequestMutation } = useAllRequests({ requestType: 'documental' });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [sortBy, setSortBy] = useState('date-desc');
@@ -130,8 +130,8 @@ const RequestsPage = () => {
   return (
     <AdminLayout>
       <div className="mb-5">
-        <h2 className="text-lg font-semibold text-gray-900">Gestión de Solicitudes</h2>
-        <p className="text-sm text-gray-500">Administra todas las solicitudes recibidas</p>
+        <h2 className="text-lg font-semibold text-gray-900">Gestión de Solicitudes Documentales</h2>
+        <p className="text-sm text-gray-500">Administra las solicitudes relacionadas con documentación</p>
       </div>
       
       {/* Filters */}

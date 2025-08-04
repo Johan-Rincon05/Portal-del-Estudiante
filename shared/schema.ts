@@ -172,8 +172,8 @@ export const documents = pgTable("documents", {
   status: text("status").notNull().default("pendiente"),
   observations: text("observations"),
   uploadedAt: timestamp("uploaded_at", { mode: 'date' }).defaultNow(),
-  validatedAt: timestamp("validated_at", { mode: 'date' }),
-  validatedBy: integer("validated_by"),
+  reviewedAt: timestamp("reviewed_at", { mode: 'date' }),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
   rejectionReason: text("rejection_reason")
 });
 

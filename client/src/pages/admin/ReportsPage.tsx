@@ -86,7 +86,7 @@ function BarChart({ data, title, height = 200 }: { data: { label: string; value:
 }
 
 // Componente simple de gráfico circular
-function PieChart({ data, title }: { data: { label: string; value: number; color: string }[]; title: string }) {
+function SimplePieChart({ data, title }: { data: { label: string; value: number; color: string }[]; title: string }) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   
   return (
@@ -416,7 +416,7 @@ export default function ReportsPage() {
                   <CardTitle>Estado de Documentos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PieChart 
+                  <SimplePieChart 
                     data={[
                       { label: 'Aprobados', value: reportData.documents.approved, color: '#10B981' },
                       { label: 'Pendientes', value: reportData.documents.pending, color: '#F59E0B' },
@@ -449,7 +449,7 @@ export default function ReportsPage() {
                   <CardTitle>Distribución por Etapa</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PieChart 
+                  <SimplePieChart 
                     data={reportData.students.byStage.map((s, i) => ({
                       label: s.stage,
                       value: s.count,
@@ -499,7 +499,7 @@ export default function ReportsPage() {
                   <CardTitle>Estado de Documentos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PieChart 
+                  <SimplePieChart 
                     data={[
                       { label: 'Aprobados', value: reportData.documents.approved, color: '#10B981' },
                       { label: 'Pendientes', value: reportData.documents.pending, color: '#F59E0B' },
@@ -619,7 +619,7 @@ export default function ReportsPage() {
                   <CardTitle>Estado de Solicitudes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PieChart 
+                  <SimplePieChart 
                     data={[
                       { label: 'Completadas', value: reportData.requests.completed, color: '#10B981' },
                       { label: 'Pendientes', value: reportData.requests.pending, color: '#F59E0B' }

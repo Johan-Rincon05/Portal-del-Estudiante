@@ -312,9 +312,16 @@ export default function PaymentsPage() {
                             {formatCurrency(payment.amount)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              Completado
-                            </Badge>
+                            <div className="space-y-1">
+                              <Badge variant={payment.status === 'rechazado' ? 'destructive' : 'default'} className={payment.status === 'rechazado' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
+                                {payment.status === 'rechazado' ? 'Rechazado' : 'Completado'}
+                              </Badge>
+                              {payment.status === 'rechazado' && payment.rejectionReason && (
+                                <p className="text-sm text-red-600">
+                                  Motivo: {payment.rejectionReason}
+                                </p>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -381,10 +388,17 @@ export default function PaymentsPage() {
                               {formatCurrency(installment.amount)}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={status.variant} className="flex items-center gap-1 w-fit">
-                                <StatusIcon className="h-3 w-3" />
-                                {status.label}
-                              </Badge>
+                              <div className="space-y-1">
+                                <Badge variant={status.variant} className="flex items-center gap-1 w-fit">
+                                  <StatusIcon className="h-3 w-3" />
+                                  {status.label}
+                                </Badge>
+                                {installment.rejectionReason && (
+                                  <p className="text-sm text-red-600">
+                                    Motivo: {installment.rejectionReason}
+                                  </p>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {hasSupport ? (

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { storage } from '../storage';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
-import ExcelJS from 'exceljs';
+import pkg from 'exceljs';
+const { Workbook } = pkg;
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
@@ -123,7 +124,7 @@ router.get('/dashboard-stats', authenticateToken, async (req, res) => {
 
 // Función para generar reporte Excel
 async function generateExcelReport(reportType: string, data: any) {
-  const workbook = new ExcelJS.Workbook();
+  const workbook = new Workbook();
   const worksheet = workbook.addWorksheet('Reporte');
 
   // Configurar estilos
